@@ -65,11 +65,10 @@ class BrowserAgent:
         """
         try:
             from browser_use import Agent, Browser, BrowserConfig
-        except ImportError as exc:
-            raise BrowserError(
-                "browser-use package not installed. "
-                "Install with: pip install browser-use"
-            ) from exc
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            raise
 
         browser_config = BrowserConfig(
             headless=self._settings.headless,
