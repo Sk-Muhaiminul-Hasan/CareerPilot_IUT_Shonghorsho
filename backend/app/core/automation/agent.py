@@ -55,38 +55,31 @@ class BrowserAgent:
         self._browser: Any | None = None
 
     async def run(self) -> Any:
-        """Execute the browser task and return results.
-
-        Returns:
-            Extracted data matching output_model, or raw result string.
-
-        Raises:
-            BrowserError: If browser-use is not installed or the task fails.
-        """
         try:
-            from browser_use import Agent, Browser, BrowserConfig
+            from browser_use import Agent, Browser, BrowserProfile
         except Exception as exc:
             import traceback
             traceback.print_exc()
             raise
 
-        browser_config = BrowserConfig(
+        browser_profile = BrowserProfile(
             headless=self._settings.headless,
-            chrome_instance_path=self._settings.user_data_dir,
+            user_data_dir=self._settings.user_data_dir,
+            keep_alive=self._settings.keep_alive,
         )
-        self._browser = Browser(config=browser_config)
+        self._browser = Browser(browser_profile=browser_profile)
 
         llm = self._llm or self._get_default_llm()
 
         agent_kwargs: dict[str, Any] = {
-            "task": self._task,
-            "llm": llm,
-            "browser": self._browser,
-            "max_failures": self._settings.max_failures,
-            "max_actions_per_step": 10,
+         "task": self._task,
+         "llm": llm,
+         "browser": self._browser,
+         "max_failures": self._settings.max_failures,
+         "max_actions_per_step": 10,
         }
         if self._sensitive_data:
-            agent_kwargs["sensitive_data"] = self._sensitive_data
+         agent_kwargs["sensitive_data"] = self._sensitive_data
         if self._output_model:
             agent_kwargs["generate_gif"] = False
 
@@ -94,49 +87,62 @@ class BrowserAgent:
 
         try:
             result = await self._agent.run(max_steps=self._settings.max_steps)
-            logger.info(
-                "browser_agent.completed",
-                task=self._task[:80],
-            )
+            logger.info("browser_agent.completed", task=self._task[:80])
 
             if self._output_model and hasattr(result, "model_output"):
                 return result.model_output()
             return result
 
         except Exception as exc:
-            logger.error(
-                "browser_agent.failed",
-                task=self._task[:80],
-                error=str(exc),
-            )
+            logger.error("browser_agent.failed", task=self._task[:80], error=str(exc))
             raise BrowserError(str(exc)) from exc
 
-        finally:
+        finally:    
             if not self._settings.keep_alive and self._browser:
                 await self._browser.close()
 
     def _get_default_llm(self) -> Any:
-        """Create a default LangChain ChatOpenAI instance.
+        """Create a default LLM instance for browser-use Agent.
 
         Returns:
-            ChatOpenAI configured from application settings.
+            ChatOpenAI or ChatOpenRouter configured from application settings.
 
         Raises:
-            BrowserError: If langchain-openai is not installed.
+            BrowserError: If browser-use LLM package is not installed.
         """
+        settings = get_settings()
+        model = settings.llm.default_model
+        temperature = settings.llm.temperature
+
+        # Check if this is an OpenRouter model (format: provider/model or contains /)
+        if "/" in model and not model.startswith("gpt-") and not model.startswith("o1"):
+            try:
+                from browser_use import ChatOpenRouter
+            except ImportError as exc:
+                raise BrowserError(
+                    "browser-use package not installed. "
+                    "Install with: pip install browser-use"
+                ) from exc
+
+            return ChatOpenRouter(
+                model=model,
+                api_key=settings.llm.openrouter_api_key.get_secret_value(),
+                temperature=temperature,
+            )
+
+        # Default to ChatOpenAI for OpenAI models
         try:
-            from langchain_openai import ChatOpenAI
+            from browser_use import ChatOpenAI
         except ImportError as exc:
             raise BrowserError(
-                "langchain-openai package not installed. "
-                "Install with: pip install langchain-openai"
+                "browser-use package not installed. "
+                "Install with: pip install browser-use"
             ) from exc
 
-        settings = get_settings()
         return ChatOpenAI(
-            model=settings.llm.default_model,
+            model=model,
             api_key=settings.llm.openai_api_key.get_secret_value(),
-            temperature=settings.llm.temperature,
+            temperature=temperature,
         )
 
     async def close(self) -> None:
