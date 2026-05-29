@@ -56,18 +56,18 @@ class BrowserAgent:
 
     async def run(self) -> Any:
         try:
-            from browser_use import Agent, Browser, BrowserProfile
+            from browser_use import Agent, Browser, BrowserConfig
         except Exception as exc:
             import traceback
             traceback.print_exc()
             raise
 
-        browser_profile = BrowserProfile(
+        browser_config = BrowserConfig(
             headless=self._settings.headless,
             user_data_dir=self._settings.user_data_dir,
             keep_alive=self._settings.keep_alive,
         )
-        self._browser = Browser(browser_profile=browser_profile)
+        self._browser = Browser(config=browser_config)
 
         llm = self._llm or self._get_default_llm()
 
