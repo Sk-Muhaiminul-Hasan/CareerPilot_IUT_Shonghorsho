@@ -141,13 +141,14 @@ class LinkedInPlatform(JobPlatform):
         filter_instructions = self._build_filter_instructions(filters)
 
         task = (
-            f"Navigate to {search_url}. "
+            f"Navigate to {search_url} and wait for job listings to load. "
             f"{filter_instructions}"
-            "Extract the first 20 job listings visible on the page. "
-            "For each job, extract: the job title, company name, location, "
-            "the direct job URL, and whether it mentions remote work. "
-            "Return the results as a JSON array of objects with keys: "
-            "id, title, company, location, url, remote."
+            "Look at the job cards on the left panel. "
+            "For the first 10 job cards, extract in ONE pass without clicking anything: "
+            "job title, company name, location, "
+            "the full href URL (starts with https://www.linkedin.com/jobs/view/), "
+            "and whether it mentions remote. "
+            "Return as JSON array with keys: id, title, company, location, url, remote."
         )
 
         agent = BrowserAgent(task=task)
