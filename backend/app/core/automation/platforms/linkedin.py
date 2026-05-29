@@ -119,21 +119,17 @@ class LinkedInPlatform(JobPlatform):
         query: str,
         location: str = "",
         filters: dict[str, Any] | None = None,
-    ) -> list[JobListing]:
-        """Search LinkedIn for jobs matching the query.
+        ) -> list[JobListing]:
+        import os
+        # Login before searching
+        try:
+            await self.login({
+                "email": os.environ.get("LINKEDIN_EMAIL", ""),
+                "password": os.environ.get("LINKEDIN_PASSWORD", ""),
+            })
+        except Exception as e:
+            logger.warning("linkedin.login_skipped", error=str(e))
 
-        Args:
-            query: Job search keywords (e.g. "Software Engineer").
-            location: Geographic filter (e.g. "San Francisco, CA").
-            filters: Optional LinkedIn-specific filters (date_posted,
-                experience_level, remote, job_type).
-
-        Returns:
-            List of ``JobListing`` objects from search results.
-
-        Raises:
-            SearchError: If the search fails.
-        """
         search_url = f"{LINKEDIN_JOBS_URL}?keywords={query}"
         if location:
             search_url += f"&location={location}"
@@ -278,35 +274,47 @@ class LinkedInPlatform(JobPlatform):
             parts.append(f"Filter by job type: {filters['job_type']}. ")
         return "".join(parts)
 
-    def _parse_search_results(
-        self,
-        raw_result: Any,
-        query: str,
-    ) -> list[JobListing]:
-        """Parse browser-use Agent output into JobListing models.
+    def _parse_search_results(self, raw_result: Any, query: str) -> list[JobListing]:
+        import json
 
-        Args:
-            raw_result: Raw output from the browser-use Agent.
-            query: Original search query for logging context.
+        listings = []
+        text = ""
 
-        Returns:
-            List of parsed ``JobListing`` objects.
-        """
-        listings: list[JobListing] = []
-        if isinstance(raw_result, list):
-            for item in raw_result:
-                if isinstance(item, dict):
-                    listings.append(
-                        JobListing(
-                            platform="linkedin",
-                            platform_job_id=str(item.get("id", "")),
-                            title=item.get("title", ""),
-                            company=item.get("company", ""),
-                            location=item.get("location", ""),
-                            url=item.get("url", ""),
-                            remote=item.get("remote", False),
+    # Walk all_results looking for the done action with JSON
+        if hasattr(raw_result, 'all_results'):
+            for action in raw_result.all_results:
+                content = getattr(action, 'extracted_content', None) or ""
+                if '[' in content and 'title' in content:
+                    text = content
+                    break
+
+        if not text and hasattr(raw_result, 'final_result'):
+            text = str(raw_result.final_result() or "")
+
+        if not text:
+            text = str(raw_result)
+
+        try:
+            start = text.find('[')
+            end = text.rfind(']') + 1
+            if start != -1 and end > start:
+                items = json.loads(text[start:end])
+                for item in items:
+                    if isinstance(item, dict):
+                        listings.append(
+                            JobListing(
+                                platform="linkedin",
+                                platform_job_id=str(item.get("id", "")),
+                                title=item.get("title", ""),
+                                company=item.get("company", ""),
+                                location=item.get("location", ""),
+                                url=item.get("url") or "",
+                                remote=item.get("remote") in (True, "Remote", "remote", "true", "True", "Yes"),
+                            )
                         )
-                    )
+        except Exception as e:
+            logger.error("linkedin.parse_error", error=str(e))
+
         return listings
 
     def _parse_job_details(
