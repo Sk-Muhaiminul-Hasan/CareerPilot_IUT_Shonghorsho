@@ -6,6 +6,7 @@ Provides a high-level ``BrowserAgent`` that delegates to the browser-use
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import structlog
@@ -86,13 +87,20 @@ class BrowserAgent:
         self._agent = Agent(**agent_kwargs)
 
         try:
-            result = await self._agent.run(max_steps=self._settings.max_steps)
+            # Apply timeout to the agent execution using step_timeout setting
+            result = await asyncio.wait_for(
+                self._agent.run(max_steps=self._settings.max_steps),
+                timeout=self._settings.step_timeout
+            )
             logger.info("browser_agent.completed", task=self._task[:80])
 
             if self._output_model and hasattr(result, "model_output"):
                 return result.model_output()
             return result
 
+        except asyncio.TimeoutError:
+            logger.error("browser_agent.timeout", task=self._task[:80], timeout=self._settings.step_timeout)
+            raise BrowserError(f"Agent execution timed out after {self._settings.step_timeout} seconds") from None
         except Exception as exc:
             logger.error("browser_agent.failed", task=self._task[:80], error=str(exc))
             raise BrowserError(str(exc)) from exc
@@ -108,21 +116,7 @@ class BrowserAgent:
         temperature = settings.llm.temperature
 
     # OpenRouter model (format: provider/model)
-        if "/" in model and not model.startswith("gpt-") and not model.startswith("o1"):
-            try:
-                from langchain_openai import ChatOpenAI as ChatOpenRouter
-            except ImportError as exc:
-                raise BrowserError(
-                    "langchain-openai not installed. "
-                    "Install with: pip install langchain-openai"
-                ) from exc
-
-            return ChatOpenRouter(
-                model=model,
-                openai_api_key=settings.llm.openrouter_api_key.get_secret_value(),
-                openai_api_base="https://openrouter.ai/api/v1",
-                temperature=temperature,
-            )
+        
 
     # Default: OpenAI models
         try:

@@ -22,7 +22,8 @@ from app.observability.logging import configure_logging
 logger = structlog.get_logger(__name__)
 settings = get_settings()
 
-
+print(f"DEBUG: OpenAI API key length: {len(settings.llm.openai_api_key.get_secret_value())}")
+print(f"DEBUG: Default model: {settings.llm.default_model}")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application startup and shutdown lifecycle."""
