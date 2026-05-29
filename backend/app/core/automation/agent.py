@@ -102,41 +102,35 @@ class BrowserAgent:
                 await self._browser.close()
 
     def _get_default_llm(self) -> Any:
-        """Create a default LLM instance for browser-use Agent.
-
-        Returns:
-            ChatOpenAI or ChatOpenRouter configured from application settings.
-
-        Raises:
-            BrowserError: If browser-use LLM package is not installed.
-        """
+        """Create a default LLM instance for browser-use Agent."""
         settings = get_settings()
         model = settings.llm.default_model
         temperature = settings.llm.temperature
 
-        # Check if this is an OpenRouter model (format: provider/model or contains /)
+    # OpenRouter model (format: provider/model)
         if "/" in model and not model.startswith("gpt-") and not model.startswith("o1"):
             try:
-                from browser_use import ChatOpenRouter
+                from langchain_openai import ChatOpenAI as ChatOpenRouter
             except ImportError as exc:
                 raise BrowserError(
-                    "browser-use package not installed. "
-                    "Install with: pip install browser-use"
+                    "langchain-openai not installed. "
+                    "Install with: pip install langchain-openai"
                 ) from exc
 
             return ChatOpenRouter(
                 model=model,
-                api_key=settings.llm.openrouter_api_key.get_secret_value(),
+                openai_api_key=settings.llm.openrouter_api_key.get_secret_value(),
+                openai_api_base="https://openrouter.ai/api/v1",
                 temperature=temperature,
             )
 
-        # Default to ChatOpenAI for OpenAI models
+    # Default: OpenAI models
         try:
-            from browser_use import ChatOpenAI
+            from langchain_openai import ChatOpenAI
         except ImportError as exc:
             raise BrowserError(
-                "browser-use package not installed. "
-                "Install with: pip install browser-use"
+                "langchain-openai not installed. "
+                "Install with: pip install langchain-openai"
             ) from exc
 
         return ChatOpenAI(
