@@ -6,13 +6,20 @@ Handles creating, listing, approving, and updating job applications.
 from datetime import UTC, datetime
 
 import structlog
+from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ApplicationStatus
+from app.config.constants import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    QUEUE_APPLY,
+    ApplicationStatus,
+)
 from app.core.exceptions import RecordNotFoundError
 from app.models.application import Application
 from app.schemas.application import (
+    ApplyModeEnum,
     ApplicationBatchCreate,
     ApplicationCreate,
     ApplicationListResponse,
@@ -26,38 +33,69 @@ logger = structlog.get_logger(__name__)
 async def create_application(
     db: AsyncSession,
     data: ApplicationCreate,
+    redis: Redis | None = None,
 ) -> Application:
     """Create a single job application.
 
     Args:
         db: Async database session.
         data: Application creation data.
+        redis: Optional Redis client for enqueuing tasks.
 
     Returns:
         The newly created Application.
     """
+    from app.models.job import Job
+
     application = Application(
         job_id=data.job_id,
         resume_id=data.resume_id,
         apply_mode=data.apply_mode,
-        status=ApplicationStatus.QUEUED,
+        status=ApplicationStatus.QUEUED
+        if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+        else ApplicationStatus.PENDING_REVIEW,
     )
     db.add(application)
     await db.commit()
     await db.refresh(application)
     logger.info("application_created", app_id=application.id, job_id=data.job_id)
+
+    if data.apply_mode == ApplyModeEnum.AUTONOMOUS and redis is not None:
+        result = await db.execute(
+            select(Job).where(Job.id == data.job_id),
+        )
+        job = result.scalar_one_or_none()
+        if job is not None:
+            payload = {
+                "job_id": data.job_id,
+                "application_id": application.id,
+                "resume_id": data.resume_id,
+                "platform": job.platform,
+            }
+            from app.services.queue import enqueue
+
+            await enqueue(redis, QUEUE_APPLY, payload)
+            logger.info(
+                "application_enqueued",
+                app_id=application.id,
+                job_id=data.job_id,
+                platform=job.platform,
+            )
+
     return application
 
 
 async def create_batch(
     db: AsyncSession,
     data: ApplicationBatchCreate,
+    redis: Redis | None = None,
 ) -> list[Application]:
     """Create multiple applications at once.
 
     Args:
         db: Async database session.
         data: Batch creation data containing multiple job IDs.
+        redis: Optional Redis client for enqueuing tasks (unused for batch).
 
     Returns:
         List of newly created Applications.
@@ -68,7 +106,9 @@ async def create_batch(
             job_id=job_id,
             resume_id=data.resume_id,
             apply_mode=data.apply_mode,
-            status=ApplicationStatus.QUEUED,
+            status=ApplicationStatus.QUEUED
+            if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+            else ApplicationStatus.PENDING_REVIEW,
         )
         db.add(app)
         applications.append(app)
@@ -149,12 +189,17 @@ async def get_application(db: AsyncSession, app_id: str) -> Application:
     return app
 
 
-async def approve_application(db: AsyncSession, app_id: str) -> Application:
+async def approve_application(
+    db: AsyncSession,
+    app_id: str,
+    redis: Redis | None = None,
+) -> Application:
     """Approve a pending application for submission.
 
     Args:
         db: Async database session.
         app_id: UUID of the application to approve.
+        redis: Optional Redis client for enqueuing tasks.
 
     Returns:
         The updated Application.
@@ -162,6 +207,9 @@ async def approve_application(db: AsyncSession, app_id: str) -> Application:
     Raises:
         RecordNotFoundError: If application does not exist.
     """
+    from app.models.job import Job
+    from app.services.queue import enqueue
+
     app = await get_application(db, app_id)
     if app.status not in (ApplicationStatus.PENDING_REVIEW, ApplicationStatus.QUEUED):
         raise ValueError(
@@ -172,6 +220,27 @@ async def approve_application(db: AsyncSession, app_id: str) -> Application:
     await db.commit()
     await db.refresh(app)
     logger.info("application_approved", app_id=app_id)
+
+    if redis is not None:
+        result = await db.execute(
+            select(Job).where(Job.id == app.job_id),
+        )
+        job = result.scalar_one_or_none()
+        if job is not None:
+            payload = {
+                "job_id": app.job_id,
+                "application_id": app.id,
+                "resume_id": app.resume_id,
+                "platform": job.platform,
+            }
+            await enqueue(redis, QUEUE_APPLY, payload)
+            logger.info(
+                "application_enqueued",
+                app_id=app.id,
+                job_id=app.job_id,
+                platform=job.platform,
+            )
+
     return app
 
 

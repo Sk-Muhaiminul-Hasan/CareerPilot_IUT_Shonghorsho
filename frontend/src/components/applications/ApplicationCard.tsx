@@ -23,12 +23,15 @@ const STATUS_CONFIG: Record<
   string,
   { color: 'default' | 'warning' | 'info' | 'success' | 'error'; icon: React.ReactElement }
 > = {
-  pending: { color: 'warning', icon: <HourglassEmptyIcon fontSize="small" /> },
+  queued: { color: 'default', icon: <HourglassEmptyIcon fontSize="small" /> },
+  pending_review: { color: 'warning', icon: <HourglassEmptyIcon fontSize="small" /> },
   approved: { color: 'info', icon: <CheckCircleIcon fontSize="small" /> },
+  applying: { color: 'info', icon: <HourglassEmptyIcon fontSize="small" /> },
   applied: { color: 'success', icon: <SendIcon fontSize="small" /> },
   interview: { color: 'success', icon: <EmojiEventsIcon fontSize="small" /> },
   rejected: { color: 'error', icon: <CancelIcon fontSize="small" /> },
   offer: { color: 'success', icon: <EmojiEventsIcon fontSize="small" /> },
+  failed: { color: 'error', icon: <CancelIcon fontSize="small" /> },
 };
 
 function ApplicationCard({ application, onApprove, onUpdateStatus }: ApplicationCardProps) {
@@ -83,7 +86,7 @@ function ApplicationCard({ application, onApprove, onUpdateStatus }: Application
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2 }}>
-        {application.status === 'pending' && onApprove && (
+        {application.status === 'pending_review' && onApprove && (
           <Button size="small" variant="contained" onClick={() => onApprove(application.id)}>
             Approve
           </Button>

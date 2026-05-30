@@ -16,8 +16,9 @@ import { useAppStore } from '@/store/useAppStore';
 
 const STATUS_TABS = [
   { label: 'All', value: undefined },
-  { label: 'Pending', value: 'pending' },
+  { label: 'Pending Review', value: 'pending_review' },
   { label: 'Approved', value: 'approved' },
+  { label: 'Applying', value: 'applying' },
   { label: 'Applied', value: 'applied' },
   { label: 'Interview', value: 'interview' },
   { label: 'Offer', value: 'offer' },

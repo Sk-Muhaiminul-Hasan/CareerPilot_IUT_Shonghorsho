@@ -2,9 +2,10 @@
 
 import structlog
 from fastapi import APIRouter, Depends, Query
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_redis
 from app.config.constants import DEFAULT_PAGE_SIZE
 from app.schemas.application import (
     ApplicationBatchCreate,
@@ -28,9 +29,10 @@ router = APIRouter()
 async def create_application(
     data: ApplicationCreate,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> ApplicationResponse:
     """Create a single job application."""
-    app = await app_service.create_application(db, data)
+    app = await app_service.create_application(db, data, redis)
     return ApplicationResponse.model_validate(app)
 
 
@@ -43,9 +45,10 @@ async def create_application(
 async def batch_create(
     data: ApplicationBatchCreate,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> list[ApplicationResponse]:
     """Create multiple job applications at once."""
-    apps = await app_service.create_batch(db, data)
+    apps = await app_service.create_batch(db, data, redis)
     return [ApplicationResponse.model_validate(a) for a in apps]
 
 
@@ -86,9 +89,10 @@ async def get_application(
 async def approve_application(
     app_id: str,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> ApplicationResponse:
     """Approve a pending application for automated submission."""
-    app = await app_service.approve_application(db, app_id)
+    app = await app_service.approve_application(db, app_id, redis)
     return ApplicationResponse.model_validate(app)
 
 

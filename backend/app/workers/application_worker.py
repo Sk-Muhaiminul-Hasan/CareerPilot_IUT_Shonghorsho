@@ -52,6 +52,24 @@ async def _broadcast_progress(
     await ws_manager.broadcast(message)
 
 
+async def _broadcast_complete(
+    application_id: str,
+    status: str,
+) -> None:
+    """Send application completion event via WebSocket.
+
+    Args:
+        application_id: Unique application identifier.
+        status: Final status string (APPLIED or FAILED).
+    """
+    message: dict[str, Any] = {
+        "type": "application_complete",
+        "application_id": application_id,
+        "status": status,
+    }
+    await ws_manager.broadcast(message)
+
+
 async def _update_application_status(
     app_id: str,
     status: str,
@@ -198,6 +216,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail=f"Unknown platform: {platform_name}",
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
         return
 
     try:
@@ -229,6 +248,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         # --------------------------------------------------------------
@@ -310,6 +330,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=skip_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         logger.debug("worker.ats_threshold", min_score=min_score)
@@ -355,6 +376,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
         except Exception as exc:
             error_msg = f"Application submission failed: {exc}"
@@ -373,6 +395,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         # --------------------------------------------------------------
@@ -385,6 +408,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             applied_at=datetime.now(UTC),
         )
         await _broadcast_progress(app_id, ApplicationStatus.APPLIED)
+        await _broadcast_complete(app_id, ApplicationStatus.APPLIED)
         logger.info(
             "worker.completed",
             job_id=job_id,
@@ -407,6 +431,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail=str(exc),
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
 
     except Exception as exc:
         logger.error(
@@ -425,6 +450,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail="Unexpected error during application",
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
 
 
 async def run_worker() -> None:

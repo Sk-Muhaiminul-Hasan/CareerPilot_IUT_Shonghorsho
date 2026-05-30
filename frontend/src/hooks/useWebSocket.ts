@@ -3,6 +3,9 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 /** Shape of a WebSocket event message from the backend. */
 export interface WSMessage {
   type: string;
+  application_id?: string;
+  status?: string;
+  detail?: string;
   payload: Record<string, unknown>;
 }
 
@@ -13,6 +16,10 @@ interface UseWebSocketOptions {
   reconnectDelay?: number;
   /** Maximum reconnection attempts. Defaults to 10. */
   maxRetries?: number;
+  /** Callback for application progress updates. */
+  onProgress?: (data: { application_id: string; status: string; detail?: string }) => void;
+  /** Callback for application completion updates. */
+  onComplete?: (data: { application_id: string; status: string }) => void;
 }
 
 interface UseWebSocketReturn {
@@ -31,7 +38,13 @@ export function useWebSocket(
   url = '/ws',
   options: UseWebSocketOptions = {},
 ): UseWebSocketReturn {
-  const { autoConnect = true, reconnectDelay = 3000, maxRetries = 10 } = options;
+  const {
+    autoConnect = true,
+    reconnectDelay = 3000,
+    maxRetries = 10,
+    onProgress,
+    onComplete,
+  } = options;
 
   const wsRef = useRef<WebSocket | null>(null);
   const retriesRef = useRef(0);
@@ -79,6 +92,20 @@ export function useWebSocket(
       try {
         const parsed = JSON.parse(String(event.data)) as WSMessage;
         setLastMessage(parsed);
+
+        if (parsed.type === 'application_progress' && onProgress) {
+          onProgress({
+            application_id: parsed.application_id ?? '',
+            status: parsed.status ?? '',
+            detail: parsed.detail,
+          });
+        }
+        if (parsed.type === 'application_complete' && onComplete) {
+          onComplete({
+            application_id: parsed.application_id ?? '',
+            status: parsed.status ?? '',
+          });
+        }
       } catch {
         // Ignore non-JSON messages
       }
