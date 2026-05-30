@@ -67,11 +67,16 @@ class TestProcessApplicationHappyPath:
     async def test_process_application_happy_path(self):
         """Worker should broadcast progress stages and complete successfully
         when the platform is registered and job is found."""
-        payload = _make_payload()
+        payload = _make_payload(resume_id="resume-1")
         mock_job = _make_mock_job()
 
         mock_platform = AsyncMock()
         mock_platform.apply = AsyncMock(return_value=True)
+
+        mock_resume = MagicMock()
+        mock_resume.id = "tailored-1"
+        mock_resume.file_path_pdf = "/path/to/resume.pdf"
+        mock_resume.file_path_docx = None
 
         with (
             patch(
@@ -90,13 +95,21 @@ class TestProcessApplicationHappyPath:
                 "app.workers.application_worker._update_application_status",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
         ):
             mock_ws.broadcast = AsyncMock()
             mock_registry.has.return_value = True
             mock_registry.create.return_value = mock_platform
-            mock_settings.return_value = MagicMock(min_ats_score=0.75)
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.return_value = MagicMock(id="tailored-1")
 
             mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_resume,
+            ]
             mock_sf.return_value.__aenter__ = AsyncMock(
                 return_value=mock_session,
             )
@@ -117,11 +130,16 @@ class TestProcessApplicationHappyPath:
 
     async def test_process_application_sets_application_id(self):
         """Every broadcast should include the application_id."""
-        payload = _make_payload(application_id="app-42")
+        payload = _make_payload(application_id="app-42", resume_id="resume-1")
         mock_job = _make_mock_job()
 
         mock_platform = AsyncMock()
         mock_platform.apply = AsyncMock(return_value=True)
+
+        mock_resume = MagicMock()
+        mock_resume.id = "tailored-1"
+        mock_resume.file_path_pdf = "/path/to/resume.pdf"
+        mock_resume.file_path_docx = None
 
         with (
             patch(
@@ -140,13 +158,21 @@ class TestProcessApplicationHappyPath:
                 "app.workers.application_worker._update_application_status",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
         ):
             mock_ws.broadcast = AsyncMock()
             mock_registry.has.return_value = True
             mock_registry.create.return_value = mock_platform
-            mock_settings.return_value = MagicMock(min_ats_score=0.75)
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.return_value = MagicMock(id="tailored-1")
 
             mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_resume,
+            ]
             mock_sf.return_value.__aenter__ = AsyncMock(
                 return_value=mock_session,
             )
@@ -334,6 +360,127 @@ class TestProcessApplicationErrors:
         msg = last_call.args[0]
         assert msg["status"] == ApplicationStatus.FAILED
         assert "not found" in msg.get("detail", "").lower()
+
+    async def test_worker_handles_authentication_error(self):
+        """When authentication fails, worker should broadcast FAILED with auth message."""
+        from app.core.exceptions import AuthenticationError
+
+        payload = _make_payload(resume_id="resume-1")
+        mock_job = _make_mock_job()
+
+        mock_platform = AsyncMock()
+        mock_platform.apply = AsyncMock(
+            side_effect=AuthenticationError(
+                "linkedin",
+                "No active session found and no credentials provided.",
+            ),
+        )
+
+        mock_resume = MagicMock()
+        mock_resume.id = "tailored-1"
+        mock_resume.file_path_pdf = "/path/to/resume.pdf"
+        mock_resume.file_path_docx = None
+
+        with (
+            patch(
+                "app.workers.application_worker.ws_manager",
+            ) as mock_ws,
+            patch(
+                "app.workers.application_worker.platform_registry",
+            ) as mock_registry,
+            patch(
+                "app.workers.application_worker.get_settings",
+            ) as mock_settings,
+            patch(
+                "app.workers.application_worker.async_session_factory",
+            ) as mock_sf,
+            patch(
+                "app.workers.application_worker._update_application_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
+        ):
+            mock_ws.broadcast = AsyncMock()
+            mock_registry.has.return_value = True
+            mock_registry.create.return_value = mock_platform
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.return_value = MagicMock(id="tailored-1")
+
+            mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_resume,
+            ]
+            mock_sf.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session,
+            )
+            mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await process_application(payload)
+
+        last_call = mock_ws.broadcast.call_args_list[-1]
+        msg = last_call.args[0]
+        assert msg["status"] == ApplicationStatus.FAILED
+        assert "authentication" in msg.get("detail", "").lower()
+
+    async def test_worker_handles_no_resume_available(self):
+        """When no resume is available, worker should fail early."""
+        payload = _make_payload(resume_id="resume-1")
+        mock_job = _make_mock_job()
+
+        mock_platform = AsyncMock()
+        mock_platform.apply = AsyncMock(return_value=True)
+
+        mock_resume = MagicMock()
+        mock_resume.id = "tailored-1"
+        mock_resume.file_path_pdf = None
+        mock_resume.file_path_docx = None
+
+        with (
+            patch(
+                "app.workers.application_worker.ws_manager",
+            ) as mock_ws,
+            patch(
+                "app.workers.application_worker.platform_registry",
+            ) as mock_registry,
+            patch(
+                "app.workers.application_worker.get_settings",
+            ) as mock_settings,
+            patch(
+                "app.workers.application_worker.async_session_factory",
+            ) as mock_sf,
+            patch(
+                "app.workers.application_worker._update_application_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
+        ):
+            mock_ws.broadcast = AsyncMock()
+            mock_registry.has.return_value = True
+            mock_registry.create.return_value = mock_platform
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.return_value = MagicMock(id="tailored-1")
+
+            mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_resume,
+            ]
+            mock_sf.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session,
+            )
+            mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await process_application(payload)
+
+        last_call = mock_ws.broadcast.call_args_list[-1]
+        msg = last_call.args[0]
+        assert msg["status"] == ApplicationStatus.FAILED
+        assert "resume" in msg.get("detail", "").lower()
 
 
 class TestBroadcastProgress:

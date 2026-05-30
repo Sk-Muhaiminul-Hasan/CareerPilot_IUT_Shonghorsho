@@ -8,6 +8,21 @@ _Generated: 2026-05-30_
 - ❌ Not implemented: 9
 - 🔀 Inconsistencies found: 3
 
+## ✅ Completed Fixes
+
+### LinkedIn Login Loop Fix (Completed)
+- **Fixed:** LinkedIn `apply()` now calls `login()` before applying (matching the `search()` pattern)
+- **Fixed:** LinkedIn `apply()` validates resume path and raises `ApplicationSubmissionError` for empty paths
+- **Fixed:** Worker validates resume availability before calling platform.apply() with meaningful error messages
+- **Fixed:** Worker handles `AuthenticationError` specifically with clear instructions for credentials
+- **Fixed:** Indeed platform `apply()` also updated for consistency with same authentication pattern
+- **Added:** Unit tests for authentication error handling and no-resume scenarios
+- **Files changed:**
+  - `backend/app/core/automation/platforms/linkedin.py` - login + resume validation in apply()
+  - `backend/app/core/automation/platforms/indeed.py` - login + resume validation in apply()
+  - `backend/app/workers/application_worker.py` - early resume check + AuthenticationError handling
+  - `backend/tests/unit/test_worker.py` - new test cases
+
 ---
 
 ## ⚠️ Partially Implemented Features

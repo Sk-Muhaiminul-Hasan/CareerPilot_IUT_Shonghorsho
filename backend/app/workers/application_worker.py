@@ -17,7 +17,7 @@ from app.config.constants import QUEUE_APPLY, ApplicationStatus
 from app.config.settings import get_settings
 from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
-from app.core.exceptions import AutoApplyError
+from app.core.exceptions import ApplicationSubmissionError, AuthenticationError, AutoApplyError
 from app.db.redis import get_redis, init_redis_pool
 from app.db.session import async_session_factory
 from app.models.application import Application
@@ -339,6 +339,19 @@ async def process_application(payload: dict[str, Any]) -> None:
         # Step 4: Apply via platform
         # --------------------------------------------------------------
         await _broadcast_progress(app_id, "submitting")
+
+        if not resume_path:
+            error_msg = "No resume available for application. Please upload a resume first."
+            logger.error("worker.no_resume_available", app_id=app_id)
+            await _update_application_status(
+                app_id, ApplicationStatus.FAILED, notes=error_msg,
+            )
+            await _broadcast_progress(
+                app_id, ApplicationStatus.FAILED, detail=error_msg,
+            )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+            return
+
         try:
             platform = platform_registry.create(platform_name)
 
@@ -356,7 +369,7 @@ async def process_application(payload: dict[str, Any]) -> None:
 
             applied = await platform.apply(
                 job=job_listing,
-                resume_path=resume_path or "",
+                resume_path=resume_path,
                 cover_letter_path=None,
             )
 
@@ -365,6 +378,17 @@ async def process_application(payload: dict[str, Any]) -> None:
                     "Platform returned unsuccessful apply result",
                     code="PLATFORM_APPLY_FAILED",
                 )
+        except AuthenticationError as exc:
+            error_msg = f"Authentication required: {exc.message}. Please provide LinkedIn credentials via LINKEDIN_EMAIL and LINKEDIN_PASSWORD environment variables."
+            logger.error("worker.auth_required", app_id=app_id, platform=platform_name)
+            await _update_application_status(
+                app_id, ApplicationStatus.FAILED, notes=error_msg,
+            )
+            await _broadcast_progress(
+                app_id, ApplicationStatus.FAILED, detail=error_msg,
+            )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+            return
         except KeyError as exc:
             error_msg = f"Platform creation failed: {exc}"
             logger.error(

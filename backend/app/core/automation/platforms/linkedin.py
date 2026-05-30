@@ -212,8 +212,26 @@ class LinkedInPlatform(JobPlatform):
             ``True`` if the application was submitted successfully.
 
         Raises:
+            AuthenticationError: If authentication fails.
             ApplicationSubmissionError: If application submission fails.
         """
+        import os
+
+        try:
+            await self.login({
+                "email": os.environ.get("LINKEDIN_EMAIL", ""),
+                "password": os.environ.get("LINKEDIN_PASSWORD", ""),
+            })
+        except AuthenticationError as e:
+            logger.warning("linkedin.apply_auth_failed", error=str(e))
+            raise
+
+        if not resume_path:
+            raise ApplicationSubmissionError(
+                "linkedin",
+                "No resume provided. Upload a resume before applying to jobs.",
+            )
+
         task = (
             f"Navigate to {job.url}. "
             "Click the 'Easy Apply' button if available. "
