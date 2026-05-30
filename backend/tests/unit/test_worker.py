@@ -433,10 +433,10 @@ class TestProcessApplicationErrors:
         mock_platform = AsyncMock()
         mock_platform.apply = AsyncMock(return_value=True)
 
-        mock_resume = MagicMock()
-        mock_resume.id = "tailored-1"
-        mock_resume.file_path_pdf = None
-        mock_resume.file_path_docx = None
+        mock_tailored_resume = MagicMock()
+        mock_tailored_resume.id = "tailored-1"
+        mock_tailored_resume.file_path_pdf = None
+        mock_tailored_resume.file_path_docx = None
 
         with (
             patch(
@@ -468,7 +468,8 @@ class TestProcessApplicationErrors:
             mock_session = _make_mock_session(mock_job)
             mock_session.execute.return_value.scalar_one_or_none.side_effect = [
                 mock_job,
-                mock_resume,
+                None,  # base_resume lookup returns None (no base resume)
+                mock_tailored_resume,
             ]
             mock_sf.return_value.__aenter__ = AsyncMock(
                 return_value=mock_session,
@@ -481,6 +482,126 @@ class TestProcessApplicationErrors:
         msg = last_call.args[0]
         assert msg["status"] == ApplicationStatus.FAILED
         assert "resume" in msg.get("detail", "").lower()
+
+    async def test_worker_falls_back_to_base_resume_when_tailored_has_no_path(self):
+        """When tailored resume has no file path, worker should use base resume."""
+        payload = _make_payload(resume_id="resume-1")
+        mock_job = _make_mock_job()
+
+        mock_platform = AsyncMock()
+        mock_platform.apply = AsyncMock(return_value=True)
+
+        mock_tailored_resume = MagicMock()
+        mock_tailored_resume.id = "tailored-1"
+        mock_tailored_resume.file_path_pdf = None
+        mock_tailored_resume.file_path_docx = None
+
+        mock_base_resume = MagicMock()
+        mock_base_resume.id = "resume-1"
+        mock_base_resume.file_path_pdf = "/path/to/base_resume.pdf"
+        mock_base_resume.file_path_docx = None
+
+        with (
+            patch(
+                "app.workers.application_worker.ws_manager",
+            ) as mock_ws,
+            patch(
+                "app.workers.application_worker.platform_registry",
+            ) as mock_registry,
+            patch(
+                "app.workers.application_worker.get_settings",
+            ) as mock_settings,
+            patch(
+                "app.workers.application_worker.async_session_factory",
+            ) as mock_sf,
+            patch(
+                "app.workers.application_worker._update_application_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
+        ):
+            mock_ws.broadcast = AsyncMock()
+            mock_registry.has.return_value = True
+            mock_registry.create.return_value = mock_platform
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.return_value = MagicMock(id="tailored-1")
+
+            mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_base_resume,
+                mock_tailored_resume,
+            ]
+            mock_sf.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session,
+            )
+            mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await process_application(payload)
+
+        last_call = mock_ws.broadcast.call_args_list[-1]
+        msg = last_call.args[0]
+        assert msg["status"] == ApplicationStatus.APPLIED
+        mock_platform.apply.assert_called_once()
+
+    async def test_worker_falls_back_to_base_resume_when_generation_fails(self):
+        """When tailored generation fails, worker should use base resume."""
+        payload = _make_payload(resume_id="resume-1")
+        mock_job = _make_mock_job()
+
+        mock_platform = AsyncMock()
+        mock_platform.apply = AsyncMock(return_value=True)
+
+        mock_base_resume = MagicMock()
+        mock_base_resume.id = "resume-1"
+        mock_base_resume.file_path_pdf = "/path/to/base_resume.pdf"
+        mock_base_resume.file_path_docx = None
+
+        with (
+            patch(
+                "app.workers.application_worker.ws_manager",
+            ) as mock_ws,
+            patch(
+                "app.workers.application_worker.platform_registry",
+            ) as mock_registry,
+            patch(
+                "app.workers.application_worker.get_settings",
+            ) as mock_settings,
+            patch(
+                "app.workers.application_worker.async_session_factory",
+            ) as mock_sf,
+            patch(
+                "app.workers.application_worker._update_application_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "app.workers.application_worker.resume_service.generate_tailored_resume",
+            ) as mock_gen,
+        ):
+            mock_ws.broadcast = AsyncMock()
+            mock_registry.has.return_value = True
+            mock_registry.create.return_value = mock_platform
+            mock_settings.return_value = MagicMock(min_ats_score=0.0)
+            mock_gen.side_effect = RuntimeError("LLM unavailable")
+
+            mock_session = _make_mock_session(mock_job)
+            mock_session.execute.return_value.scalar_one_or_none.side_effect = [
+                mock_job,
+                mock_base_resume,
+            ]
+            mock_sf.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session,
+            )
+            mock_sf.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await process_application(payload)
+
+        last_call = mock_ws.broadcast.call_args_list[-1]
+        msg = last_call.args[0]
+        assert msg["status"] == ApplicationStatus.APPLIED
+        mock_platform.apply.assert_called_once()
 
 
 class TestBroadcastProgress:

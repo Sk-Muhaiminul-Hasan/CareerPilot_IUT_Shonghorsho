@@ -17,7 +17,7 @@ from app.config.constants import QUEUE_APPLY, ApplicationStatus
 from app.config.settings import get_settings
 from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
-from app.core.exceptions import ApplicationSubmissionError, AuthenticationError, AutoApplyError
+from app.core.exceptions import AuthenticationError, AutoApplyError
 from app.db.redis import get_redis, init_redis_pool
 from app.db.session import async_session_factory
 from app.models.application import Application
@@ -256,6 +256,27 @@ async def process_application(payload: dict[str, Any]) -> None:
         # --------------------------------------------------------------
         await _broadcast_progress(app_id, "generating_resume")
         resume_path: str | None = None
+        base_resume_path: str | None = None
+
+        # Get base resume file path as fallback before generating tailored
+        if resume_id:
+            try:
+                async with async_session_factory() as db:
+                    base_result = await db.execute(
+                        select(Resume).where(Resume.id == resume_id),
+                    )
+                    base_resume = base_result.scalar_one_or_none()
+                    if base_resume:
+                        base_resume_path = (
+                            base_resume.file_path_pdf or base_resume.file_path_docx
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "worker.base_resume_lookup_failed",
+                    resume_id=resume_id,
+                    error=str(exc),
+                )
+
         try:
             if resume_id:
                 async with async_session_factory() as db:
@@ -285,9 +306,17 @@ async def process_application(payload: dict[str, Any]) -> None:
                         "worker.resume_generated",
                         resume_id=tailored_resume.id,
                     )
+                    # Fall back to base resume if tailored has no file path
+                    if not resume_path and base_resume_path:
+                        resume_path = base_resume_path
+                        logger.info("worker.using_base_resume_fallback")
             else:
                 logger.info("worker.no_base_resume", app_id=app_id)
         except Exception as exc:
+            # Fall back to base resume if tailored generation fails
+            if base_resume_path:
+                resume_path = base_resume_path
+                logger.info("worker.using_base_resume_fallback_after_error")
             logger.warning(
                 "worker.resume_generation_failed",
                 app_id=app_id,
@@ -379,7 +408,11 @@ async def process_application(payload: dict[str, Any]) -> None:
                     code="PLATFORM_APPLY_FAILED",
                 )
         except AuthenticationError as exc:
-            error_msg = f"Authentication required: {exc.message}. Please provide LinkedIn credentials via LINKEDIN_EMAIL and LINKEDIN_PASSWORD environment variables."
+            error_msg = (
+                f"Authentication required: {exc.message}. "
+                "Please provide LinkedIn credentials via "
+                "LINKEDIN_EMAIL and LINKEDIN_PASSWORD environment variables."
+            )
             logger.error("worker.auth_required", app_id=app_id, platform=platform_name)
             await _update_application_status(
                 app_id, ApplicationStatus.FAILED, notes=error_msg,
