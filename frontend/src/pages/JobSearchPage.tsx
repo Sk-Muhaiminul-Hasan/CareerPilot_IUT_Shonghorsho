@@ -9,6 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import JobFilters from '@/components/jobs/JobFilters';
 import JobCard from '@/components/jobs/JobCard';
 import JobDetail from '@/components/jobs/JobDetail';
+import ApplyModal from '@/components/jobs/ApplyModal';
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useJobs, useSearchJobs } from '@/hooks/useJobs';
@@ -18,6 +19,7 @@ import { useAppStore } from '@/store/useAppStore';
 
 function JobSearchPage() {
   const [page, setPage] = useState(1);
+  const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const searchQuery = useJobStore((s) => s.searchQuery);
   const locationFilter = useJobStore((s) => s.locationFilter);
   const platformFilters = useJobStore((s) => s.platformFilters);
@@ -31,18 +33,32 @@ function JobSearchPage() {
   const searchMutation = useSearchJobs();
   const createAppMutation = useCreateApplication();
 
-  const handleApply = useCallback(
-    (jobId: string) => {
+  const handleApplyClick = useCallback((jobId: string) => {
+    setPendingJobId(jobId);
+  }, []);
+
+  const handleApplyConfirm = useCallback(
+    (resumeId: string) => {
+      if (!pendingJobId) return;
       createAppMutation.mutate(
-        { job_id: jobId },
+        { job_id: pendingJobId, resume_id: resumeId },
         {
-          onSuccess: () => showNotification('Application created successfully.', 'success'),
-          onError: () => showNotification('Failed to create application.', 'error'),
+          onSuccess: () => {
+            showNotification('Application created successfully.', 'success');
+            setPendingJobId(null);
+          },
+          onError: () => {
+            showNotification('Failed to create application.', 'error');
+          },
         },
       );
     },
-    [createAppMutation, showNotification],
+    [pendingJobId, createAppMutation, showNotification],
   );
+
+  const handleApplyClose = useCallback(() => {
+    setPendingJobId(null);
+  }, []);
 
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return;
@@ -113,7 +129,7 @@ function JobSearchPage() {
                   <JobCard
                     job={job}
                     onViewDetails={openDetail}
-                    onApply={handleApply}
+                    onApply={handleApplyClick}
                   />
                 </Grid>
               ))}
@@ -136,8 +152,18 @@ function JobSearchPage() {
           jobId={selectedJobId}
           open={detailOpen}
           onClose={closeDetail}
-          onApply={handleApply}
+          onApply={handleApplyClick}
         />
+
+        {pendingJobId && (
+          <ApplyModal
+            open={!!pendingJobId}
+            jobId={pendingJobId}
+            platform={jobsData?.items.find((j) => j.id === pendingJobId)?.platform ?? ''}
+            onClose={handleApplyClose}
+            onConfirm={handleApplyConfirm}
+          />
+        )}
       </Box>
     </ErrorBoundary>
   );

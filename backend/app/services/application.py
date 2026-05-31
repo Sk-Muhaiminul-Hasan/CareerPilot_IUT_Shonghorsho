@@ -18,13 +18,14 @@ from app.config.constants import (
 )
 from app.core.exceptions import RecordNotFoundError
 from app.models.application import Application
+from app.models.resume import Resume
 from app.schemas.application import (
-    ApplyModeEnum,
     ApplicationBatchCreate,
     ApplicationCreate,
     ApplicationListResponse,
     ApplicationResponse,
     ApplicationStatusUpdate,
+    ApplyModeEnum,
 )
 
 logger = structlog.get_logger(__name__)
@@ -217,6 +218,21 @@ async def approve_application(
             "Only pending_review or queued applications can be approved."
         )
     app.status = ApplicationStatus.APPROVED
+
+    if app.resume_id is None:
+        result = await db.execute(
+            select(Resume)
+            .where(Resume.type == "base")
+            .order_by(Resume.created_at.desc())
+            .limit(1),
+        )
+        fallback_resume = result.scalar_one_or_none()
+        if fallback_resume is not None:
+            app.resume_id = fallback_resume.id
+            logger.info("resume_fallback_applied", app_id=app_id, resume_id=fallback_resume.id)
+        else:
+            logger.warning("no_base_resume_found", app_id=app_id)
+
     await db.commit()
     await db.refresh(app)
     logger.info("application_approved", app_id=app_id)
