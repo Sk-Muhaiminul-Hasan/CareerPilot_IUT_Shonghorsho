@@ -1,0 +1,55 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# *.py[cod]
+# *$py.class
+# *.egg-info/
+# .eggs/
+# *.egg
+# env/
+# .env
+# .env.local
+# .env.*.local
+# .vs-code/
+# *.swp
+# *.swo
+# *~
+# .claude
+# .claude/
+# data/db/*.db
+# data/sessions/*
+# !data/sessions/.gitkeep
+# data/vector_indices/*
+# !data/vector_indices/.gitkeep
+# data/generated/*
+# !data/generated/resumes/.gitkeep
+# !data/generated/cover_letters/.gitkeep
+# data/logs/*
+# !data/logs/.gitkeep
+# data/uploads/*
+# !data/uploads/.gitkeep
+# frontend/node_modules/
+# frontend/dist/
+# frontend/.env.local
+# docker/.env
+# .coverage
+# htmlcov/
+# .pytest_cache/
+# .DS_Store
+# Thumbs.db
+# temp.py
+# .qodo
+# uv.lock
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap

@@ -1,0 +1,5521 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "CareerPilot",
+    "languages": [
+      "python",
+      "typescript",
+      "html",
+      "css",
+      "yaml",
+      "dockerfile",
+      "json",
+      "toml",
+      "mako",
+      "db",
+      "conf"
+    ],
+    "frameworks": [
+      "FastAPI",
+      "React",
+      "SQLAlchemy",
+      "Playwright",
+      "LiteLLM",
+      "Redis",
+      "MUI",
+      "TanStack Query",
+      "Zustand"
+    ],
+    "description": "CareerPilot_IUT_Shonghorsho: Codesprint 2026. A job application automation platform.",
+    "analyzedAt": "2026-05-30T18:55:20Z",
+    "gitCommitHash": "29cbe4790972ff5dd067da64035594fa8a59d962"
+  },
+  "nodes": [
+    {
+      "id": "config:.dockerignore",
+      "type": "config",
+      "name": ".dockerignore",
+      "filePath": ".dockerignore",
+      "summary": "Specifies files and directories to be excluded from the Docker build context to optimize image size and security.",
+      "complexity": "simple",
+      "tags": [
+        "docker",
+        "infrastructure",
+        "build-context"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "config:.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": ".env.example",
+      "summary": "Environment configuration template providing placeholders for database connections, LLM API keys, browser automation settings, and platform credentials.",
+      "complexity": "simple",
+      "tags": [
+        "environment",
+        "configuration",
+        "secrets-template"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "document:CLAUDE.md",
+      "type": "document",
+      "name": "CLAUDE.md",
+      "filePath": "CLAUDE.md",
+      "summary": "Core project guide containing architecture details, directory structure, coding standards, and common development commands.",
+      "complexity": "simple",
+      "tags": [
+        "documentation",
+        "development-guide",
+        "architecture"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Main project entry documentation, currently serving as a placeholder with the project title.",
+      "complexity": "simple",
+      "tags": [
+        "documentation",
+        "readme"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "service:docker-compose.dev.yml",
+      "type": "service",
+      "name": "docker-compose.dev.yml",
+      "filePath": "docker-compose.dev.yml",
+      "summary": "Development-specific Docker Compose override that enables hot reloading for backend and worker services via volume mounting.",
+      "complexity": "moderate",
+      "tags": [
+        "docker",
+        "development",
+        "orchestration"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "service:docker-compose.yml",
+      "type": "service",
+      "name": "docker-compose.yml",
+      "filePath": "docker-compose.yml",
+      "summary": "Primary Docker Compose configuration defining the application's multi-container architecture, including backend, frontend, worker, and Redis services.",
+      "complexity": "moderate",
+      "tags": [
+        "docker",
+        "infrastructure",
+        "orchestration",
+        "services"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "config:pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "pyproject.toml",
+      "summary": "Project-level Python configuration specifying dependencies for core logic, AI/LLM integration, browser automation, and development tools.",
+      "complexity": "moderate",
+      "tags": [
+        "python",
+        "dependencies",
+        "build-system",
+        "configuration"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:frontend/index.html",
+      "type": "file",
+      "name": "index.html",
+      "filePath": "frontend/index.html",
+      "summary": "Root HTML entry point for the AutoApply AI React application, defining the DOM mount point and loading the primary TypeScript entry module.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "entry-point",
+        "markup",
+        "react"
+      ],
+      "languageNotes": "HTML5 document using ES modules for script loading."
+    },
+    {
+      "id": "config:frontend/package.json",
+      "type": "config",
+      "name": "package.json",
+      "filePath": "frontend/package.json",
+      "summary": "Frontend manifest managing core dependencies (React 18, MUI 5, TanStack Query, Zustand), build automation scripts, and testing infrastructure.",
+      "complexity": "simple",
+      "tags": [
+        "config",
+        "manifest",
+        "npm",
+        "dependencies"
+      ],
+      "languageNotes": "JSON manifest for dependency and script management."
+    },
+    {
+      "id": "config:frontend/tsconfig.json",
+      "type": "config",
+      "name": "tsconfig.json",
+      "filePath": "frontend/tsconfig.json",
+      "summary": "Main TypeScript configuration for the frontend source code, enabling strict type checking, React JSX support, and modern module resolution.",
+      "complexity": "simple",
+      "tags": [
+        "config",
+        "typescript",
+        "compiler",
+        "frontend"
+      ],
+      "languageNotes": "Compiler options for source code type checking and transpilation targeting modern browsers."
+    },
+    {
+      "id": "config:frontend/tsconfig.node.json",
+      "type": "config",
+      "name": "tsconfig.node.json",
+      "filePath": "frontend/tsconfig.node.json",
+      "summary": "Specialized TypeScript configuration for build-time Node.js environments and Vite configuration files.",
+      "complexity": "simple",
+      "tags": [
+        "config",
+        "typescript",
+        "build-tooling",
+        "vite"
+      ],
+      "languageNotes": "Compiler options for build-time configuration files."
+    },
+    {
+      "id": "config:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Project-specific ignore patterns for the Knowledge Graph analysis, excluding noise files like node_modules and logs.",
+      "complexity": "simple",
+      "tags": [
+        "metadata",
+        "config",
+        "analysis"
+      ],
+      "languageNotes": "Custom ignore format based on .gitignore syntax."
+    },
+    {
+      "id": "config:backend/alembic.ini",
+      "type": "config",
+      "name": "alembic.ini",
+      "filePath": "backend/alembic.ini",
+      "summary": "Alembic configuration file for managing database migrations, specifying connection settings and logging.",
+      "complexity": "simple",
+      "tags": [
+        "database",
+        "migration",
+        "config"
+      ],
+      "languageNotes": "Standard INI configuration format."
+    },
+    {
+      "id": "file:backend/app/api/deps.py",
+      "type": "file",
+      "name": "deps.py",
+      "filePath": "backend/app/api/deps.py",
+      "summary": "API dependencies for FastAPI, providing database session and Redis client injection.",
+      "complexity": "simple",
+      "tags": [
+        "api",
+        "dependency-injection"
+      ],
+      "languageNotes": "Uses Python generators for resource management (yield)."
+    },
+    {
+      "id": "function:backend/app/api/deps.py:get_db",
+      "type": "function",
+      "name": "get_db",
+      "filePath": "backend/app/api/deps.py",
+      "summary": "Dependency that yields a database session and ensures it's closed after the request.",
+      "complexity": "simple",
+      "tags": [
+        "database",
+        "dependency"
+      ],
+      "languageNotes": "Yields Session from SQLAlchemy."
+    },
+    {
+      "id": "function:backend/app/api/deps.py:get_redis",
+      "type": "function",
+      "name": "get_redis",
+      "filePath": "backend/app/api/deps.py",
+      "summary": "Dependency that yields a Redis connection for caching or message queuing.",
+      "complexity": "simple",
+      "tags": [
+        "redis",
+        "dependency"
+      ],
+      "languageNotes": "Yields Redis client."
+    },
+    {
+      "id": "file:backend/app/api/v1/analytics.py",
+      "type": "file",
+      "name": "analytics.py",
+      "filePath": "backend/app/api/v1/analytics.py",
+      "summary": "API router for analytics endpoints, providing data for dashboards, funnels, and usage metrics.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "analytics",
+        "dashboard"
+      ],
+      "languageNotes": "FastAPI APIRouter with dependency injection."
+    },
+    {
+      "id": "endpoint:backend/app/api/v1/analytics.py:dashboard",
+      "type": "endpoint",
+      "name": "GET /analytics/dashboard",
+      "filePath": "backend/app/api/v1/analytics.py",
+      "summary": "Returns high-level statistics for the main dashboard.",
+      "complexity": "simple",
+      "tags": [
+        "api",
+        "analytics"
+      ],
+      "languageNotes": "Returns DashboardStats schema."
+    },
+    {
+      "id": "file:backend/app/api/v1/applications.py",
+      "type": "file",
+      "name": "applications.py",
+      "filePath": "backend/app/api/v1/applications.py",
+      "summary": "API router for managing job applications, including creation, listing, and status updates.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "applications"
+      ],
+      "languageNotes": "Implements CRUD operations for Application models."
+    },
+    {
+      "id": "file:backend/app/api/v1/jobs.py",
+      "type": "file",
+      "name": "jobs.py",
+      "filePath": "backend/app/api/v1/jobs.py",
+      "summary": "API router for job management, featuring job search, listing, and ATS analysis integration.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "jobs",
+        "search"
+      ],
+      "languageNotes": "Integrates job_service and ATS scoring."
+    },
+    {
+      "id": "file:backend/app/api/v1/resumes.py",
+      "type": "file",
+      "name": "resumes.py",
+      "filePath": "backend/app/api/v1/resumes.py",
+      "summary": "API router for resume operations: upload, parsing, scoring, optimization, and profile extraction.",
+      "complexity": "complex",
+      "tags": [
+        "api",
+        "resumes",
+        "parsing",
+        "nlp"
+      ],
+      "languageNotes": "Includes complex heuristic-based profile extraction logic."
+    },
+    {
+      "id": "function:backend/app/api/v1/resumes.py:extract_profile_from_resume",
+      "type": "function",
+      "name": "extract_profile_from_resume",
+      "filePath": "backend/app/api/v1/resumes.py",
+      "summary": "Heuristic-based extraction of candidate details (contact, skills, experience) from resume text.",
+      "complexity": "complex",
+      "tags": [
+        "nlp",
+        "heuristics",
+        "parsing"
+      ],
+      "languageNotes": "Uses regex and section markers to identify profile components."
+    },
+    {
+      "id": "file:backend/app/api/v1/router.py",
+      "type": "file",
+      "name": "router.py",
+      "filePath": "backend/app/api/v1/router.py",
+      "summary": "Main API v1 router that aggregates all sub-routers (analytics, applications, jobs, resumes, settings).",
+      "complexity": "simple",
+      "tags": [
+        "api",
+        "routing"
+      ],
+      "languageNotes": "Central hub for V1 API routes."
+    },
+    {
+      "id": "file:backend/app/api/v1/settings.py",
+      "type": "file",
+      "name": "settings.py",
+      "filePath": "backend/app/api/v1/settings.py",
+      "summary": "API router for user and application settings, including LLM provider management.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "settings",
+        "config"
+      ],
+      "languageNotes": "Manages UserSettings model persistence."
+    },
+    {
+      "id": "endpoint:backend/app/api/websocket/endpoint.py:websocket_endpoint",
+      "type": "endpoint",
+      "name": "WebSocket /ws",
+      "filePath": "backend/app/api/websocket/endpoint.py",
+      "summary": "Main WebSocket endpoint for real-time updates and notifications.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "websocket",
+        "real-time"
+      ],
+      "languageNotes": "Uses FastAPI WebSocket support with ConnectionManager."
+    },
+    {
+      "id": "class:backend/app/api/websocket/events.py:ConnectionManager",
+      "type": "class",
+      "name": "ConnectionManager",
+      "filePath": "backend/app/api/websocket/events.py",
+      "summary": "Manages active WebSocket connections, handling broadcasts and targeted messages.",
+      "complexity": "moderate",
+      "tags": [
+        "websocket",
+        "connection-management"
+      ],
+      "languageNotes": "Thread-safe list of active connections."
+    },
+    {
+      "id": "class:backend/app/config/constants.py:ApplicationStatus",
+      "type": "class",
+      "name": "ApplicationStatus",
+      "filePath": "backend/app/config/constants.py",
+      "summary": "Enumeration of possible states for a job application (Draft, Applied, Interview, etc.).",
+      "complexity": "simple",
+      "tags": [
+        "config",
+        "constants",
+        "domain"
+      ],
+      "languageNotes": "Inherits from Python Enum."
+    },
+    {
+      "id": "class:backend/app/config/settings.py:Settings",
+      "type": "class",
+      "name": "Settings",
+      "filePath": "backend/app/config/settings.py",
+      "summary": "Main configuration class for the backend, loading environment variables for DB, Redis, and external APIs.",
+      "complexity": "moderate",
+      "tags": [
+        "config",
+        "environment"
+      ],
+      "languageNotes": "Uses Pydantic BaseSettings for validation."
+    },
+    {
+      "id": "class:backend/app/core/ats/experience_analyzer.py:ExperienceAnalyzer",
+      "type": "class",
+      "name": "ExperienceAnalyzer",
+      "filePath": "backend/app/core/ats/experience_analyzer.py",
+      "summary": "Analyzes candidate experience against job descriptions, calculating seniority alignment and responsibility matching.",
+      "complexity": "complex",
+      "tags": [
+        "ats",
+        "nlp",
+        "experience-analysis"
+      ],
+      "languageNotes": "Uses weighted heuristics for seniority scoring."
+    },
+    {
+      "id": "class:backend/app/core/ats/keyword_analyzer.py:KeywordAnalyzer",
+      "type": "class",
+      "name": "KeywordAnalyzer",
+      "filePath": "backend/app/core/ats/keyword_analyzer.py",
+      "summary": "Performs keyword extraction and overlap analysis between resumes and job descriptions using TF-IDF and semantic similarity.",
+      "complexity": "complex",
+      "tags": [
+        "ats",
+        "nlp",
+        "keyword-matching"
+      ],
+      "languageNotes": "Integrates SpaCy for NLP tasks."
+    },
+    {
+      "id": "class:backend/app/core/ats/optimizer.py:ATSOptimizer",
+      "type": "class",
+      "name": "ATSOptimizer",
+      "filePath": "backend/app/core/ats/optimizer.py",
+      "summary": "Suggests resume improvements based on ATS analysis gaps and industry-standard keywords.",
+      "complexity": "moderate",
+      "tags": [
+        "ats",
+        "optimization",
+        "career-advice"
+      ],
+      "languageNotes": "Generates natural language suggestions for candidates."
+    },
+    {
+      "id": "class:backend/app/core/ats/scorer.py:ResumeScorer",
+      "type": "class",
+      "name": "ResumeScorer",
+      "filePath": "backend/app/core/ats/scorer.py",
+      "summary": "Orchestrates the full ATS scoring process, combining skill, experience, and keyword analysis into a final score.",
+      "complexity": "complex",
+      "tags": [
+        "ats",
+        "scoring",
+        "orchestration"
+      ],
+      "languageNotes": "Aggregates scores from multiple specialized analyzers."
+    },
+    {
+      "id": "class:backend/app/core/ats/skill_matcher.py:SkillMatcher",
+      "type": "class",
+      "name": "SkillMatcher",
+      "filePath": "backend/app/core/ats/skill_matcher.py",
+      "summary": "Handles skill normalization and fuzzy matching between candidate skills and job requirements.",
+      "complexity": "moderate",
+      "tags": [
+        "ats",
+        "skills",
+        "fuzzy-matching"
+      ],
+      "languageNotes": "Uses SequenceMatcher for string similarity."
+    },
+    {
+      "id": "file:backend/app/core/automation/__init__.py",
+      "type": "file",
+      "name": "automation/__init__.py",
+      "filePath": "backend/app/core/automation/__init__.py",
+      "summary": "Initialization file for the automation core module.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "automation"
+      ],
+      "languageNotes": "Standard Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/automation/agent.py",
+      "type": "file",
+      "name": "agent.py",
+      "filePath": "backend/app/core/automation/agent.py",
+      "summary": "Defines the BrowserAgent which wraps the browser-use package for AI-driven browser navigation and task execution.",
+      "complexity": "moderate",
+      "tags": [
+        "browser-automation",
+        "agent",
+        "ai",
+        "tested"
+      ],
+      "languageNotes": "Uses pydantic for model configuration and structlog for logging."
+    },
+    {
+      "id": "class:backend/app/core/automation/agent.py:BrowserAgent",
+      "type": "class",
+      "name": "BrowserAgent",
+      "filePath": "backend/app/core/automation/agent.py",
+      "summary": "A high-level agent that manages browser sessions and executes natural language tasks using an LLM.",
+      "complexity": "moderate",
+      "tags": [
+        "agent",
+        "browser-automation"
+      ],
+      "languageNotes": "Implements async context manager interface (__aenter__, __aexit__)."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/__init__.py",
+      "type": "file",
+      "name": "platforms/__init__.py",
+      "filePath": "backend/app/core/automation/platforms/__init__.py",
+      "summary": "Initialization for job platform integrations.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "platforms"
+      ],
+      "languageNotes": "Python package initializer for platforms."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/base.py",
+      "type": "file",
+      "name": "base.py",
+      "filePath": "backend/app/core/automation/platforms/base.py",
+      "summary": "Base classes and data models for job platform integrations, defining the standard interface for all job boards.",
+      "complexity": "simple",
+      "tags": [
+        "base-class",
+        "interface",
+        "data-model"
+      ],
+      "languageNotes": "Uses ABC for abstract base classes and Pydantic for data models."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/base.py:JobListing",
+      "type": "class",
+      "name": "JobListing",
+      "filePath": "backend/app/core/automation/platforms/base.py",
+      "summary": "A normalized data model representing a job listing from any platform.",
+      "complexity": "simple",
+      "tags": [
+        "data-model",
+        "pydantic"
+      ],
+      "languageNotes": "Frozen pydantic model for immutability."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "type": "class",
+      "name": "JobPlatform",
+      "filePath": "backend/app/core/automation/platforms/base.py",
+      "summary": "Abstract base class defining the required interface for job platform integrations (login, search, apply, etc.).",
+      "complexity": "simple",
+      "tags": [
+        "interface",
+        "abc"
+      ],
+      "languageNotes": "Uses @abstractmethod to enforce implementation in subclasses."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/glassdoor.py",
+      "type": "file",
+      "name": "glassdoor.py",
+      "filePath": "backend/app/core/automation/platforms/glassdoor.py",
+      "summary": "Glassdoor platform integration implementing login, job search, and application submission using BrowserAgent.",
+      "complexity": "complex",
+      "tags": [
+        "platform-integration",
+        "glassdoor",
+        "automation"
+      ],
+      "languageNotes": "Contains complex parsing logic for search results and job details."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/glassdoor.py:GlassdoorPlatform",
+      "type": "class",
+      "name": "GlassdoorPlatform",
+      "filePath": "backend/app/core/automation/platforms/glassdoor.py",
+      "summary": "Concrete implementation of JobPlatform for Glassdoor.",
+      "complexity": "complex",
+      "tags": [
+        "glassdoor",
+        "automation"
+      ],
+      "languageNotes": "Inherits from JobPlatform."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/indeed.py",
+      "type": "file",
+      "name": "indeed.py",
+      "filePath": "backend/app/core/automation/platforms/indeed.py",
+      "summary": "Indeed platform integration implementing login, job search, and application submission using BrowserAgent.",
+      "complexity": "complex",
+      "tags": [
+        "platform-integration",
+        "indeed",
+        "automation"
+      ],
+      "languageNotes": "Includes platform-specific URL handling and result parsing."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/indeed.py:IndeedPlatform",
+      "type": "class",
+      "name": "IndeedPlatform",
+      "filePath": "backend/app/core/automation/platforms/indeed.py",
+      "summary": "Concrete implementation of JobPlatform for Indeed.",
+      "complexity": "complex",
+      "tags": [
+        "indeed",
+        "automation"
+      ],
+      "languageNotes": "Inherits from JobPlatform."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/linkedin.py",
+      "type": "file",
+      "name": "linkedin.py",
+      "filePath": "backend/app/core/automation/platforms/linkedin.py",
+      "summary": "LinkedIn platform integration implementing login, job search, and application submission via 'Easy Apply' using BrowserAgent.",
+      "complexity": "complex",
+      "tags": [
+        "platform-integration",
+        "linkedin",
+        "automation"
+      ],
+      "languageNotes": "Focuses on 'Easy Apply' workflow automation."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/linkedin.py:LinkedInPlatform",
+      "type": "class",
+      "name": "LinkedInPlatform",
+      "filePath": "backend/app/core/automation/platforms/linkedin.py",
+      "summary": "Concrete implementation of JobPlatform for LinkedIn.",
+      "complexity": "complex",
+      "tags": [
+        "linkedin",
+        "automation"
+      ],
+      "languageNotes": "Inherits from JobPlatform."
+    },
+    {
+      "id": "file:backend/app/core/automation/platforms/registry.py",
+      "type": "file",
+      "name": "registry.py",
+      "filePath": "backend/app/core/automation/platforms/registry.py",
+      "summary": "Registry for managing and dynamically instantiating job platform plugins.",
+      "complexity": "simple",
+      "tags": [
+        "registry",
+        "plugin-management"
+      ],
+      "languageNotes": "Implements the Registry pattern for platform discovery."
+    },
+    {
+      "id": "class:backend/app/core/automation/platforms/registry.py:PlatformRegistry",
+      "type": "class",
+      "name": "PlatformRegistry",
+      "filePath": "backend/app/core/automation/platforms/registry.py",
+      "summary": "Manages a mapping of platform names to their respective classes and handles instantiation.",
+      "complexity": "simple",
+      "tags": [
+        "registry"
+      ],
+      "languageNotes": "Provides methods for registration and creation of platforms."
+    },
+    {
+      "id": "file:backend/app/core/automation/session_manager.py",
+      "type": "file",
+      "name": "session_manager.py",
+      "filePath": "backend/app/core/automation/session_manager.py",
+      "summary": "Handles persistence and management of browser session cookies for different platforms.",
+      "complexity": "moderate",
+      "tags": [
+        "session-management",
+        "cookies",
+        "persistence",
+        "tested"
+      ],
+      "languageNotes": "Uses JSON for cookie storage on disk."
+    },
+    {
+      "id": "class:backend/app/core/automation/session_manager.py:SessionManager",
+      "type": "class",
+      "name": "SessionManager",
+      "filePath": "backend/app/core/automation/session_manager.py",
+      "summary": "Saves, loads, and clears browser cookies to maintain persistent sessions.",
+      "complexity": "moderate",
+      "tags": [
+        "session-management"
+      ],
+      "languageNotes": "Asynchronous methods for disk I/O."
+    },
+    {
+      "id": "file:backend/app/core/db_resilience.py",
+      "type": "file",
+      "name": "db_resilience.py",
+      "filePath": "backend/app/core/db_resilience.py",
+      "summary": "Provides database resilience utilities like error mapping and retry logic with exponential backoff.",
+      "complexity": "moderate",
+      "tags": [
+        "database",
+        "resilience",
+        "retry",
+        "decorator",
+        "tested"
+      ],
+      "languageNotes": "Uses 'tenacity' for retry logic and 'wraps' for decorators."
+    },
+    {
+      "id": "function:backend/app/core/db_resilience.py:handle_db_errors",
+      "type": "function",
+      "name": "handle_db_errors",
+      "filePath": "backend/app/core/db_resilience.py",
+      "summary": "Decorator that maps SQLAlchemy exceptions to custom domain exceptions.",
+      "complexity": "moderate",
+      "tags": [
+        "decorator",
+        "exception-handling"
+      ],
+      "languageNotes": "Async-compatible decorator."
+    },
+    {
+      "id": "function:backend/app/core/db_resilience.py:with_retry",
+      "type": "function",
+      "name": "with_retry",
+      "filePath": "backend/app/core/db_resilience.py",
+      "summary": "Decorator factory for applying retry logic with exponential backoff to async database operations.",
+      "complexity": "moderate",
+      "tags": [
+        "decorator",
+        "retry",
+        "backoff"
+      ],
+      "languageNotes": "Configurable attempts and wait times."
+    },
+    {
+      "id": "file:backend/app/core/documents/__init__.py",
+      "type": "file",
+      "name": "documents/__init__.py",
+      "filePath": "backend/app/core/documents/__init__.py",
+      "summary": "Initialization file for the documents core module.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "documents"
+      ],
+      "languageNotes": "Standard Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/documents/docx_renderer.py",
+      "type": "file",
+      "name": "docx_renderer.py",
+      "filePath": "backend/app/core/documents/docx_renderer.py",
+      "summary": "Renders resumes and cover letters to DOCX format using python-docx, offloading blocking I/O to threads.",
+      "complexity": "moderate",
+      "tags": [
+        "document-generation",
+        "docx",
+        "renderer"
+      ],
+      "languageNotes": "Offloads blocking python-docx calls to thread executor."
+    },
+    {
+      "id": "class:backend/app/core/documents/docx_renderer.py:DOCXRenderer",
+      "type": "class",
+      "name": "DOCXRenderer",
+      "filePath": "backend/app/core/documents/docx_renderer.py",
+      "summary": "Class for generating ATS-friendly DOCX documents from structured data.",
+      "complexity": "moderate",
+      "tags": [
+        "docx",
+        "renderer"
+      ],
+      "languageNotes": "Handles font settings, headers, and section formatting."
+    },
+    {
+      "id": "file:backend/app/core/documents/generator.py",
+      "type": "file",
+      "name": "generator.py",
+      "filePath": "backend/app/core/documents/generator.py",
+      "summary": "Orchestrates the document generation process, including LLM-based tailoring and parallel rendering to multiple formats.",
+      "complexity": "complex",
+      "tags": [
+        "document-generation",
+        "orchestration",
+        "llm"
+      ],
+      "languageNotes": "Uses asyncio.gather for parallel rendering to PDF and DOCX."
+    },
+    {
+      "id": "class:backend/app/core/documents/generator.py:DocumentGenerator",
+      "type": "class",
+      "name": "DocumentGenerator",
+      "filePath": "backend/app/core/documents/generator.py",
+      "summary": "Main entry point for generating tailored resumes and cover letters.",
+      "complexity": "complex",
+      "tags": [
+        "orchestrator",
+        "document-generation"
+      ],
+      "languageNotes": "Coordinates between LLMClient, PDFRenderer, and DOCXRenderer."
+    },
+    {
+      "id": "file:backend/app/core/documents/parser.py",
+      "type": "file",
+      "name": "parser.py",
+      "filePath": "backend/app/core/documents/parser.py",
+      "summary": "Parses PDF and DOCX resumes to extract raw text, sections, contact info, and skills.",
+      "complexity": "moderate",
+      "tags": [
+        "document-parsing",
+        "resume-extraction",
+        "tested"
+      ],
+      "languageNotes": "Uses PyPDF2 and python-docx for extraction."
+    },
+    {
+      "id": "class:backend/app/core/documents/parser.py:DocumentParser",
+      "type": "class",
+      "name": "DocumentParser",
+      "filePath": "backend/app/core/documents/parser.py",
+      "summary": "Async parser that extracts structured information from resume files.",
+      "complexity": "moderate",
+      "tags": [
+        "parser"
+      ],
+      "languageNotes": "Implements regex-based section and contact info extraction."
+    },
+    {
+      "id": "file:backend/app/core/documents/pdf_renderer.py",
+      "type": "file",
+      "name": "pdf_renderer.py",
+      "filePath": "backend/app/core/documents/pdf_renderer.py",
+      "summary": "Renders Jinja2 HTML templates to PDF format using WeasyPrint.",
+      "complexity": "moderate",
+      "tags": [
+        "document-generation",
+        "pdf",
+        "weasyprint"
+      ],
+      "languageNotes": "Offloads WeasyPrint rendering to thread executor."
+    },
+    {
+      "id": "class:backend/app/core/documents/pdf_renderer.py:PDFRenderer",
+      "type": "class",
+      "name": "PDFRenderer",
+      "filePath": "backend/app/core/documents/pdf_renderer.py",
+      "summary": "Class for converting HTML templates or strings to PDF files.",
+      "complexity": "moderate",
+      "tags": [
+        "pdf",
+        "renderer"
+      ],
+      "languageNotes": "Integrates Jinja2 for template rendering."
+    },
+    {
+      "id": "file:backend/app/core/documents/templates/__init__.py",
+      "type": "file",
+      "name": "documents/templates/__init__.py",
+      "filePath": "backend/app/core/documents/templates/__init__.py",
+      "summary": "Initialization for document templates.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "templates"
+      ],
+      "languageNotes": "Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/documents/templates/styles/__init__.py",
+      "type": "file",
+      "name": "templates/styles/__init__.py",
+      "filePath": "backend/app/core/documents/templates/styles/__init__.py",
+      "summary": "Initialization for document styles.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "styles"
+      ],
+      "languageNotes": "Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/exceptions.py",
+      "type": "file",
+      "name": "exceptions.py",
+      "filePath": "backend/app/core/exceptions.py",
+      "summary": "Defines the custom exception hierarchy for the entire application.",
+      "complexity": "moderate",
+      "tags": [
+        "exception-handling",
+        "domain-logic",
+        "tested"
+      ],
+      "languageNotes": "Hierarchical structure based on AutoApplyError."
+    },
+    {
+      "id": "file:backend/app/core/job_discovery/__init__.py",
+      "type": "file",
+      "name": "job_discovery/__init__.py",
+      "filePath": "backend/app/core/job_discovery/__init__.py",
+      "summary": "Initialization for job discovery module.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "job-discovery"
+      ],
+      "languageNotes": "Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/job_discovery/exa_search.py",
+      "type": "file",
+      "name": "exa_search.py",
+      "filePath": "backend/app/core/job_discovery/exa_search.py",
+      "summary": "Semantic job search and company career page discovery using the Exa AI search API.",
+      "complexity": "moderate",
+      "tags": [
+        "job-discovery",
+        "exa",
+        "semantic-search"
+      ],
+      "languageNotes": "Uses exa-py for AI-powered web search."
+    },
+    {
+      "id": "class:backend/app/core/job_discovery/exa_search.py:ExaJobSearch",
+      "type": "class",
+      "name": "ExaJobSearch",
+      "filePath": "backend/app/core/job_discovery/exa_search.py",
+      "summary": "Encapsulates logic for searching jobs and company websites via Exa API.",
+      "complexity": "moderate",
+      "tags": [
+        "exa",
+        "job-search"
+      ],
+      "languageNotes": "Lazy-loads the Exa client."
+    },
+    {
+      "id": "file:backend/app/core/llm/__init__.py",
+      "type": "file",
+      "name": "llm/__init__.py",
+      "filePath": "backend/app/core/llm/__init__.py",
+      "summary": "Initialization for LLM core module.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "llm"
+      ],
+      "languageNotes": "Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/llm/client.py",
+      "type": "file",
+      "name": "client.py",
+      "filePath": "backend/app/core/llm/client.py",
+      "summary": "Unified LLM client wrapping LiteLLM with Portkey gateway support, fallback chains, and metrics recording.",
+      "complexity": "complex",
+      "tags": [
+        "llm",
+        "client",
+        "litellm",
+        "portkey",
+        "tested"
+      ],
+      "languageNotes": "Supports structured output via Pydantic model schemas."
+    },
+    {
+      "id": "class:backend/app/core/llm/client.py:LLMClient",
+      "type": "class",
+      "name": "LLMClient",
+      "filePath": "backend/app/core/llm/client.py",
+      "summary": "Client for making LLM requests with automatic provider fallback and cost tracking.",
+      "complexity": "complex",
+      "tags": [
+        "llm-client"
+      ],
+      "languageNotes": "Integrates with Prometheus metrics."
+    },
+    {
+      "id": "file:backend/app/core/llm/prompts/__init__.py",
+      "type": "file",
+      "name": "llm/prompts/__init__.py",
+      "filePath": "backend/app/core/llm/prompts/__init__.py",
+      "summary": "Initialization for LLM prompts module.",
+      "complexity": "simple",
+      "tags": [
+        "initialization",
+        "prompts"
+      ],
+      "languageNotes": "Python package initializer."
+    },
+    {
+      "id": "file:backend/app/core/llm/prompts/ats_optimize.py",
+      "type": "file",
+      "name": "ats_optimize.py",
+      "filePath": "backend/app/core/llm/prompts/ats_optimize.py",
+      "summary": "Prompt templates and rendering logic for LLM-powered ATS resume optimization.",
+      "complexity": "simple",
+      "tags": [
+        "llm-prompts",
+        "ats-optimization"
+      ],
+      "languageNotes": "Defines system and user prompts for resume rewriting."
+    },
+    {
+      "id": "file:backend/app/core/llm/prompts/cover_letter.py",
+      "type": "file",
+      "name": "cover_letter.py",
+      "filePath": "backend/app/core/llm/prompts/cover_letter.py",
+      "summary": "Templates and selection logic for generating various styles of cover letters using an LLM.",
+      "complexity": "moderate",
+      "tags": [
+        "llm-prompts",
+        "cover-letter"
+      ],
+      "languageNotes": "Defines multiple prompt styles (technical, creative, executive, etc.)."
+    },
+    {
+      "id": "file:backend/app/core/llm/prompts/resume_tailor.py",
+      "type": "file",
+      "name": "resume_tailor.py",
+      "filePath": "backend/app/core/llm/prompts/resume_tailor.py",
+      "summary": "LLM prompt templates and data schemas for tailoring resumes to specific job descriptions.",
+      "complexity": "simple",
+      "tags": [
+        "llm",
+        "prompts",
+        "resume"
+      ],
+      "languageNotes": "Uses Pydantic for data validation and template rendering."
+    },
+    {
+      "id": "function:backend/app/core/llm/prompts/resume_tailor.py:render_resume_tailor_prompt",
+      "type": "function",
+      "name": "render_resume_tailor_prompt",
+      "filePath": "backend/app/core/llm/prompts/resume_tailor.py",
+      "summary": "Renders a resume tailoring prompt with provided resume data and job description.",
+      "complexity": "simple",
+      "tags": [
+        "llm",
+        "prompts"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/core/llm/usage_tracker.py",
+      "type": "file",
+      "name": "usage_tracker.py",
+      "filePath": "backend/app/core/llm/usage_tracker.py",
+      "summary": "Utility for recording and tracking LLM token usage, costs, and latency.",
+      "complexity": "simple",
+      "tags": [
+        "llm",
+        "observability",
+        "metrics"
+      ],
+      "languageNotes": "Integrates with database to persist usage records."
+    },
+    {
+      "id": "file:backend/app/core/matching/vector_store.py",
+      "type": "file",
+      "name": "vector_store.py",
+      "filePath": "backend/app/core/matching/vector_store.py",
+      "summary": "Vector storage and similarity search implementation using FAISS and SentenceTransformers.",
+      "complexity": "complex",
+      "tags": [
+        "matching",
+        "vector-db",
+        "faiss",
+        "nlp",
+        "tested"
+      ],
+      "languageNotes": "Implements async-safe operations for vector indexing and search."
+    },
+    {
+      "id": "class:backend/app/core/matching/vector_store.py:VectorStore",
+      "type": "class",
+      "name": "VectorStore",
+      "filePath": "backend/app/core/matching/vector_store.py",
+      "summary": "A class for managing vector indices, encoding text, and performing similarity searches.",
+      "complexity": "complex",
+      "tags": [
+        "matching",
+        "faiss"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/db/redis.py",
+      "type": "file",
+      "name": "redis.py",
+      "filePath": "backend/app/db/redis.py",
+      "summary": "Redis connection pool management and availability checking utilities.",
+      "complexity": "moderate",
+      "tags": [
+        "db",
+        "redis",
+        "cache",
+        "tested"
+      ],
+      "languageNotes": "Uses redis-py's ConnectionPool for efficient resource management."
+    },
+    {
+      "id": "file:backend/app/db/session.py",
+      "type": "file",
+      "name": "session.py",
+      "filePath": "backend/app/db/session.py",
+      "summary": "SQLAlchemy async session management and database engine configuration.",
+      "complexity": "moderate",
+      "tags": [
+        "db",
+        "sqlalchemy",
+        "session"
+      ],
+      "languageNotes": "Provides a dependency for FastAPI endpoints to get a DB session."
+    },
+    {
+      "id": "file:backend/app/main.py",
+      "type": "file",
+      "name": "main.py",
+      "filePath": "backend/app/main.py",
+      "summary": "The main FastAPI application entry point, handling lifespan events and global configuration.",
+      "complexity": "moderate",
+      "tags": [
+        "api",
+        "entry-point",
+        "fastapi"
+      ],
+      "languageNotes": "Configures middleware, routers, and global exception handlers."
+    },
+    {
+      "id": "endpoint:backend/app/main.py:health_check",
+      "type": "endpoint",
+      "name": "/health",
+      "filePath": "backend/app/main.py",
+      "summary": "Health check endpoint for the backend service.",
+      "complexity": "simple",
+      "tags": [
+        "api",
+        "health"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/models/application.py",
+      "type": "file",
+      "name": "application.py",
+      "filePath": "backend/app/models/application.py",
+      "summary": "SQLAlchemy model for job applications, tracking status and related entities.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "application"
+      ],
+      "languageNotes": "Includes relationships to Job and Resume models."
+    },
+    {
+      "id": "file:backend/app/models/job.py",
+      "type": "file",
+      "name": "job.py",
+      "filePath": "backend/app/models/job.py",
+      "summary": "SQLAlchemy model for job postings, storing details like title, company, and salary.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "job"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/models/resume.py",
+      "type": "file",
+      "name": "resume.py",
+      "filePath": "backend/app/models/resume.py",
+      "summary": "SQLAlchemy model for resumes, including both base resumes and job-specific tailored versions.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "resume"
+      ],
+      "languageNotes": "Tracks ATS scores and file paths for PDF/DOCX versions."
+    },
+    {
+      "id": "file:backend/app/models/llm_usage.py",
+      "type": "file",
+      "name": "llm_usage.py",
+      "filePath": "backend/app/models/llm_usage.py",
+      "summary": "SQLAlchemy model for tracking LLM token usage, cost, and latency per request.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "llm",
+        "analytics"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/models/user_settings.py",
+      "type": "file",
+      "name": "user_settings.py",
+      "filePath": "backend/app/models/user_settings.py",
+      "summary": "SQLAlchemy model for user preferences and platform settings.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "settings"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/models/base.py",
+      "type": "file",
+      "name": "base.py",
+      "filePath": "backend/app/models/base.py",
+      "summary": "Base model and mixins for SQLAlchemy models, providing common fields like IDs and timestamps.",
+      "complexity": "simple",
+      "tags": [
+        "db",
+        "models",
+        "util"
+      ],
+      "languageNotes": "Uses UUIDs for primary keys and adds created_at/updated_at timestamps."
+    },
+    {
+      "id": "file:backend/app/observability/logging.py",
+      "type": "file",
+      "name": "logging.py",
+      "filePath": "backend/app/observability/logging.py",
+      "summary": "Structured logging configuration using structlog for the application.",
+      "complexity": "moderate",
+      "tags": [
+        "observability",
+        "logging",
+        "structlog",
+        "tested"
+      ],
+      "languageNotes": "Supports both console and JSON rendering based on environment."
+    },
+    {
+      "id": "file:backend/app/observability/tracing.py",
+      "type": "file",
+      "name": "tracing.py",
+      "filePath": "backend/app/observability/tracing.py",
+      "summary": "Utilities for trace ID management and LLM call recording.",
+      "complexity": "moderate",
+      "tags": [
+        "observability",
+        "tracing",
+        "tested"
+      ],
+      "languageNotes": "Uses contextvars to manage trace IDs across async tasks."
+    },
+    {
+      "id": "file:backend/app/schemas/analytics.py",
+      "type": "file",
+      "name": "analytics.py",
+      "filePath": "backend/app/schemas/analytics.py",
+      "summary": "Pydantic schemas for analytics and dashboard data visualization.",
+      "complexity": "simple",
+      "tags": [
+        "api",
+        "schemas",
+        "analytics"
+      ],
+      "languageNotes": "Defines structures for funnel charts, score distributions, and usage stats."
+    },
+    {
+      "id": "file:backend/app/db/migrations/env.py",
+      "type": "file",
+      "name": "env.py",
+      "filePath": "backend/app/db/migrations/env.py",
+      "summary": "Alembic environment configuration for database migrations.",
+      "complexity": "moderate",
+      "tags": [
+        "db",
+        "migrations",
+        "alembic"
+      ],
+      "languageNotes": "Supports both synchronous and asynchronous migration runs."
+    },
+    {
+      "id": "file:backend/app/schemas/application.py",
+      "type": "schema",
+      "name": "application.py",
+      "filePath": "backend/app/schemas/application.py",
+      "summary": "Pydantic schemas for job application requests and responses, including status enums and batch creation structures.",
+      "tags": [
+        "python",
+        "pydantic",
+        "schema",
+        "application"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/schemas/job.py",
+      "type": "schema",
+      "name": "job.py",
+      "filePath": "backend/app/schemas/job.py",
+      "summary": "Pydantic schemas for job search requests, listings, and ATS analysis responses.",
+      "tags": [
+        "python",
+        "pydantic",
+        "schema",
+        "job"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/schemas/resume.py",
+      "type": "schema",
+      "name": "resume.py",
+      "filePath": "backend/app/schemas/resume.py",
+      "summary": "Pydantic schemas for resume uploads, generation, scoring, and optimization requests.",
+      "tags": [
+        "python",
+        "pydantic",
+        "schema",
+        "resume"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/app/schemas/settings.py",
+      "type": "schema",
+      "name": "settings.py",
+      "filePath": "backend/app/schemas/settings.py",
+      "summary": "Pydantic schemas for user settings, candidate profiles (experience, education), and LLM provider status.",
+      "tags": [
+        "python",
+        "pydantic",
+        "schema",
+        "settings"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/app/services/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/app/services/__init__.py",
+      "summary": "Service layer entry point exporting analytics, application, job_search, queue, and resume services.",
+      "tags": [
+        "python",
+        "service",
+        "barrel"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/services/analytics.py",
+      "type": "service",
+      "name": "analytics.py",
+      "filePath": "backend/app/services/analytics.py",
+      "summary": "Service providing aggregated dashboard statistics, application funnel data, ATS score distribution, and LLM usage metrics.",
+      "tags": [
+        "python",
+        "service",
+        "analytics",
+        "sqlalchemy",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/app/services/application.py",
+      "type": "service",
+      "name": "application.py",
+      "filePath": "backend/app/services/application.py",
+      "summary": "Service for managing job application lifecycle, including creation, listing, approval, and status updates.",
+      "tags": [
+        "python",
+        "service",
+        "application",
+        "sqlalchemy",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/app/services/job_search.py",
+      "type": "service",
+      "name": "job_search.py",
+      "filePath": "backend/app/services/job_search.py",
+      "summary": "Orchestrates job searches across platforms (LinkedIn, Indeed, etc.) and handles ATS-based job analysis using spaCy.",
+      "tags": [
+        "python",
+        "service",
+        "job-search",
+        "scrapers",
+        "spacy",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/app/services/queue.py",
+      "type": "service",
+      "name": "queue.py",
+      "filePath": "backend/app/services/queue.py",
+      "summary": "Redis-based task queue service for asynchronous job processing (enqueue/dequeue).",
+      "tags": [
+        "python",
+        "service",
+        "queue",
+        "redis",
+        "tested"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/services/resume.py",
+      "type": "service",
+      "name": "resume.py",
+      "filePath": "backend/app/services/resume.py",
+      "summary": "Comprehensive service for resume management, including parsing, skill extraction, tailored generation, and ATS optimization.",
+      "tags": [
+        "python",
+        "service",
+        "resume",
+        "llm",
+        "parsing",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/app/workers/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "backend/app/workers/__init__.py",
+      "summary": "Worker layer entry point exporting application processing logic.",
+      "tags": [
+        "python",
+        "worker",
+        "barrel"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/app/workers/application_worker.py",
+      "type": "service",
+      "name": "application_worker.py",
+      "filePath": "backend/app/workers/application_worker.py",
+      "summary": "Background worker that consumes application tasks, runs ATS scoring, and submits applications via platform scrapers.",
+      "tags": [
+        "python",
+        "worker",
+        "automation",
+        "redis",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "table:backend/data/db/careerpilot.db:database",
+      "type": "table",
+      "name": "careerpilot.db",
+      "filePath": "backend/data/db/careerpilot.db",
+      "summary": "SQLite database file storing persistent application, job, and user data.",
+      "tags": [
+        "sqlite",
+        "data",
+        "storage"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:backend/pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "backend/pyproject.toml",
+      "summary": "Backend project configuration, dependency management, and tool settings (pytest, ruff, mypy).",
+      "tags": [
+        "toml",
+        "config",
+        "python",
+        "dependencies"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/tests/conftest.py",
+      "type": "file",
+      "name": "conftest.py",
+      "filePath": "backend/tests/conftest.py",
+      "summary": "Shared pytest fixtures for async database sessions, HTTP clients, and sample data.",
+      "tags": [
+        "python",
+        "test",
+        "fixtures",
+        "pytest"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/tests/e2e/test_full_pipeline.py",
+      "type": "file",
+      "name": "test_full_pipeline.py",
+      "filePath": "backend/tests/e2e/test_full_pipeline.py",
+      "summary": "End-to-end tests for the complete job search, application, and dashboard analytics pipeline.",
+      "tags": [
+        "python",
+        "test",
+        "e2e"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/tests/integration/test_analytics_api.py",
+      "type": "file",
+      "name": "test_analytics_api.py",
+      "filePath": "backend/tests/integration/test_analytics_api.py",
+      "summary": "Integration tests for dashboard, funnel, ATS score distribution, and LLM usage API endpoints.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "analytics"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/integration/test_applications_api.py",
+      "type": "file",
+      "name": "test_applications_api.py",
+      "filePath": "backend/tests/integration/test_applications_api.py",
+      "summary": "Integration tests for application creation, listing, approval, and status updates.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "application"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/tests/integration/test_error_handling.py",
+      "type": "file",
+      "name": "test_error_handling.py",
+      "filePath": "backend/tests/integration/test_error_handling.py",
+      "summary": "Integration tests verifying global exception handlers for 404, 401, 429, and 409 errors.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "exceptions"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/integration/test_health.py",
+      "type": "file",
+      "name": "test_health.py",
+      "filePath": "backend/tests/integration/test_health.py",
+      "summary": "Integration test for the health check endpoint.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "health"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:backend/tests/integration/test_jobs_api.py",
+      "type": "file",
+      "name": "test_jobs_api.py",
+      "filePath": "backend/tests/integration/test_jobs_api.py",
+      "summary": "Integration tests for job searching, listing, analysis, and deletion API routes.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "job"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:backend/tests/integration/test_resumes_api.py",
+      "type": "file",
+      "name": "test_resumes_api.py",
+      "filePath": "backend/tests/integration/test_resumes_api.py",
+      "summary": "Integration tests for resume upload, generation, scoring, and optimization API routes.",
+      "tags": [
+        "python",
+        "test",
+        "integration",
+        "resume"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/services/analytics.py:get_dashboard_stats",
+      "type": "function",
+      "name": "get_dashboard_stats",
+      "filePath": "backend/app/services/analytics.py",
+      "summary": "Computes top-level dashboard statistics including job counts, application status breakdown, and total LLM cost.",
+      "tags": [
+        "python",
+        "async",
+        "analytics"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:backend/app/services/job_search.py:search_jobs",
+      "type": "function",
+      "name": "search_jobs",
+      "filePath": "backend/app/services/job_search.py",
+      "summary": "Orchestrates job search across multiple platforms and handles duplicate checking and persistence.",
+      "tags": [
+        "python",
+        "async",
+        "job-search"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/app/services/resume.py:generate_tailored_resume",
+      "type": "function",
+      "name": "generate_tailored_resume",
+      "filePath": "backend/app/services/resume.py",
+      "summary": "Uses LLM to tailor a base resume for a specific job description and renders it to PDF/DOCX.",
+      "tags": [
+        "python",
+        "async",
+        "llm",
+        "resume-generation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:backend/app/workers/application_worker.py:process_application",
+      "type": "function",
+      "name": "process_application",
+      "filePath": "backend/app/workers/application_worker.py",
+      "summary": "Main pipeline for processing a queued application: loading, tailoring, scoring, and submission.",
+      "tags": [
+        "python",
+        "async",
+        "worker",
+        "pipeline"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:backend/tests/integration/test_settings_api.py",
+      "type": "file",
+      "name": "test_settings_api.py",
+      "filePath": "backend/tests/integration/test_settings_api.py",
+      "summary": "Integration tests for the settings API endpoints, covering retrieval, partial updates, and LLM provider listing.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "integration-test",
+        "python"
+      ],
+      "languageNotes": "Uses FastAPI TestClient for end-to-end API testing."
+    },
+    {
+      "id": "class:backend/tests/integration/test_settings_api.py:TestGetSettings",
+      "type": "class",
+      "name": "TestGetSettings",
+      "filePath": "backend/tests/integration/test_settings_api.py",
+      "summary": "Tests for fetching application settings.",
+      "complexity": "simple",
+      "tags": [
+        "test-suite"
+      ]
+    },
+    {
+      "id": "class:backend/tests/integration/test_settings_api.py:TestUpdateSettings",
+      "type": "class",
+      "name": "TestUpdateSettings",
+      "filePath": "backend/tests/integration/test_settings_api.py",
+      "summary": "Tests for updating application settings, including validation of ATS scores and platform toggles.",
+      "complexity": "simple",
+      "tags": [
+        "test-suite"
+      ]
+    },
+    {
+      "id": "class:backend/tests/integration/test_settings_api.py:TestListLLMProviders",
+      "type": "class",
+      "name": "TestListLLMProviders",
+      "filePath": "backend/tests/integration/test_settings_api.py",
+      "summary": "Tests for listing available LLM providers.",
+      "complexity": "simple",
+      "tags": [
+        "test-suite"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_analytics_service.py",
+      "type": "file",
+      "name": "test_analytics_service.py",
+      "filePath": "backend/tests/unit/test_analytics_service.py",
+      "summary": "Unit tests for the analytics service, verifying dashboard stats, funnel analysis, and ATS score distribution.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "class:backend/tests/unit/test_analytics_service.py:TestGetDashboardStats",
+      "type": "class",
+      "name": "TestGetDashboardStats",
+      "filePath": "backend/tests/unit/test_analytics_service.py",
+      "summary": "Tests for aggregate dashboard statistics calculation.",
+      "complexity": "simple",
+      "tags": [
+        "test-suite"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_application_service.py",
+      "type": "file",
+      "name": "test_application_service.py",
+      "filePath": "backend/tests/unit/test_application_service.py",
+      "summary": "Unit tests for the application service, covering lifecycle management from creation to status updates and batch processing.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_browser_agent.py",
+      "type": "file",
+      "name": "test_browser_agent.py",
+      "filePath": "backend/tests/unit/test_browser_agent.py",
+      "summary": "Unit tests for the BrowserAgent, focusing on initialization, context management, and error handling for automated browser tasks.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_cover_letter_prompts.py",
+      "type": "file",
+      "name": "test_cover_letter_prompts.py",
+      "filePath": "backend/tests/unit/test_cover_letter_prompts.py",
+      "summary": "Tests for cover letter template selection and prompt rendering logic based on job and candidate data.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_db_resilience.py",
+      "type": "file",
+      "name": "test_db_resilience.py",
+      "filePath": "backend/tests/unit/test_db_resilience.py",
+      "summary": "Tests for database resilience patterns, including error mapping and retry mechanisms for transient failures.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_document_parser.py",
+      "type": "file",
+      "name": "test_document_parser.py",
+      "filePath": "backend/tests/unit/test_document_parser.py",
+      "summary": "Comprehensive tests for the document parser, validating PDF/Docx extraction, contact info detection, and skill identification.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_exceptions.py",
+      "type": "file",
+      "name": "test_exceptions.py",
+      "filePath": "backend/tests/unit/test_exceptions.py",
+      "summary": "Unit tests for the custom exception hierarchy, ensuring proper categorization and inheritance across the application.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_experience_analyzer.py",
+      "type": "file",
+      "name": "test_experience_analyzer.py",
+      "filePath": "backend/tests/unit/test_experience_analyzer.py",
+      "summary": "Tests for candidate experience analysis, including years of experience extraction, seniority detection, and alignment scoring.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_job_service.py",
+      "type": "file",
+      "name": "test_job_service.py",
+      "filePath": "backend/tests/unit/test_job_service.py",
+      "summary": "Unit tests for job-related services, covering search across multiple platforms, listing, and analysis.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_keyword_analyzer.py",
+      "type": "file",
+      "name": "test_keyword_analyzer.py",
+      "filePath": "backend/tests/unit/test_keyword_analyzer.py",
+      "summary": "Tests for keyword-based matching, including TF-IDF overlap, semantic similarity using NLP, and domain detection.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_llm_client.py",
+      "type": "file",
+      "name": "test_llm_client.py",
+      "filePath": "backend/tests/unit/test_llm_client.py",
+      "summary": "Unit tests for the LLM client wrapper, validating completion success, provider fallbacks, and structured output parsing.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_llm_wiring.py",
+      "type": "file",
+      "name": "test_llm_wiring.py",
+      "filePath": "backend/tests/unit/test_llm_wiring.py",
+      "summary": "Integration-style unit tests for LLM wiring, focusing on model chains, cost tracking, and complex fallback scenarios.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_logging_config.py",
+      "type": "file",
+      "name": "test_logging_config.py",
+      "filePath": "backend/tests/unit/test_logging_config.py",
+      "summary": "Tests for the centralized logging configuration across different environments.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_models.py",
+      "type": "file",
+      "name": "test_models.py",
+      "filePath": "backend/tests/unit/test_models.py",
+      "summary": "Unit tests for SQLAlchemy models, ensuring correct table schema mapping and relationship persistence.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_optimizer.py",
+      "type": "file",
+      "name": "test_optimizer.py",
+      "filePath": "backend/tests/unit/test_optimizer.py",
+      "summary": "Tests for the ATS optimizer, verifying resume improvement suggestions and industry-specific keyword detection.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_platform_registry.py",
+      "type": "file",
+      "name": "test_platform_registry.py",
+      "filePath": "backend/tests/unit/test_platform_registry.py",
+      "summary": "Tests for the job platform registry, validating dynamic registration and instantiation of platform adapters.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_queue_service.py",
+      "type": "file",
+      "name": "test_queue_service.py",
+      "filePath": "backend/tests/unit/test_queue_service.py",
+      "summary": "Tests for the background task queue, ensuring correct enqueue/dequeue behavior and depth monitoring.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_redis.py",
+      "type": "file",
+      "name": "test_redis.py",
+      "filePath": "backend/tests/unit/test_redis.py",
+      "summary": "Unit tests for Redis connection management, pool initialization, and availability checks.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_resume_service.py",
+      "type": "file",
+      "name": "test_resume_service.py",
+      "filePath": "backend/tests/unit/test_resume_service.py",
+      "summary": "Unit tests for the resume service, covering tailored generation, scoring, and file uploads.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_schemas.py",
+      "type": "file",
+      "name": "test_schemas.py",
+      "filePath": "backend/tests/unit/test_schemas.py",
+      "summary": "Extensive tests for Pydantic schemas, validating data parsing, field constraints, and default values across the API.",
+      "complexity": "complex",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_scorer.py",
+      "type": "file",
+      "name": "test_scorer.py",
+      "filePath": "backend/tests/unit/test_scorer.py",
+      "summary": "Unit tests for the resume scorer, verifying weighted score calculations and alignment suggestions.",
+      "complexity": "moderate",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_session_manager.py",
+      "type": "file",
+      "name": "test_session_manager.py",
+      "filePath": "backend/tests/unit/test_session_manager.py",
+      "summary": "Tests for the session manager, ensuring persistent storage and retrieval of cookies for browser automation.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_settings.py",
+      "type": "file",
+      "name": "test_settings.py",
+      "filePath": "backend/tests/unit/test_settings.py",
+      "summary": "Unit tests for application settings configuration, validating environmental fallbacks and field clamping.",
+      "complexity": "simple",
+      "tags": [
+        "test",
+        "unit-test",
+        "python"
+      ]
+    },
+    {
+      "id": "file:backend/tests/unit/test_skill_matcher.py",
+      "type": "file",
+      "name": "test_skill_matcher.py",
+      "filePath": "backend/tests/unit/test_skill_matcher.py",
+      "summary": "Unit tests for the SkillMatcher component, covering skill extraction, normalization, and similarity matching.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "matching",
+        "python"
+      ],
+      "languageNotes": "Uses pytest and MagicMock for nlp mocking."
+    },
+    {
+      "id": "file:backend/tests/unit/test_tracing.py",
+      "type": "file",
+      "name": "test_tracing.py",
+      "filePath": "backend/tests/unit/test_tracing.py",
+      "summary": "Unit tests for observability tracing utilities, including trace ID management and LLM call recording.",
+      "complexity": "simple",
+      "tags": [
+        "unit-test",
+        "observability",
+        "tracing",
+        "python"
+      ],
+      "languageNotes": "Tests trace ID format and LLMCallRecord logging."
+    },
+    {
+      "id": "file:backend/tests/unit/test_vector_store.py",
+      "type": "file",
+      "name": "test_vector_store.py",
+      "filePath": "backend/tests/unit/test_vector_store.py",
+      "summary": "Unit tests for the VectorStore component, validating index creation, item addition, and similarity search functionality using FAISS.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "vector-store",
+        "faiss",
+        "python"
+      ],
+      "languageNotes": "Mocks numpy and faiss for isolated vector search testing."
+    },
+    {
+      "id": "file:backend/tests/unit/test_websocket_events.py",
+      "type": "file",
+      "name": "test_websocket_events.py",
+      "filePath": "backend/tests/unit/test_websocket_events.py",
+      "summary": "Unit tests for WebSocket event handling and connection management.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "websocket",
+        "python"
+      ],
+      "languageNotes": "Uses AsyncMock for testing asynchronous websocket communication."
+    },
+    {
+      "id": "file:backend/tests/unit/test_worker.py",
+      "type": "file",
+      "name": "test_worker.py",
+      "filePath": "backend/tests/unit/test_worker.py",
+      "summary": "Unit tests for the application processing worker, covering happy paths, error handling, and progress broadcasting.",
+      "complexity": "complex",
+      "tags": [
+        "unit-test",
+        "worker",
+        "automation",
+        "python"
+      ],
+      "languageNotes": "Extensively uses patch and AsyncMock to simulate job processing lifecycle."
+    },
+    {
+      "id": "file:data/db/.gitkeep",
+      "type": "file",
+      "name": ".gitkeep",
+      "filePath": "data/db/.gitkeep",
+      "summary": "Marker file to ensure the database directory is tracked by version control.",
+      "complexity": "simple",
+      "tags": [
+        "marker",
+        "data"
+      ],
+      "languageNotes": "Empty file."
+    },
+    {
+      "id": "file:data/logs/.gitkeep",
+      "type": "file",
+      "name": ".gitkeep",
+      "filePath": "data/logs/.gitkeep",
+      "summary": "Marker file for the logs directory.",
+      "complexity": "simple",
+      "tags": [
+        "marker",
+        "data"
+      ],
+      "languageNotes": "Empty file."
+    },
+    {
+      "id": "file:data/sessions/.gitkeep",
+      "type": "file",
+      "name": ".gitkeep",
+      "filePath": "data/sessions/.gitkeep",
+      "summary": "Marker file for the sessions directory.",
+      "complexity": "simple",
+      "tags": [
+        "marker",
+        "data"
+      ],
+      "languageNotes": "Empty file."
+    },
+    {
+      "id": "file:data/uploads/.gitkeep",
+      "type": "file",
+      "name": ".gitkeep",
+      "filePath": "data/uploads/.gitkeep",
+      "summary": "Marker file for the uploads directory.",
+      "complexity": "simple",
+      "tags": [
+        "marker",
+        "data"
+      ],
+      "languageNotes": "Empty file."
+    },
+    {
+      "id": "file:data/vector_indices/.gitkeep",
+      "type": "file",
+      "name": ".gitkeep",
+      "filePath": "data/vector_indices/.gitkeep",
+      "summary": "Marker file for the vector indices directory.",
+      "complexity": "simple",
+      "tags": [
+        "marker",
+        "data"
+      ],
+      "languageNotes": "Empty file."
+    },
+    {
+      "id": "service:docker/Dockerfile.backend",
+      "type": "service",
+      "name": "Dockerfile.backend",
+      "filePath": "docker/Dockerfile.backend",
+      "summary": "Dockerfile for the backend service, setting up the Python environment and dependencies.",
+      "complexity": "moderate",
+      "tags": [
+        "docker",
+        "backend",
+        "infrastructure"
+      ],
+      "languageNotes": "Multistage build for python backend."
+    },
+    {
+      "id": "service:docker/Dockerfile.frontend",
+      "type": "service",
+      "name": "Dockerfile.frontend",
+      "filePath": "docker/Dockerfile.frontend",
+      "summary": "Dockerfile for the frontend service, configuring the build and serving environment.",
+      "complexity": "simple",
+      "tags": [
+        "docker",
+        "frontend",
+        "infrastructure"
+      ],
+      "languageNotes": "Nginx-based frontend serving."
+    },
+    {
+      "id": "config:docker/nginx.conf",
+      "type": "config",
+      "name": "nginx.conf",
+      "filePath": "docker/nginx.conf",
+      "summary": "Nginx configuration file for serving the application and handling reverse proxying.",
+      "complexity": "moderate",
+      "tags": [
+        "nginx",
+        "config",
+        "infrastructure"
+      ],
+      "languageNotes": "Standard nginx configuration for SPA."
+    },
+    {
+      "id": "file:frontend/src/__tests__/components/ErrorBoundary.test.tsx",
+      "type": "file",
+      "name": "ErrorBoundary.test.tsx",
+      "filePath": "frontend/src/__tests__/components/ErrorBoundary.test.tsx",
+      "summary": "Unit tests for the ErrorBoundary component to ensure it correctly catches and displays errors.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "frontend",
+        "react",
+        "typescript"
+      ],
+      "languageNotes": "Uses Vitest and React Testing Library."
+    },
+    {
+      "id": "file:frontend/src/__tests__/components/JobCard.test.tsx",
+      "type": "file",
+      "name": "JobCard.test.tsx",
+      "filePath": "frontend/src/__tests__/components/JobCard.test.tsx",
+      "summary": "Unit tests for the JobCard component, verifying correct rendering of job details.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "frontend",
+        "react",
+        "typescript"
+      ],
+      "languageNotes": "Tests job detail rendering and status display."
+    },
+    {
+      "id": "file:frontend/src/__tests__/components/LoadingState.test.tsx",
+      "type": "file",
+      "name": "LoadingState.test.tsx",
+      "filePath": "frontend/src/__tests__/components/LoadingState.test.tsx",
+      "summary": "Unit tests for the LoadingState component.",
+      "complexity": "simple",
+      "tags": [
+        "unit-test",
+        "frontend",
+        "react",
+        "typescript"
+      ],
+      "languageNotes": "Simple snapshot-style tests."
+    },
+    {
+      "id": "file:frontend/src/__tests__/components/TemplateSelector.test.tsx",
+      "type": "file",
+      "name": "TemplateSelector.test.tsx",
+      "filePath": "frontend/src/__tests__/components/TemplateSelector.test.tsx",
+      "summary": "Unit tests for the TemplateSelector component, ensuring users can select resume templates.",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "frontend",
+        "react",
+        "typescript"
+      ],
+      "languageNotes": "Tests template selection and active state."
+    },
+    {
+      "id": "file:frontend/src/__tests__/mocks/handlers.ts",
+      "type": "file",
+      "name": "handlers.ts",
+      "filePath": "frontend/src/__tests__/mocks/handlers.ts",
+      "summary": "Mock API handlers for MSW (Mock Service Worker) used in frontend testing.",
+      "complexity": "complex",
+      "tags": [
+        "mock",
+        "msw",
+        "testing",
+        "typescript"
+      ],
+      "languageNotes": "Defines comprehensive REST API mocks for the entire application."
+    },
+    {
+      "id": "file:frontend/src/__tests__/mocks/server.ts",
+      "type": "file",
+      "name": "server.ts",
+      "filePath": "frontend/src/__tests__/mocks/server.ts",
+      "summary": "MSW server setup for frontend tests.",
+      "complexity": "simple",
+      "tags": [
+        "mock",
+        "msw",
+        "testing",
+        "typescript"
+      ],
+      "languageNotes": "Boilerplate for MSW server setup."
+    },
+    {
+      "id": "file:frontend/src/__tests__/store/useAppStore.test.ts",
+      "type": "file",
+      "name": "useAppStore.test.ts",
+      "filePath": "frontend/src/__tests__/store/useAppStore.test.ts",
+      "summary": "Unit tests for the global AppStore (Zustand).",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "store",
+        "zustand",
+        "typescript"
+      ],
+      "languageNotes": "Tests global state management for notifications."
+    },
+    {
+      "id": "file:frontend/src/__tests__/store/useJobStore.test.ts",
+      "type": "file",
+      "name": "useJobStore.test.ts",
+      "filePath": "frontend/src/__tests__/store/useJobStore.test.ts",
+      "summary": "Unit tests for the JobStore (Zustand).",
+      "complexity": "moderate",
+      "tags": [
+        "unit-test",
+        "store",
+        "zustand",
+        "typescript"
+      ],
+      "languageNotes": "Tests job search and filtering state."
+    },
+    {
+      "id": "file:frontend/src/App.tsx",
+      "type": "file",
+      "name": "App.tsx",
+      "filePath": "frontend/src/App.tsx",
+      "summary": "Main application component, defining the routing and core layout.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "main",
+        "frontend",
+        "typescript"
+      ],
+      "languageNotes": "Uses React Router for navigation."
+    },
+    {
+      "id": "file:frontend/src/components/applications/ApplicationCard.tsx",
+      "type": "file",
+      "name": "ApplicationCard.tsx",
+      "filePath": "frontend/src/components/applications/ApplicationCard.tsx",
+      "summary": "Component for displaying a summary of a job application's status and details.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "application",
+        "typescript"
+      ],
+      "languageNotes": "Uses Material UI for layout."
+    },
+    {
+      "id": "file:frontend/src/components/common/ErrorBoundary.tsx",
+      "type": "file",
+      "name": "ErrorBoundary.tsx",
+      "filePath": "frontend/src/components/common/ErrorBoundary.tsx",
+      "summary": "Error boundary component to catch and handle React rendering errors gracefully.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "error-handling",
+        "typescript",
+        "tested"
+      ],
+      "languageNotes": "Class component implementing componentDidCatch."
+    },
+    {
+      "id": "file:frontend/src/components/common/LoadingState.tsx",
+      "type": "file",
+      "name": "LoadingState.tsx",
+      "filePath": "frontend/src/components/common/LoadingState.tsx",
+      "summary": "A reusable loading spinner component.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "common",
+        "typescript",
+        "tested"
+      ],
+      "languageNotes": "Stateless functional component."
+    },
+    {
+      "id": "file:frontend/src/components/dashboard/ApplicationFunnel.tsx",
+      "type": "file",
+      "name": "ApplicationFunnel",
+      "filePath": "frontend/src/components/dashboard/ApplicationFunnel.tsx",
+      "summary": "A React component that visualizes the job application funnel using a bar chart. It displays the progression of applications through various stages such as Pending, Applied, and Interview, utilizing Recharts for visualization and Material UI for the container layout.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "dashboard",
+        "analytics",
+        "recharts",
+        "data-visualization"
+      ],
+      "languageNotes": "Handles loading states and provides default empty states for the funnel stages."
+    },
+    {
+      "id": "file:frontend/src/components/dashboard/StatsCards.tsx",
+      "type": "file",
+      "name": "StatsCards",
+      "filePath": "frontend/src/components/dashboard/StatsCards.tsx",
+      "summary": "A dashboard component that renders a responsive grid of metric cards. It displays key search statistics including total jobs found, application count, interview invitations, and the average ATS match score, with specific iconography and color-coding for each metric.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "dashboard",
+        "analytics",
+        "kpi",
+        "metrics"
+      ],
+      "languageNotes": "Uses a configuration-driven approach (STAT_ITEMS) for rendering metric cards consistently."
+    },
+    {
+      "id": "file:frontend/src/components/jobs/JobCard.tsx",
+      "type": "file",
+      "name": "JobCard",
+      "filePath": "frontend/src/components/jobs/JobCard.tsx",
+      "summary": "A reusable UI component for presenting job listing summaries. It displays the job title, company name, location, and match percentage score, along with metadata chips for platform, remote status, and salary range. It provides action buttons for viewing job details or initiating an application.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "job-search",
+        "ui",
+        "card",
+        "material-ui",
+        "tested"
+      ],
+      "languageNotes": "Features conditional rendering for the match score badge with color-coded success levels."
+    },
+    {
+      "id": "file:frontend/src/components/jobs/JobDetail.tsx",
+      "type": "file",
+      "name": "JobDetail.tsx",
+      "filePath": "frontend/src/components/jobs/JobDetail.tsx",
+      "summary": "A React component that displays detailed information about a job in a side drawer, including title, company, location, and match score.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "job-details",
+        "mui"
+      ],
+      "languageNotes": "Uses Material UI Drawer and various icons for layout."
+    },
+    {
+      "id": "function:frontend/src/components/jobs/JobDetail.tsx:JobDetail",
+      "type": "function",
+      "name": "JobDetail",
+      "filePath": "frontend/src/components/jobs/JobDetail.tsx",
+      "summary": "The main functional component for JobDetail, fetching data via useJob hook and rendering the drawer content.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Handles loading and error states for job data."
+    },
+    {
+      "id": "file:frontend/src/components/jobs/JobFilters.tsx",
+      "type": "file",
+      "name": "JobFilters.tsx",
+      "filePath": "frontend/src/components/jobs/JobFilters.tsx",
+      "summary": "React component providing search and filter controls for the job listing page.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "search",
+        "filters"
+      ],
+      "languageNotes": "Integrates with Zustand useJobStore for state management."
+    },
+    {
+      "id": "function:frontend/src/components/jobs/JobFilters.tsx:JobFilters",
+      "type": "function",
+      "name": "JobFilters",
+      "filePath": "frontend/src/components/jobs/JobFilters.tsx",
+      "summary": "Manages the UI state for job filters, including search query, platform selection, and location.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses Material UI Select, TextField, and Chip components."
+    },
+    {
+      "id": "file:frontend/src/components/layout/AppLayout.tsx",
+      "type": "file",
+      "name": "AppLayout.tsx",
+      "filePath": "frontend/src/components/layout/AppLayout.tsx",
+      "summary": "Root layout component that sets up the main application shell, including Header, Sidebar, and WebSocket connection.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "layout",
+        "shell"
+      ],
+      "languageNotes": "Initializes global WebSocket connection on mount."
+    },
+    {
+      "id": "function:frontend/src/components/layout/AppLayout.tsx:AppLayout",
+      "type": "function",
+      "name": "AppLayout",
+      "filePath": "frontend/src/components/layout/AppLayout.tsx",
+      "summary": "Functional component for the app layout, managing the main content area and persistent UI elements.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses useWebSocket hook for real-time updates."
+    },
+    {
+      "id": "file:frontend/src/components/layout/Header.tsx",
+      "type": "file",
+      "name": "Header.tsx",
+      "filePath": "frontend/src/components/layout/Header.tsx",
+      "summary": "Top navigation bar component for the application.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "header"
+      ],
+      "languageNotes": "Displays the application logo and sidebar toggle."
+    },
+    {
+      "id": "function:frontend/src/components/layout/Header.tsx:Header",
+      "type": "function",
+      "name": "Header",
+      "filePath": "frontend/src/components/layout/Header.tsx",
+      "summary": "Functional component for the Header, providing the AppBar and Toolbar.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Accesses useAppStore to toggle sidebar visibility."
+    },
+    {
+      "id": "file:frontend/src/components/layout/Sidebar.tsx",
+      "type": "file",
+      "name": "Sidebar.tsx",
+      "filePath": "frontend/src/components/layout/Sidebar.tsx",
+      "summary": "Side navigation drawer component containing links to different application sections.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "sidebar",
+        "navigation"
+      ],
+      "languageNotes": "Supports both desktop and mobile drawer variants."
+    },
+    {
+      "id": "function:frontend/src/components/layout/Sidebar.tsx:Sidebar",
+      "type": "function",
+      "name": "Sidebar",
+      "filePath": "frontend/src/components/layout/Sidebar.tsx",
+      "summary": "Functional component for the Sidebar, rendering navigation items based on the current route.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses react-router-dom useLocation and useNavigate."
+    },
+    {
+      "id": "file:frontend/src/components/resumes/ATSScoreCard.tsx",
+      "type": "file",
+      "name": "ATSScoreCard.tsx",
+      "filePath": "frontend/src/components/resumes/ATSScoreCard.tsx",
+      "summary": "Displays an ATS compatibility score along with skill gaps and improvement suggestions.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "ats",
+        "resume-analysis"
+      ],
+      "languageNotes": "Visualizes scores using progress bars and chips."
+    },
+    {
+      "id": "function:frontend/src/components/resumes/ATSScoreCard.tsx:ATSScoreCard",
+      "type": "function",
+      "name": "ATSScoreCard",
+      "filePath": "frontend/src/components/resumes/ATSScoreCard.tsx",
+      "summary": "Main component for rendering the ATS score summary and detailed feedback.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Parses the analysis result object to show missing skills."
+    },
+    {
+      "id": "file:frontend/src/components/resumes/ResumeUpload.tsx",
+      "type": "file",
+      "name": "ResumeUpload.tsx",
+      "filePath": "frontend/src/components/resumes/ResumeUpload.tsx",
+      "summary": "Component for uploading resume files with drag-and-drop support.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "upload",
+        "resume"
+      ],
+      "languageNotes": "Handles file selection, drag events, and upload progress."
+    },
+    {
+      "id": "function:frontend/src/components/resumes/ResumeUpload.tsx:ResumeUpload",
+      "type": "function",
+      "name": "ResumeUpload",
+      "filePath": "frontend/src/components/resumes/ResumeUpload.tsx",
+      "summary": "Functional component managing the resume upload workflow.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Integrates with useUploadResume hook for API calls."
+    },
+    {
+      "id": "file:frontend/src/components/resumes/TemplateSelector.tsx",
+      "type": "file",
+      "name": "TemplateSelector.tsx",
+      "filePath": "frontend/src/components/resumes/TemplateSelector.tsx",
+      "summary": "UI component for selecting from various resume templates.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "resume-template",
+        "tested"
+      ],
+      "languageNotes": "Renders a grid of template options with previews."
+    },
+    {
+      "id": "function:frontend/src/components/resumes/TemplateSelector.tsx:TemplateSelector",
+      "type": "function",
+      "name": "TemplateSelector",
+      "filePath": "frontend/src/components/resumes/TemplateSelector.tsx",
+      "summary": "Functional component for template selection, allowing users to choose a visual style.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Passes selected template ID back to parent via onSelect callback."
+    },
+    {
+      "id": "file:frontend/src/components/settings/CandidateProfileEditor.tsx",
+      "type": "file",
+      "name": "CandidateProfileEditor.tsx",
+      "filePath": "frontend/src/components/settings/CandidateProfileEditor.tsx",
+      "summary": "A comprehensive form for editing the candidate's personal profile, education, and experience.",
+      "complexity": "complex",
+      "tags": [
+        "react",
+        "component",
+        "profile",
+        "settings"
+      ],
+      "languageNotes": "Aggregates several sub-forms (EducationForm, ExperienceForm, SkillsEditor)."
+    },
+    {
+      "id": "function:frontend/src/components/settings/CandidateProfileEditor.tsx:CandidateProfileEditor",
+      "type": "function",
+      "name": "CandidateProfileEditor",
+      "filePath": "frontend/src/components/settings/CandidateProfileEditor.tsx",
+      "summary": "Main functional component for profile editing, managing complex nested form state.",
+      "complexity": "complex",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses local state to track form changes before saving."
+    },
+    {
+      "id": "file:frontend/src/components/settings/EducationForm.tsx",
+      "type": "file",
+      "name": "EducationForm.tsx",
+      "filePath": "frontend/src/components/settings/EducationForm.tsx",
+      "summary": "Dynamic form for managing multiple education entries in the candidate profile.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "form",
+        "education"
+      ],
+      "languageNotes": "Allows adding, editing, and removing education records."
+    },
+    {
+      "id": "function:frontend/src/components/settings/EducationForm.tsx:EducationForm",
+      "type": "function",
+      "name": "EducationForm",
+      "filePath": "frontend/src/components/settings/EducationForm.tsx",
+      "summary": "Functional component for education management, handling array-based state updates.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses MUI Card and TextField for each entry."
+    },
+    {
+      "id": "file:frontend/src/components/settings/ExperienceForm.tsx",
+      "type": "file",
+      "name": "ExperienceForm.tsx",
+      "filePath": "frontend/src/components/settings/ExperienceForm.tsx",
+      "summary": "Dynamic form for managing multiple work experience entries in the candidate profile.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "form",
+        "experience"
+      ],
+      "languageNotes": "Allows adding, editing, and removing work experience records."
+    },
+    {
+      "id": "function:frontend/src/components/settings/ExperienceForm.tsx:ExperienceForm",
+      "type": "function",
+      "name": "ExperienceForm",
+      "filePath": "frontend/src/components/settings/ExperienceForm.tsx",
+      "summary": "Functional component for experience management, handling array-based state updates.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Uses MUI Card and TextField for each entry."
+    },
+    {
+      "id": "file:frontend/src/components/settings/LLMProvidersCard.tsx",
+      "type": "file",
+      "name": "LLMProvidersCard.tsx",
+      "filePath": "frontend/src/components/settings/LLMProvidersCard.tsx",
+      "summary": "Displays a list of available and configured LLM providers for the application.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "component",
+        "llm",
+        "settings"
+      ],
+      "languageNotes": "Shows provider status and configuration details."
+    },
+    {
+      "id": "function:frontend/src/components/settings/LLMProvidersCard.tsx:LLMProvidersCard",
+      "type": "function",
+      "name": "LLMProvidersCard",
+      "filePath": "frontend/src/components/settings/LLMProvidersCard.tsx",
+      "summary": "Functional component for rendering LLM provider information.",
+      "complexity": "simple",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Displays provider names and active status."
+    },
+    {
+      "id": "file:frontend/src/components/settings/SkillsEditor.tsx",
+      "type": "file",
+      "name": "SkillsEditor.tsx",
+      "filePath": "frontend/src/components/settings/SkillsEditor.tsx",
+      "summary": "A tag-based editor for adding and removing skills from a list.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "component",
+        "skills",
+        "editor"
+      ],
+      "languageNotes": "Uses Material UI Chips to represent skills."
+    },
+    {
+      "id": "function:frontend/src/components/settings/SkillsEditor.tsx:SkillsEditor",
+      "type": "function",
+      "name": "SkillsEditor",
+      "filePath": "frontend/src/components/settings/SkillsEditor.tsx",
+      "summary": "Functional component for skill management, handling addition via input and removal via chip deletion.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "functional-component"
+      ],
+      "languageNotes": "Prevents duplicate skills and handles empty input."
+    },
+    {
+      "id": "file:frontend/src/hooks/useAnalytics.ts",
+      "type": "file",
+      "name": "useAnalytics.ts",
+      "filePath": "frontend/src/hooks/useAnalytics.ts",
+      "summary": "Custom hooks for fetching and managing application analytics data.",
+      "complexity": "moderate",
+      "tags": [
+        "react-query",
+        "hooks",
+        "analytics"
+      ],
+      "languageNotes": "Exposes hooks for dashboard stats, funnel, and LLM usage."
+    },
+    {
+      "id": "function:frontend/src/hooks/useAnalytics.ts:useDashboardStats",
+      "type": "function",
+      "name": "useDashboardStats",
+      "filePath": "frontend/src/hooks/useAnalytics.ts",
+      "summary": "Hook to fetch high-level dashboard metrics.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses analyticsService.getDashboardStats."
+    },
+    {
+      "id": "function:frontend/src/hooks/useAnalytics.ts:useApplicationFunnel",
+      "type": "function",
+      "name": "useApplicationFunnel",
+      "filePath": "frontend/src/hooks/useAnalytics.ts",
+      "summary": "Hook to fetch application funnel data.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses analyticsService.getApplicationFunnel."
+    },
+    {
+      "id": "function:frontend/src/hooks/useAnalytics.ts:useLLMUsage",
+      "type": "function",
+      "name": "useLLMUsage",
+      "filePath": "frontend/src/hooks/useAnalytics.ts",
+      "summary": "Hook to fetch LLM token usage and costs.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses analyticsService.getLLMUsage."
+    },
+    {
+      "id": "file:frontend/src/hooks/useApplications.ts",
+      "type": "file",
+      "name": "useApplications.ts",
+      "filePath": "frontend/src/hooks/useApplications.ts",
+      "summary": "Custom hooks for application-related CRUD operations and state transitions.",
+      "complexity": "moderate",
+      "tags": [
+        "react-query",
+        "hooks",
+        "applications"
+      ],
+      "languageNotes": "Includes hooks for listing, creating, and approving applications."
+    },
+    {
+      "id": "function:frontend/src/hooks/useApplications.ts:useApplications",
+      "type": "function",
+      "name": "useApplications",
+      "filePath": "frontend/src/hooks/useApplications.ts",
+      "summary": "Hook to list job applications with pagination and filtering.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses appService.listApplications."
+    },
+    {
+      "id": "function:frontend/src/hooks/useApplications.ts:useCreateApplication",
+      "type": "function",
+      "name": "useCreateApplication",
+      "filePath": "frontend/src/hooks/useApplications.ts",
+      "summary": "Mutation hook for creating a new job application.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "mutation"
+      ],
+      "languageNotes": "Invalidates applications query on success."
+    },
+    {
+      "id": "file:frontend/src/hooks/useJobs.ts",
+      "type": "file",
+      "name": "useJobs.ts",
+      "filePath": "frontend/src/hooks/useJobs.ts",
+      "summary": "Custom hooks for job-related operations, including listing, searching, and analyzing.",
+      "complexity": "moderate",
+      "tags": [
+        "react-query",
+        "hooks",
+        "jobs"
+      ],
+      "languageNotes": "Integrates with jobService for API interactions."
+    },
+    {
+      "id": "function:frontend/src/hooks/useJobs.ts:useJobs",
+      "type": "function",
+      "name": "useJobs",
+      "filePath": "frontend/src/hooks/useJobs.ts",
+      "summary": "Hook to fetch a paginated list of jobs.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses jobService.listJobs."
+    },
+    {
+      "id": "function:frontend/src/hooks/useJobs.ts:useJob",
+      "type": "function",
+      "name": "useJob",
+      "filePath": "frontend/src/hooks/useJobs.ts",
+      "summary": "Hook to fetch details for a specific job.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Enabled only if jobId is provided."
+    },
+    {
+      "id": "file:frontend/src/hooks/useResumes.ts",
+      "type": "file",
+      "name": "useResumes.ts",
+      "filePath": "frontend/src/hooks/useResumes.ts",
+      "summary": "Custom hooks for resume management, uploading, and optimization.",
+      "complexity": "moderate",
+      "tags": [
+        "react-query",
+        "hooks",
+        "resumes"
+      ],
+      "languageNotes": "Handles resume generation and ATS scoring."
+    },
+    {
+      "id": "function:frontend/src/hooks/useResumes.ts:useResumes",
+      "type": "function",
+      "name": "useResumes",
+      "filePath": "frontend/src/hooks/useResumes.ts",
+      "summary": "Hook to fetch the list of candidate resumes.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses resumeService.listResumes."
+    },
+    {
+      "id": "function:frontend/src/hooks/useResumes.ts:useUploadResume",
+      "type": "function",
+      "name": "useUploadResume",
+      "filePath": "frontend/src/hooks/useResumes.ts",
+      "summary": "Mutation hook for uploading a resume file.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "mutation"
+      ],
+      "languageNotes": "Invalidates resumes query on success."
+    },
+    {
+      "id": "file:frontend/src/hooks/useSettings.ts",
+      "type": "file",
+      "name": "useSettings.ts",
+      "filePath": "frontend/src/hooks/useSettings.ts",
+      "summary": "Custom hooks for fetching and updating user settings and LLM providers.",
+      "complexity": "simple",
+      "tags": [
+        "react-query",
+        "hooks",
+        "settings"
+      ],
+      "languageNotes": "Integrates with settingsService."
+    },
+    {
+      "id": "function:frontend/src/hooks/useSettings.ts:useSettings",
+      "type": "function",
+      "name": "useSettings",
+      "filePath": "frontend/src/hooks/useSettings.ts",
+      "summary": "Hook to fetch current user settings.",
+      "complexity": "simple",
+      "tags": [
+        "hook",
+        "react-query"
+      ],
+      "languageNotes": "Uses settingsService.getSettings."
+    },
+    {
+      "id": "file:frontend/src/hooks/useWebSocket.ts",
+      "type": "file",
+      "name": "useWebSocket.ts",
+      "filePath": "frontend/src/hooks/useWebSocket.ts",
+      "summary": "Custom hook for managing persistent WebSocket connections with auto-reconnect logic.",
+      "complexity": "moderate",
+      "tags": [
+        "react",
+        "hooks",
+        "websocket",
+        "real-time"
+      ],
+      "languageNotes": "Implements exponential backoff for reconnections."
+    },
+    {
+      "id": "function:frontend/src/hooks/useWebSocket.ts:useWebSocket",
+      "type": "function",
+      "name": "useWebSocket",
+      "filePath": "frontend/src/hooks/useWebSocket.ts",
+      "summary": "Main functional hook for WebSocket management, handling events and connection state.",
+      "complexity": "moderate",
+      "tags": [
+        "hook",
+        "websocket"
+      ],
+      "languageNotes": "Returns connection status, last message, and a send function."
+    },
+    {
+      "id": "file:frontend/src/main.tsx",
+      "type": "file",
+      "name": "main.tsx",
+      "filePath": "frontend/src/main.tsx",
+      "summary": "Application entry point that initializes React, QueryClient, and MUI theme provider.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "entry",
+        "react"
+      ],
+      "languageNotes": "Uses ReactDOM.createRoot for concurrent mode rendering."
+    },
+    {
+      "id": "file:frontend/src/pages/AnalyticsPage.tsx",
+      "type": "file",
+      "name": "AnalyticsPage.tsx",
+      "filePath": "frontend/src/pages/AnalyticsPage.tsx",
+      "summary": "Page component displaying job search analytics using Recharts for visual data representation.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "page",
+        "analytics",
+        "recharts"
+      ],
+      "languageNotes": "Integrates multiple data streams including LLM usage and ATS score distribution."
+    },
+    {
+      "id": "file:frontend/src/pages/ApplicationsPage.tsx",
+      "type": "file",
+      "name": "ApplicationsPage.tsx",
+      "filePath": "frontend/src/pages/ApplicationsPage.tsx",
+      "summary": "Page for tracking and managing job applications with status-based filtering and pagination.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "page",
+        "applications"
+      ],
+      "languageNotes": "Uses MUI Tabs for stage navigation."
+    },
+    {
+      "id": "file:frontend/src/pages/DashboardPage.tsx",
+      "type": "file",
+      "name": "DashboardPage.tsx",
+      "filePath": "frontend/src/pages/DashboardPage.tsx",
+      "summary": "Central overview page showing key statistics and recent application activity.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "page",
+        "dashboard"
+      ],
+      "languageNotes": "Combines stats cards and funnel charts for a quick pipeline overview."
+    },
+    {
+      "id": "file:frontend/src/pages/JobSearchPage.tsx",
+      "type": "file",
+      "name": "JobSearchPage.tsx",
+      "filePath": "frontend/src/pages/JobSearchPage.tsx",
+      "summary": "Job search interface allowing users to find listings across multiple platforms and apply.",
+      "complexity": "complex",
+      "tags": [
+        "frontend",
+        "page",
+        "search"
+      ],
+      "languageNotes": "Manages complex state for filters, search results, and job details."
+    },
+    {
+      "id": "file:frontend/src/pages/ResumesPage.tsx",
+      "type": "file",
+      "name": "ResumesPage.tsx",
+      "filePath": "frontend/src/pages/ResumesPage.tsx",
+      "summary": "Resume management page for uploading, template selection, and ATS score tracking.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "page",
+        "resumes"
+      ],
+      "languageNotes": "Provides download links for generated PDF and DOCX formats."
+    },
+    {
+      "id": "file:frontend/src/pages/SettingsPage.tsx",
+      "type": "file",
+      "name": "SettingsPage.tsx",
+      "filePath": "frontend/src/pages/SettingsPage.tsx",
+      "summary": "Comprehensive settings page for configuring automation preferences, LLM providers, and candidate profile.",
+      "complexity": "complex",
+      "tags": [
+        "frontend",
+        "page",
+        "settings"
+      ],
+      "languageNotes": "Implements real-time updates for sliders and switches via Mutation hooks."
+    },
+    {
+      "id": "file:frontend/src/services/analyticsService.ts",
+      "type": "file",
+      "name": "analyticsService.ts",
+      "filePath": "frontend/src/services/analyticsService.ts",
+      "summary": "API service for fetching dashboard statistics, funnel data, and usage metrics.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "service",
+        "analytics"
+      ],
+      "languageNotes": "Exposes async functions mapping to backend analytics endpoints."
+    },
+    {
+      "id": "file:frontend/src/services/api.ts",
+      "type": "file",
+      "name": "api.ts",
+      "filePath": "frontend/src/services/api.ts",
+      "summary": "Centralized Axios configuration with trace ID injection and error normalization.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "service",
+        "api",
+        "axios"
+      ],
+      "languageNotes": "Includes interceptors for request tracing and consistent error response handling."
+    },
+    {
+      "id": "file:frontend/src/services/applicationService.ts",
+      "type": "file",
+      "name": "applicationService.ts",
+      "filePath": "frontend/src/services/applicationService.ts",
+      "summary": "Service for CRUD operations and status updates on job applications.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "service",
+        "applications"
+      ],
+      "languageNotes": "Handles both single and batch creation of applications."
+    },
+    {
+      "id": "file:frontend/src/services/jobService.ts",
+      "type": "file",
+      "name": "jobService.ts",
+      "filePath": "frontend/src/services/jobService.ts",
+      "summary": "Service for job searching, listing, and match analysis.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "service",
+        "jobs"
+      ],
+      "languageNotes": "Interacts with multi-platform search and job analysis endpoints."
+    },
+    {
+      "id": "file:frontend/src/services/resumeService.ts",
+      "type": "file",
+      "name": "resumeService.ts",
+      "filePath": "frontend/src/services/resumeService.ts",
+      "summary": "Service for resume uploads, tailoring, scoring, and optimization.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "service",
+        "resumes"
+      ],
+      "languageNotes": "Uses multipart/form-data for file uploads."
+    },
+    {
+      "id": "file:frontend/src/services/settingsService.ts",
+      "type": "file",
+      "name": "settingsService.ts",
+      "filePath": "frontend/src/services/settingsService.ts",
+      "summary": "Service for managing user preferences and LLM provider status.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "service",
+        "settings"
+      ],
+      "languageNotes": "Fetches and updates global configuration settings."
+    },
+    {
+      "id": "file:frontend/src/setupTests.ts",
+      "type": "file",
+      "name": "setupTests.ts",
+      "filePath": "frontend/src/setupTests.ts",
+      "summary": "Vitest/Jest-dom test environment configuration.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "test",
+        "config"
+      ],
+      "languageNotes": "Extends expect with jest-dom matchers."
+    },
+    {
+      "id": "file:frontend/src/store/useAppStore.ts",
+      "type": "file",
+      "name": "useAppStore.ts",
+      "filePath": "frontend/src/store/useAppStore.ts",
+      "summary": "Global application state using Zustand for UI notifications, sidebar status, and connectivity.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "state",
+        "zustand",
+        "tested"
+      ],
+      "languageNotes": "Implements a simple notification system with auto-generated UUIDs."
+    },
+    {
+      "id": "file:frontend/src/store/useJobStore.ts",
+      "type": "file",
+      "name": "useJobStore.ts",
+      "filePath": "frontend/src/store/useJobStore.ts",
+      "summary": "Specialized state store for job search filters and selection state.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "state",
+        "zustand",
+        "jobs",
+        "tested"
+      ],
+      "languageNotes": "Synchronizes search queries and platform filters across the UI."
+    },
+    {
+      "id": "file:frontend/src/theme.ts",
+      "type": "file",
+      "name": "theme.ts",
+      "filePath": "frontend/src/theme.ts",
+      "summary": "Material UI theme definition for CareerPilot's visual design system.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "ui",
+        "mui",
+        "theme"
+      ],
+      "languageNotes": "Customizes component overrides for Cards, Buttons, and Chips to match project style."
+    },
+    {
+      "id": "file:frontend/src/types/analytics.ts",
+      "type": "file",
+      "name": "analytics.ts",
+      "filePath": "frontend/src/types/analytics.ts",
+      "summary": "TypeScript interfaces for analytics data models and dashboard stats.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "analytics"
+      ],
+      "languageNotes": "Defines structures for funnel stages and LLM usage metrics."
+    },
+    {
+      "id": "file:frontend/src/types/api.ts",
+      "type": "file",
+      "name": "api.ts",
+      "filePath": "frontend/src/types/api.ts",
+      "summary": "Common API response and error types.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "api"
+      ],
+      "languageNotes": "Provides a generic PaginatedResponse wrapper used across all services."
+    },
+    {
+      "id": "file:frontend/src/types/application.ts",
+      "type": "file",
+      "name": "application.ts",
+      "filePath": "frontend/src/types/application.ts",
+      "summary": "TypeScript interfaces for application records and requests.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "applications"
+      ],
+      "languageNotes": "Mirrors backend ApplicationResponse Pydantic schema."
+    },
+    {
+      "id": "file:frontend/src/types/job.ts",
+      "type": "file",
+      "name": "job.ts",
+      "filePath": "frontend/src/types/job.ts",
+      "summary": "TypeScript interfaces for job listings and search requests.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "jobs"
+      ],
+      "languageNotes": "Defines JobListingResponse and JobAnalysisResponse shapes."
+    },
+    {
+      "id": "file:frontend/src/types/resume.ts",
+      "type": "file",
+      "name": "resume.ts",
+      "filePath": "frontend/src/types/resume.ts",
+      "summary": "TypeScript interfaces for resume records, scores, and tailoring requests.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "resumes"
+      ],
+      "languageNotes": "Includes breakdown for ATS score components."
+    },
+    {
+      "id": "file:frontend/src/types/settings.ts",
+      "type": "file",
+      "name": "settings.ts",
+      "filePath": "frontend/src/types/settings.ts",
+      "summary": "TypeScript interfaces for user settings and candidate profile details.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "types",
+        "settings"
+      ],
+      "languageNotes": "Defines detailed CandidateProfile including experience and education."
+    },
+    {
+      "id": "file:frontend/src/vite-env.d.ts",
+      "type": "file",
+      "name": "vite-env.d.ts",
+      "filePath": "frontend/src/vite-env.d.ts",
+      "summary": "Vite environment variable type definitions.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "config",
+        "typescript"
+      ],
+      "languageNotes": "Extends ImportMetaEnv with custom VITE_* variables."
+    },
+    {
+      "id": "config:frontend/vite.config.ts",
+      "type": "config",
+      "name": "vite.config.ts",
+      "filePath": "frontend/vite.config.ts",
+      "summary": "Vite build configuration including aliases, proxy settings, and test runner setup.",
+      "complexity": "moderate",
+      "tags": [
+        "frontend",
+        "config",
+        "vite"
+      ],
+      "languageNotes": "Configures development proxy for API and WebSocket connections."
+    },
+    {
+      "id": "file:templates/cover_letter/creative/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/cover_letter/creative/style.css",
+      "summary": "CSS styles for the creative cover letter template featuring gradients and modern typography.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Uses CSS gradients and flexbox for layout accents."
+    },
+    {
+      "id": "file:templates/cover_letter/creative/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/cover_letter/creative/template.html",
+      "summary": "HTML structure for the creative cover letter template.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Uses Jinja-like placeholders for dynamic content injection."
+    },
+    {
+      "id": "file:templates/cover_letter/standard/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/cover_letter/standard/style.css",
+      "summary": "Professional and clean CSS for the standard cover letter template.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Focuses on readability and standard business formatting."
+    },
+    {
+      "id": "file:templates/cover_letter/standard/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/cover_letter/standard/template.html",
+      "summary": "HTML structure for the standard cover letter template.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Traditional layout for professional correspondence."
+    },
+    {
+      "id": "file:templates/cover_letter/technical/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/cover_letter/technical/style.css",
+      "summary": "Structured CSS for the technical cover letter template, optimized for clarity and information density.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Uses monospace accents for technical keywords."
+    },
+    {
+      "id": "file:templates/cover_letter/technical/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/cover_letter/technical/template.html",
+      "summary": "HTML structure for the technical cover letter template.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Direct and concise layout for engineering roles."
+    },
+    {
+      "id": "file:templates/resume/classic/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/resume/classic/style.css",
+      "summary": "CSS for a traditional, single-column resume layout.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Classic serif-focused typography and conservative spacing."
+    },
+    {
+      "id": "file:templates/resume/classic/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/resume/classic/template.html",
+      "summary": "HTML structure for the classic resume template.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Supports iterative rendering of experience and education blocks."
+    },
+    {
+      "id": "file:templates/resume/creative/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/resume/creative/style.css",
+      "summary": "CSS for a visually striking, multi-column creative resume.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Implements a sidebar layout with decorative accents."
+    },
+    {
+      "id": "file:templates/resume/creative/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/resume/creative/template.html",
+      "summary": "HTML structure for the creative resume template.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Organized into main and sidebar sections."
+    },
+    {
+      "id": "file:templates/resume/executive/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/resume/executive/style.css",
+      "summary": "High-end CSS for an executive resume layout, emphasizing leadership and achievements.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Polished, spacious layout with premium typography."
+    },
+    {
+      "id": "file:templates/resume/executive/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/resume/executive/template.html",
+      "summary": "HTML structure for the executive resume template.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Optimized for highlighting core competencies and career summaries."
+    },
+    {
+      "id": "file:templates/resume/minimal/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/resume/minimal/style.css",
+      "summary": "Ultra-clean CSS for a minimalist resume focused on content efficiency.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Uses whitespace and simple lines for structure."
+    },
+    {
+      "id": "file:templates/resume/minimal/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/resume/minimal/template.html",
+      "summary": "HTML structure for the minimalist resume template.",
+      "complexity": "simple",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Stripped-down layout for maximum readability."
+    },
+    {
+      "id": "file:templates/resume/modern/style.css",
+      "type": "file",
+      "name": "style.css",
+      "filePath": "templates/resume/modern/style.css",
+      "summary": "Modern CSS for a contemporary resume with progress bars and grid layouts.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "css",
+        "template"
+      ],
+      "languageNotes": "Features graphical skill representation and clean sans-serif fonts."
+    },
+    {
+      "id": "file:templates/resume/modern/template.html",
+      "type": "file",
+      "name": "template.html",
+      "filePath": "templates/resume/modern/template.html",
+      "summary": "HTML structure for the modern resume template.",
+      "complexity": "moderate",
+      "tags": [
+        "markup",
+        "html",
+        "template"
+      ],
+      "languageNotes": "Includes placeholders for skill proficiency and project highlights."
+    },
+    {
+      "id": "function:frontend/src/services/api.ts:api",
+      "type": "function",
+      "name": "api",
+      "filePath": "frontend/src/services/api.ts",
+      "summary": "Exported Axios instance configured for API requests.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "api",
+        "axios"
+      ],
+      "languageNotes": "Used as the base for all domain-specific services."
+    },
+    {
+      "id": "function:frontend/src/store/useAppStore.ts:useAppStore",
+      "type": "function",
+      "name": "useAppStore",
+      "filePath": "frontend/src/store/useAppStore.ts",
+      "summary": "Zustand hook for global application state.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "state",
+        "zustand"
+      ],
+      "languageNotes": "Manages UI feedback and connectivity status."
+    },
+    {
+      "id": "function:frontend/src/store/useJobStore.ts:useJobStore",
+      "type": "function",
+      "name": "useJobStore",
+      "filePath": "frontend/src/store/useJobStore.ts",
+      "summary": "Zustand hook for job search state.",
+      "complexity": "simple",
+      "tags": [
+        "frontend",
+        "state",
+        "zustand"
+      ],
+      "languageNotes": "Maintains search parameters and selection state."
+    },
+    {
+      "id": "file:backend/app/core/ats/skill_matcher.py",
+      "type": "file",
+      "name": "skill_matcher.py",
+      "filePath": "backend/app/core/ats/skill_matcher.py",
+      "summary": "Core logic for matching candidate skills with job requirements using various algorithms.",
+      "complexity": "moderate",
+      "tags": [
+        "python",
+        "ats",
+        "skill-matching"
+      ],
+      "languageNotes": "en"
+    },
+    {
+      "id": "file:backend/app/api/websocket/events.py",
+      "type": "file",
+      "name": "events.py",
+      "filePath": "backend/app/api/websocket/events.py",
+      "summary": "WebSocket event handlers for real-time updates on application status and processing.",
+      "complexity": "moderate",
+      "tags": [
+        "python",
+        "websocket",
+        "events"
+      ],
+      "languageNotes": "en"
+    }
+  ],
+  "edges": [
+    {
+      "source": "service:docker-compose.dev.yml",
+      "target": "service:docker-compose.yml",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Extends and overrides the base Docker Compose configuration for development workflows.",
+      "direction": "forward"
+    },
+    {
+      "source": "document:CLAUDE.md",
+      "target": "service:docker-compose.yml",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "Provides instructions on how to use Docker Compose to start the application.",
+      "direction": "forward"
+    },
+    {
+      "source": "document:CLAUDE.md",
+      "target": "config:pyproject.toml",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "References linting and formatting tools configured within the Python project settings.",
+      "direction": "forward"
+    },
+    {
+      "source": "service:docker-compose.yml",
+      "target": "config:.dockerignore",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Filters the build context used by services defined in the compose file.",
+      "direction": "forward"
+    },
+    {
+      "source": "service:docker-compose.yml",
+      "target": "config:.env.example",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Relies on environment variables defined in the .env template for service configuration.",
+      "direction": "forward"
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "config:.env.example",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Includes python-dotenv for managing environment variables defined in the template.",
+      "direction": "forward"
+    },
+    {
+      "source": "document:CLAUDE.md",
+      "target": "document:README.md",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "Acts as an internal developer guide that expands upon the project's primary README.",
+      "direction": "forward"
+    },
+    {
+      "source": "service:docker-compose.yml",
+      "target": "config:pyproject.toml",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Installs the Python dependencies and tools specified in the project configuration.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/index.html",
+      "target": "file:frontend/src/main.tsx",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Loads the main application entry point",
+      "direction": "forward"
+    },
+    {
+      "source": "config:frontend/tsconfig.json",
+      "target": "config:frontend/tsconfig.node.json",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "References specialized Node.js configuration",
+      "direction": "forward"
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "config:frontend/tsconfig.json",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Defines build scripts utilizing the TypeScript configuration",
+      "direction": "forward"
+    },
+    {
+      "source": "config:frontend/package.json",
+      "target": "file:frontend/index.html",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Specifies the entry point for the frontend build process",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/deps.py",
+      "target": "function:backend/app/api/deps.py:get_db",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the database session dependency.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/deps.py",
+      "target": "function:backend/app/api/deps.py:get_redis",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the Redis connection dependency.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/analytics.py",
+      "target": "endpoint:backend/app/api/v1/analytics.py:dashboard",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Implements the dashboard statistics endpoint.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/resumes.py",
+      "target": "function:backend/app/api/v1/resumes.py:extract_profile_from_resume",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains internal logic for candidate profile extraction.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/router.py",
+      "target": "file:backend/app/api/v1/analytics.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Includes analytics routes.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/router.py",
+      "target": "file:backend/app/api/v1/applications.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Includes application management routes.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/router.py",
+      "target": "file:backend/app/api/v1/jobs.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Includes job search routes.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/router.py",
+      "target": "file:backend/app/api/v1/resumes.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Includes resume processing routes.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/api/v1/router.py",
+      "target": "file:backend/app/api/v1/settings.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Includes settings management routes.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/ats/scorer.py:ResumeScorer",
+      "target": "class:backend/app/core/ats/experience_analyzer.py:ExperienceAnalyzer",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Uses experience analyzer for score calculation.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/ats/scorer.py:ResumeScorer",
+      "target": "class:backend/app/core/ats/keyword_analyzer.py:KeywordAnalyzer",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Uses keyword analyzer for score calculation.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/ats/scorer.py:ResumeScorer",
+      "target": "class:backend/app/core/ats/skill_matcher.py:SkillMatcher",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Uses skill matcher for score calculation.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/ats/optimizer.py:ATSOptimizer",
+      "target": "class:backend/app/core/ats/skill_matcher.py:SkillMatcher",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Uses skill matcher to find similar skills for suggestions.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/agent.py:BrowserAgent",
+      "target": "file:backend/app/core/automation/agent.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The BrowserAgent class is defined in agent.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/base.py:JobListing",
+      "target": "file:backend/app/core/automation/platforms/base.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The JobListing data model is defined in base.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "target": "file:backend/app/core/automation/platforms/base.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The JobPlatform abstract base class is defined in base.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/glassdoor.py:GlassdoorPlatform",
+      "target": "file:backend/app/core/automation/platforms/glassdoor.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The GlassdoorPlatform class is defined in glassdoor.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/glassdoor.py:GlassdoorPlatform",
+      "target": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "GlassdoorPlatform implements the JobPlatform interface.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/indeed.py:IndeedPlatform",
+      "target": "file:backend/app/core/automation/platforms/indeed.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The IndeedPlatform class is defined in indeed.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/indeed.py:IndeedPlatform",
+      "target": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "IndeedPlatform implements the JobPlatform interface.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/linkedin.py:LinkedInPlatform",
+      "target": "file:backend/app/core/automation/platforms/linkedin.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The LinkedInPlatform class is defined in linkedin.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/linkedin.py:LinkedInPlatform",
+      "target": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "LinkedInPlatform implements the JobPlatform interface.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/platforms/registry.py:PlatformRegistry",
+      "target": "file:backend/app/core/automation/platforms/registry.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The PlatformRegistry class is defined in registry.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/session_manager.py:SessionManager",
+      "target": "file:backend/app/core/automation/session_manager.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The SessionManager class is defined in session_manager.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:backend/app/core/db_resilience.py:handle_db_errors",
+      "target": "file:backend/app/core/db_resilience.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The handle_db_errors decorator is defined in db_resilience.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:backend/app/core/db_resilience.py:with_retry",
+      "target": "file:backend/app/core/db_resilience.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The with_retry decorator factory is defined in db_resilience.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/docx_renderer.py:DOCXRenderer",
+      "target": "file:backend/app/core/documents/docx_renderer.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The DOCXRenderer class is defined in docx_renderer.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/generator.py:DocumentGenerator",
+      "target": "file:backend/app/core/documents/generator.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The DocumentGenerator class is defined in generator.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/parser.py:DocumentParser",
+      "target": "file:backend/app/core/documents/parser.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The DocumentParser class is defined in parser.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/pdf_renderer.py:PDFRenderer",
+      "target": "file:backend/app/core/documents/pdf_renderer.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The PDFRenderer class is defined in pdf_renderer.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/job_discovery/exa_search.py:ExaJobSearch",
+      "target": "file:backend/app/core/job_discovery/exa_search.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The ExaJobSearch class is defined in exa_search.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/llm/client.py:LLMClient",
+      "target": "file:backend/app/core/llm/client.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "The LLMClient class is defined in client.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/glassdoor.py",
+      "target": "file:backend/app/core/automation/agent.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "GlassdoorPlatform uses BrowserAgent for automation.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/indeed.py",
+      "target": "file:backend/app/core/automation/agent.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "IndeedPlatform uses BrowserAgent for automation.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/linkedin.py",
+      "target": "file:backend/app/core/automation/agent.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "LinkedInPlatform uses BrowserAgent for automation.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/glassdoor.py",
+      "target": "file:backend/app/core/automation/session_manager.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "GlassdoorPlatform uses SessionManager for cookie persistence.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/indeed.py",
+      "target": "file:backend/app/core/automation/session_manager.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "IndeedPlatform uses SessionManager for cookie persistence.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/linkedin.py",
+      "target": "file:backend/app/core/automation/session_manager.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "LinkedInPlatform uses SessionManager for cookie persistence.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/generator.py:DocumentGenerator",
+      "target": "class:backend/app/core/documents/pdf_renderer.py:PDFRenderer",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "DocumentGenerator uses PDFRenderer to generate PDF outputs.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/generator.py:DocumentGenerator",
+      "target": "class:backend/app/core/documents/docx_renderer.py:DOCXRenderer",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "DocumentGenerator uses DOCXRenderer to generate Word outputs.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/documents/generator.py:DocumentGenerator",
+      "target": "class:backend/app/core/llm/client.py:LLMClient",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "DocumentGenerator uses LLMClient for tailoring content.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/db_resilience.py",
+      "target": "file:backend/app/core/exceptions.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Maps database exceptions to domain-specific exceptions.",
+      "direction": "forward"
+    },
+    {
+      "source": "class:backend/app/core/automation/agent.py:BrowserAgent",
+      "target": "class:backend/app/core/llm/client.py:LLMClient",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "BrowserAgent uses LLM for task execution guidance.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/platforms/registry.py",
+      "target": "class:backend/app/core/automation/platforms/base.py:JobPlatform",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Registry manages subclasses of JobPlatform.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/documents/generator.py",
+      "target": "file:backend/app/core/llm/prompts/cover_letter.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "DocumentGenerator uses cover letter prompts for LLM generation.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/main.py",
+      "target": "file:backend/app/db/redis.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Imports redis initialization and cleanup functions.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/main.py",
+      "target": "file:backend/app/db/session.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Imports database engine for table creation during startup.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/main.py",
+      "target": "file:backend/app/observability/logging.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Configures structured logging on application startup.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/main.py",
+      "target": "endpoint:backend/app/main.py:health_check",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the health check endpoint.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/llm/usage_tracker.py",
+      "target": "file:backend/app/models/llm_usage.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Persists LLM usage data to the database using the LLMUsage model.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/matching/vector_store.py",
+      "target": "class:backend/app/core/matching/vector_store.py:VectorStore",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the VectorStore class.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/models/application.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "Inherits from Base and mixins for ID and timestamps.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/models/job.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "Inherits from Base and mixins for ID and timestamps.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/models/resume.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "Inherits from Base and mixins for ID and timestamps.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/models/llm_usage.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "Inherits from Base and mixins for ID and timestamps.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/models/user_settings.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "inherits",
+      "weight": 0.9,
+      "summary": "Inherits from Base and mixins for ID and timestamps.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/db/migrations/env.py",
+      "target": "file:backend/app/models/base.py",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Imports metadata for migration generation.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/analytics.py",
+      "target": "file:backend/app/schemas/application.py",
+      "type": "imports",
+      "weight": 0.7,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/application.py",
+      "target": "file:backend/app/schemas/application.py",
+      "type": "imports",
+      "weight": 0.7,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/job_search.py",
+      "target": "file:backend/app/schemas/job.py",
+      "type": "imports",
+      "weight": 0.7,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/resume.py",
+      "target": "file:backend/app/schemas/resume.py",
+      "type": "imports",
+      "weight": 0.7,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/workers/application_worker.py",
+      "target": "file:backend/app/services/resume.py",
+      "type": "calls",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/workers/application_worker.py",
+      "target": "file:backend/app/services/queue.py",
+      "type": "calls",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/application.py",
+      "target": "table:backend/data/db/careerpilot.db:database",
+      "type": "writes_to",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/job_search.py",
+      "target": "table:backend/data/db/careerpilot.db:database",
+      "type": "writes_to",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/resume.py",
+      "target": "table:backend/data/db/careerpilot.db:database",
+      "type": "writes_to",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/job_search.py",
+      "target": "file:backend/tests/e2e/test_full_pipeline.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "file:backend/app/services/application.py",
+      "target": "file:backend/tests/e2e/test_full_pipeline.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "file:backend/app/services/analytics.py",
+      "target": "file:backend/tests/integration/test_analytics_api.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "file:backend/app/services/application.py",
+      "target": "file:backend/tests/integration/test_applications_api.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "file:backend/app/services/job_search.py",
+      "target": "file:backend/tests/integration/test_jobs_api.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "file:backend/app/services/resume.py",
+      "target": "file:backend/tests/integration/test_resumes_api.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "direction": "forward",
+      "description": "Direction corrected (was test \u2192 production)"
+    },
+    {
+      "source": "config:backend/pyproject.toml",
+      "target": "file:backend/app/services/__init__.py",
+      "type": "configures",
+      "weight": 0.6,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/schemas/application.py",
+      "target": "file:backend/app/services/application.py",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/schemas/job.py",
+      "target": "file:backend/app/services/job_search.py",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/schemas/resume.py",
+      "target": "file:backend/app/services/resume.py",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "function:backend/app/workers/application_worker.py:process_application",
+      "target": "function:backend/app/services/resume.py:generate_tailored_resume",
+      "type": "calls",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/analytics.py",
+      "target": "table:backend/data/db/careerpilot.db:database",
+      "type": "reads_from",
+      "weight": 0.8,
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/analytics.py",
+      "target": "file:backend/tests/unit/test_analytics_service.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Unit tests for analytics logic.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/application.py",
+      "target": "file:backend/tests/unit/test_application_service.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Unit tests for application management.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/agent.py",
+      "target": "file:backend/tests/unit/test_browser_agent.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Unit tests for the browser automation agent.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/db_resilience.py",
+      "target": "file:backend/tests/unit/test_db_resilience.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for DB error handling and retries.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/documents/parser.py",
+      "target": "file:backend/tests/unit/test_document_parser.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for document parsing logic.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/exceptions.py",
+      "target": "file:backend/tests/unit/test_exceptions.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for custom exceptions.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/job_search.py",
+      "target": "file:backend/tests/unit/test_job_service.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Unit tests for job search and management.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/llm/client.py",
+      "target": "file:backend/tests/unit/test_llm_client.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for the LLM client wrapper.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/observability/logging.py",
+      "target": "file:backend/tests/unit/test_logging_config.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for logging configuration.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/queue.py",
+      "target": "file:backend/tests/unit/test_queue_service.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for task queuing.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/db/redis.py",
+      "target": "file:backend/tests/unit/test_redis.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for Redis connection.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/services/resume.py",
+      "target": "file:backend/tests/unit/test_resume_service.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for resume services.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/automation/session_manager.py",
+      "target": "file:backend/tests/unit/test_session_manager.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tests for session persistence.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/integration/test_settings_api.py",
+      "target": "class:backend/tests/integration/test_settings_api.py:TestGetSettings",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains TestGetSettings suite.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/integration/test_settings_api.py",
+      "target": "class:backend/tests/integration/test_settings_api.py:TestUpdateSettings",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains TestUpdateSettings suite.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/integration/test_settings_api.py",
+      "target": "class:backend/tests/integration/test_settings_api.py:TestListLLMProviders",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains TestListLLMProviders suite.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_analytics_service.py",
+      "target": "class:backend/tests/unit/test_analytics_service.py:TestGetDashboardStats",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains TestGetDashboardStats suite.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/observability/tracing.py",
+      "target": "file:backend/tests/unit/test_tracing.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Tracing utilities are covered by unit tests in test_tracing.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/core/matching/vector_store.py",
+      "target": "file:backend/tests/unit/test_vector_store.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "VectorStore functionality is covered by unit tests in test_vector_store.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/app/workers/application_worker.py",
+      "target": "file:backend/tests/unit/test_worker.py",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "Application worker logic is covered by unit tests in test_worker.py.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/common/ErrorBoundary.tsx",
+      "target": "file:frontend/src/__tests__/components/ErrorBoundary.test.tsx",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "ErrorBoundary component is tested in ErrorBoundary.test.tsx.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/jobs/JobCard.tsx",
+      "target": "file:frontend/src/__tests__/components/JobCard.test.tsx",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "JobCard component is tested in JobCard.test.tsx.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/common/LoadingState.tsx",
+      "target": "file:frontend/src/__tests__/components/LoadingState.test.tsx",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "LoadingState component is tested in LoadingState.test.tsx.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/resumes/TemplateSelector.tsx",
+      "target": "file:frontend/src/__tests__/components/TemplateSelector.test.tsx",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "TemplateSelector component is tested in TemplateSelector.test.tsx.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/store/useAppStore.ts",
+      "target": "file:frontend/src/__tests__/store/useAppStore.test.ts",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "AppStore is tested in useAppStore.test.ts.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/store/useJobStore.ts",
+      "target": "file:frontend/src/__tests__/store/useJobStore.test.ts",
+      "type": "tested_by",
+      "weight": 0.5,
+      "summary": "JobStore is tested in useJobStore.test.ts.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_tracing.py",
+      "target": "file:backend/app/observability/tracing.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Tests call tracing utilities.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_vector_store.py",
+      "target": "file:backend/app/core/matching/vector_store.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Tests call methods on VectorStore.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_worker.py",
+      "target": "file:backend/app/workers/application_worker.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Tests call application worker functions.",
+      "direction": "forward"
+    },
+    {
+      "source": "service:docker/Dockerfile.backend",
+      "target": "file:backend/app/main.py",
+      "type": "deploys",
+      "weight": 0.7,
+      "summary": "Dockerfile.backend deploys the backend application.",
+      "direction": "forward"
+    },
+    {
+      "source": "service:docker/Dockerfile.frontend",
+      "target": "file:frontend/src/main.tsx",
+      "type": "deploys",
+      "weight": 0.7,
+      "summary": "Dockerfile.frontend deploys the frontend application.",
+      "direction": "forward"
+    },
+    {
+      "source": "config:docker/nginx.conf",
+      "target": "file:frontend/src/App.tsx",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "nginx.conf configures how the frontend SPA is served.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/jobs/JobDetail.tsx",
+      "target": "function:frontend/src/components/jobs/JobDetail.tsx:JobDetail",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the JobDetail component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/jobs/JobDetail.tsx:JobDetail",
+      "target": "file:frontend/src/components/jobs/JobDetail.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/jobs/JobDetail.tsx:JobDetail",
+      "target": "function:frontend/src/hooks/useJobs.ts:useJob",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Calls useJob hook to fetch job data.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/jobs/JobFilters.tsx",
+      "target": "function:frontend/src/components/jobs/JobFilters.tsx:JobFilters",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the JobFilters component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/jobs/JobFilters.tsx:JobFilters",
+      "target": "file:frontend/src/components/jobs/JobFilters.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/layout/AppLayout.tsx",
+      "target": "function:frontend/src/components/layout/AppLayout.tsx:AppLayout",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the AppLayout component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/layout/AppLayout.tsx:AppLayout",
+      "target": "file:frontend/src/components/layout/AppLayout.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/layout/AppLayout.tsx:AppLayout",
+      "target": "function:frontend/src/hooks/useWebSocket.ts:useWebSocket",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Initializes WebSocket connection in the layout.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/layout/Header.tsx",
+      "target": "function:frontend/src/components/layout/Header.tsx:Header",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the Header component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/layout/Header.tsx:Header",
+      "target": "file:frontend/src/components/layout/Header.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/layout/Sidebar.tsx",
+      "target": "function:frontend/src/components/layout/Sidebar.tsx:Sidebar",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the Sidebar component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/layout/Sidebar.tsx:Sidebar",
+      "target": "file:frontend/src/components/layout/Sidebar.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/resumes/ATSScoreCard.tsx",
+      "target": "function:frontend/src/components/resumes/ATSScoreCard.tsx:ATSScoreCard",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the ATSScoreCard component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/resumes/ATSScoreCard.tsx:ATSScoreCard",
+      "target": "file:frontend/src/components/resumes/ATSScoreCard.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/resumes/ResumeUpload.tsx",
+      "target": "function:frontend/src/components/resumes/ResumeUpload.tsx:ResumeUpload",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the ResumeUpload component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/resumes/ResumeUpload.tsx:ResumeUpload",
+      "target": "file:frontend/src/components/resumes/ResumeUpload.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/resumes/ResumeUpload.tsx:ResumeUpload",
+      "target": "function:frontend/src/hooks/useResumes.ts:useUploadResume",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Uses useUploadResume for file upload.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/resumes/TemplateSelector.tsx",
+      "target": "function:frontend/src/components/resumes/TemplateSelector.tsx:TemplateSelector",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the TemplateSelector component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/resumes/TemplateSelector.tsx:TemplateSelector",
+      "target": "file:frontend/src/components/resumes/TemplateSelector.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/settings/CandidateProfileEditor.tsx",
+      "target": "function:frontend/src/components/settings/CandidateProfileEditor.tsx:CandidateProfileEditor",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the CandidateProfileEditor component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/settings/CandidateProfileEditor.tsx:CandidateProfileEditor",
+      "target": "file:frontend/src/components/settings/CandidateProfileEditor.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/settings/EducationForm.tsx",
+      "target": "function:frontend/src/components/settings/EducationForm.tsx:EducationForm",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the EducationForm component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/settings/EducationForm.tsx:EducationForm",
+      "target": "file:frontend/src/components/settings/EducationForm.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/settings/ExperienceForm.tsx",
+      "target": "function:frontend/src/components/settings/ExperienceForm.tsx:ExperienceForm",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the ExperienceForm component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/settings/ExperienceForm.tsx:ExperienceForm",
+      "target": "file:frontend/src/components/settings/ExperienceForm.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/settings/LLMProvidersCard.tsx",
+      "target": "function:frontend/src/components/settings/LLMProvidersCard.tsx:LLMProvidersCard",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the LLMProvidersCard component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/settings/LLMProvidersCard.tsx:LLMProvidersCard",
+      "target": "file:frontend/src/components/settings/LLMProvidersCard.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/components/settings/SkillsEditor.tsx",
+      "target": "function:frontend/src/components/settings/SkillsEditor.tsx:SkillsEditor",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Defines the SkillsEditor component.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/components/settings/SkillsEditor.tsx:SkillsEditor",
+      "target": "file:frontend/src/components/settings/SkillsEditor.tsx",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported as the default component.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useAnalytics.ts",
+      "target": "function:frontend/src/hooks/useAnalytics.ts:useDashboardStats",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useDashboardStats hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useAnalytics.ts:useDashboardStats",
+      "target": "file:frontend/src/hooks/useAnalytics.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useApplications.ts",
+      "target": "function:frontend/src/hooks/useApplications.ts:useApplications",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useApplications hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useApplications.ts:useApplications",
+      "target": "file:frontend/src/hooks/useApplications.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useJobs.ts",
+      "target": "function:frontend/src/hooks/useJobs.ts:useJobs",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useJobs hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useJobs.ts:useJobs",
+      "target": "file:frontend/src/hooks/useJobs.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useResumes.ts",
+      "target": "function:frontend/src/hooks/useResumes.ts:useResumes",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useResumes hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useResumes.ts:useResumes",
+      "target": "file:frontend/src/hooks/useResumes.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useSettings.ts",
+      "target": "function:frontend/src/hooks/useSettings.ts:useSettings",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useSettings hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useSettings.ts:useSettings",
+      "target": "file:frontend/src/hooks/useSettings.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/hooks/useWebSocket.ts",
+      "target": "function:frontend/src/hooks/useWebSocket.ts:useWebSocket",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Contains useWebSocket hook.",
+      "direction": "forward"
+    },
+    {
+      "source": "function:frontend/src/hooks/useWebSocket.ts:useWebSocket",
+      "target": "file:frontend/src/hooks/useWebSocket.ts",
+      "type": "exports",
+      "weight": 0.8,
+      "summary": "Exported from hooks file.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/main.tsx",
+      "target": "file:frontend/src/theme.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "App entry point imports the global Material UI theme.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/services/analyticsService.ts",
+      "target": "file:frontend/src/services/api.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Analytics service uses the central api instance for requests.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/services/applicationService.ts",
+      "target": "file:frontend/src/services/api.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Application service uses the central api instance for requests.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/services/jobService.ts",
+      "target": "file:frontend/src/services/api.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Job service uses the central api instance for requests.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/services/resumeService.ts",
+      "target": "file:frontend/src/services/api.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Resume service uses the central api instance for requests.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/services/settingsService.ts",
+      "target": "file:frontend/src/services/api.ts",
+      "type": "imports",
+      "weight": 0.7,
+      "summary": "Settings service uses the central api instance for requests.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "file:frontend/src/services/analyticsService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Dashboard page calls analytics service to fetch stats (via hooks).",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/AnalyticsPage.tsx",
+      "target": "file:frontend/src/services/analyticsService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Analytics page calls analytics service for detailed metrics.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/ApplicationsPage.tsx",
+      "target": "file:frontend/src/services/applicationService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Applications page calls service for listing and status updates.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/JobSearchPage.tsx",
+      "target": "file:frontend/src/services/jobService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Job search page calls service to perform platform-wide searches.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/ResumesPage.tsx",
+      "target": "file:frontend/src/services/resumeService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Resumes page calls service for uploads and tailoring.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/SettingsPage.tsx",
+      "target": "file:frontend/src/services/settingsService.ts",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Settings page calls service to manage user preferences.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/DashboardPage.tsx",
+      "target": "function:frontend/src/store/useAppStore.ts:useAppStore",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Dashboard uses AppStore for notification management.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/pages/JobSearchPage.tsx",
+      "target": "function:frontend/src/store/useJobStore.ts:useJobStore",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Job search page uses JobStore for filter state.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/types/analytics.ts",
+      "target": "file:frontend/src/services/analyticsService.ts",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "Types define the return shapes for analytics service methods.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/types/application.ts",
+      "target": "file:frontend/src/services/applicationService.ts",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "Types define the return shapes for application service methods.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/types/job.ts",
+      "target": "file:frontend/src/services/jobService.ts",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "Types define the return shapes for job service methods.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/types/resume.ts",
+      "target": "file:frontend/src/services/resumeService.ts",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "Types define the return shapes for resume service methods.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:frontend/src/types/settings.ts",
+      "target": "file:frontend/src/services/settingsService.ts",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "Types define the return shapes for settings service methods.",
+      "direction": "forward"
+    },
+    {
+      "source": "config:frontend/vite.config.ts",
+      "target": "file:frontend/src/main.tsx",
+      "type": "configures",
+      "weight": 0.6,
+      "summary": "Vite config defines build and dev server for the application.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_skill_matcher.py",
+      "target": "file:backend/app/core/ats/skill_matcher.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Tests call methods in skill_matcher.py to verify matching logic.",
+      "direction": "forward"
+    },
+    {
+      "source": "file:backend/tests/unit/test_websocket_events.py",
+      "target": "file:backend/app/api/websocket/events.py",
+      "type": "calls",
+      "weight": 0.8,
+      "summary": "Tests verify WebSocket event emission and handling.",
+      "direction": "forward"
+    }
+  ],
+  "layers": [
+    {
+      "id": "backend-api",
+      "name": "Backend API",
+      "description": "FastAPI routes, controllers, and API dependencies.",
+      "nodeIds": [
+        "file:backend/app/api/deps.py",
+        "file:backend/app/api/v1/analytics.py",
+        "file:backend/app/api/v1/applications.py",
+        "file:backend/app/api/v1/jobs.py",
+        "file:backend/app/api/v1/resumes.py",
+        "file:backend/app/api/v1/router.py",
+        "file:backend/app/api/v1/settings.py",
+        "file:backend/app/main.py",
+        "file:backend/app/api/websocket/events.py"
+      ]
+    },
+    {
+      "id": "backend-core",
+      "name": "Backend Core",
+      "description": "Core business logic, ATS analysis, automation engines, and system configuration.",
+      "nodeIds": [
+        "file:backend/app/core/automation/__init__.py",
+        "file:backend/app/core/automation/agent.py",
+        "file:backend/app/core/automation/platforms/__init__.py",
+        "file:backend/app/core/automation/platforms/base.py",
+        "file:backend/app/core/automation/platforms/glassdoor.py",
+        "file:backend/app/core/automation/platforms/indeed.py",
+        "file:backend/app/core/automation/platforms/linkedin.py",
+        "file:backend/app/core/automation/platforms/registry.py",
+        "file:backend/app/core/automation/session_manager.py",
+        "file:backend/app/core/db_resilience.py",
+        "file:backend/app/core/documents/__init__.py",
+        "file:backend/app/core/documents/docx_renderer.py",
+        "file:backend/app/core/documents/generator.py",
+        "file:backend/app/core/documents/parser.py",
+        "file:backend/app/core/documents/pdf_renderer.py",
+        "file:backend/app/core/documents/templates/__init__.py",
+        "file:backend/app/core/documents/templates/styles/__init__.py",
+        "file:backend/app/core/exceptions.py",
+        "file:backend/app/core/job_discovery/__init__.py",
+        "file:backend/app/core/job_discovery/exa_search.py",
+        "file:backend/app/core/llm/__init__.py",
+        "file:backend/app/core/llm/client.py",
+        "file:backend/app/core/llm/prompts/__init__.py",
+        "file:backend/app/core/llm/prompts/ats_optimize.py",
+        "file:backend/app/core/llm/prompts/cover_letter.py",
+        "file:backend/app/core/llm/prompts/resume_tailor.py",
+        "file:backend/app/core/llm/usage_tracker.py",
+        "file:backend/app/core/matching/vector_store.py",
+        "file:backend/app/core/ats/skill_matcher.py"
+      ]
+    },
+    {
+      "id": "backend-services",
+      "name": "Backend Services",
+      "description": "Application services and background workers for asynchronous tasks.",
+      "nodeIds": [
+        "file:backend/app/services/__init__.py",
+        "file:backend/app/services/analytics.py",
+        "file:backend/app/services/application.py",
+        "file:backend/app/services/job_search.py",
+        "file:backend/app/services/queue.py",
+        "file:backend/app/services/resume.py",
+        "file:backend/app/workers/__init__.py",
+        "file:backend/app/workers/application_worker.py"
+      ]
+    },
+    {
+      "id": "backend-data",
+      "name": "Backend Data",
+      "description": "Database models, schemas, migrations, and session management.",
+      "nodeIds": [
+        "file:backend/app/db/redis.py",
+        "file:backend/app/db/session.py",
+        "file:backend/app/models/application.py",
+        "file:backend/app/models/job.py",
+        "file:backend/app/models/resume.py",
+        "file:backend/app/models/llm_usage.py",
+        "file:backend/app/models/user_settings.py",
+        "file:backend/app/models/base.py",
+        "file:backend/app/schemas/analytics.py",
+        "file:backend/app/db/migrations/env.py",
+        "file:backend/app/schemas/application.py",
+        "file:backend/app/schemas/job.py",
+        "file:backend/app/schemas/resume.py",
+        "file:backend/app/schemas/settings.py"
+      ]
+    },
+    {
+      "id": "backend-observability",
+      "name": "Backend Observability",
+      "description": "Logging, tracing, and metrics instrumentation.",
+      "nodeIds": [
+        "file:backend/app/observability/logging.py",
+        "file:backend/app/observability/tracing.py"
+      ]
+    },
+    {
+      "id": "frontend-ui",
+      "name": "Frontend UI",
+      "description": "React components, pages, styling, and static assets.",
+      "nodeIds": [
+        "file:frontend/index.html",
+        "file:frontend/src/App.tsx",
+        "file:frontend/src/components/applications/ApplicationCard.tsx",
+        "file:frontend/src/components/common/ErrorBoundary.tsx",
+        "file:frontend/src/components/common/LoadingState.tsx",
+        "file:frontend/src/components/dashboard/ApplicationFunnel.tsx",
+        "file:frontend/src/components/dashboard/StatsCards.tsx",
+        "file:frontend/src/components/jobs/JobCard.tsx",
+        "file:frontend/src/components/jobs/JobDetail.tsx",
+        "file:frontend/src/components/jobs/JobFilters.tsx",
+        "file:frontend/src/components/layout/AppLayout.tsx",
+        "file:frontend/src/components/layout/Header.tsx",
+        "file:frontend/src/components/layout/Sidebar.tsx",
+        "file:frontend/src/components/resumes/ATSScoreCard.tsx",
+        "file:frontend/src/components/resumes/ResumeUpload.tsx",
+        "file:frontend/src/components/resumes/TemplateSelector.tsx",
+        "file:frontend/src/components/settings/CandidateProfileEditor.tsx",
+        "file:frontend/src/components/settings/EducationForm.tsx",
+        "file:frontend/src/components/settings/ExperienceForm.tsx",
+        "file:frontend/src/components/settings/LLMProvidersCard.tsx",
+        "file:frontend/src/components/settings/SkillsEditor.tsx",
+        "file:frontend/src/pages/AnalyticsPage.tsx",
+        "file:frontend/src/pages/ApplicationsPage.tsx",
+        "file:frontend/src/pages/DashboardPage.tsx",
+        "file:frontend/src/pages/JobSearchPage.tsx",
+        "file:frontend/src/pages/ResumesPage.tsx",
+        "file:frontend/src/pages/SettingsPage.tsx",
+        "file:frontend/src/theme.ts"
+      ]
+    },
+    {
+      "id": "frontend-logic",
+      "name": "Frontend Logic",
+      "description": "Custom hooks, state management, and API client services.",
+      "nodeIds": [
+        "file:frontend/src/hooks/useAnalytics.ts",
+        "file:frontend/src/hooks/useApplications.ts",
+        "file:frontend/src/hooks/useJobs.ts",
+        "file:frontend/src/hooks/useResumes.ts",
+        "file:frontend/src/hooks/useSettings.ts",
+        "file:frontend/src/hooks/useWebSocket.ts",
+        "file:frontend/src/main.tsx",
+        "file:frontend/src/services/analyticsService.ts",
+        "file:frontend/src/services/api.ts",
+        "file:frontend/src/services/applicationService.ts",
+        "file:frontend/src/services/jobService.ts",
+        "file:frontend/src/services/resumeService.ts",
+        "file:frontend/src/services/settingsService.ts",
+        "file:frontend/src/store/useAppStore.ts",
+        "file:frontend/src/store/useJobStore.ts"
+      ]
+    },
+    {
+      "id": "frontend-types",
+      "name": "Frontend Types",
+      "description": "TypeScript interfaces and type definitions.",
+      "nodeIds": [
+        "file:frontend/src/types/analytics.ts",
+        "file:frontend/src/types/api.ts",
+        "file:frontend/src/types/application.ts",
+        "file:frontend/src/types/job.ts",
+        "file:frontend/src/types/resume.ts",
+        "file:frontend/src/types/settings.ts",
+        "file:frontend/src/vite-env.d.ts"
+      ]
+    },
+    {
+      "id": "infrastructure",
+      "name": "Infrastructure",
+      "description": "DevOps configurations, build tools, and project-wide settings.",
+      "nodeIds": [
+        "config:.dockerignore",
+        "config:.env.example",
+        "service:docker-compose.dev.yml",
+        "service:docker-compose.yml",
+        "config:pyproject.toml",
+        "config:frontend/package.json",
+        "config:frontend/tsconfig.json",
+        "config:frontend/tsconfig.node.json",
+        "config:.understand-anything/.understandignore",
+        "config:backend/alembic.ini",
+        "config:backend/pyproject.toml",
+        "config:frontend/vite.config.ts"
+      ]
+    },
+    {
+      "id": "testing",
+      "name": "Testing",
+      "description": "Unit, integration, and E2E tests for both backend and frontend.",
+      "nodeIds": [
+        "file:backend/tests/conftest.py",
+        "file:backend/tests/e2e/test_full_pipeline.py",
+        "file:backend/tests/integration/test_analytics_api.py",
+        "file:backend/tests/integration/test_applications_api.py",
+        "file:backend/tests/integration/test_error_handling.py",
+        "file:backend/tests/integration/test_health.py",
+        "file:backend/tests/integration/test_jobs_api.py",
+        "file:backend/tests/integration/test_resumes_api.py",
+        "file:backend/tests/integration/test_settings_api.py",
+        "file:backend/tests/unit/test_analytics_service.py",
+        "file:backend/tests/unit/test_application_service.py",
+        "file:backend/tests/unit/test_browser_agent.py",
+        "file:backend/tests/unit/test_cover_letter_prompts.py",
+        "file:backend/tests/unit/test_db_resilience.py",
+        "file:backend/tests/unit/test_document_parser.py",
+        "file:backend/tests/unit/test_exceptions.py",
+        "file:backend/tests/unit/test_experience_analyzer.py",
+        "file:backend/tests/unit/test_job_service.py",
+        "file:backend/tests/unit/test_keyword_analyzer.py",
+        "file:backend/tests/unit/test_llm_client.py",
+        "file:backend/tests/unit/test_llm_wiring.py",
+        "file:backend/tests/unit/test_logging_config.py",
+        "file:backend/tests/unit/test_models.py",
+        "file:backend/tests/unit/test_optimizer.py",
+        "file:backend/tests/unit/test_platform_registry.py",
+        "file:backend/tests/unit/test_queue_service.py",
+        "file:backend/tests/unit/test_redis.py",
+        "file:backend/tests/unit/test_resume_service.py",
+        "file:backend/tests/unit/test_schemas.py",
+        "file:backend/tests/unit/test_scorer.py",
+        "file:backend/tests/unit/test_session_manager.py",
+        "file:backend/tests/unit/test_settings.py",
+        "file:backend/tests/unit/test_skill_matcher.py",
+        "file:backend/tests/unit/test_tracing.py",
+        "file:backend/tests/unit/test_vector_store.py",
+        "file:backend/tests/unit/test_websocket_events.py",
+        "file:backend/tests/unit/test_worker.py",
+        "file:frontend/src/__tests__/components/ErrorBoundary.test.tsx",
+        "file:frontend/src/__tests__/components/JobCard.test.tsx",
+        "file:frontend/src/__tests__/components/LoadingState.test.tsx",
+        "file:frontend/src/__tests__/components/TemplateSelector.test.tsx",
+        "file:frontend/src/__tests__/mocks/handlers.ts",
+        "file:frontend/src/__tests__/mocks/server.ts",
+        "file:frontend/src/__tests__/store/useAppStore.test.ts",
+        "file:frontend/src/__tests__/store/useJobStore.test.ts",
+        "file:frontend/src/setupTests.ts"
+      ]
+    },
+    {
+      "id": "templates",
+      "name": "Templates",
+      "description": "Document templates for resumes and cover letters.",
+      "nodeIds": [
+        "file:templates/cover_letter/creative/style.css",
+        "file:templates/cover_letter/creative/template.html",
+        "file:templates/cover_letter/standard/style.css",
+        "file:templates/cover_letter/standard/template.html",
+        "file:templates/cover_letter/technical/style.css",
+        "file:templates/cover_letter/technical/template.html",
+        "file:templates/resume/classic/style.css",
+        "file:templates/resume/classic/template.html",
+        "file:templates/resume/creative/style.css",
+        "file:templates/resume/creative/template.html",
+        "file:templates/resume/executive/style.css",
+        "file:templates/resume/executive/template.html",
+        "file:templates/resume/minimal/style.css",
+        "file:templates/resume/minimal/template.html",
+        "file:templates/resume/modern/style.css",
+        "file:templates/resume/modern/template.html"
+      ]
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation",
+      "description": "Project guides and general documentation.",
+      "nodeIds": [
+        "document:CLAUDE.md",
+        "document:README.md"
+      ]
+    },
+    {
+      "id": "other",
+      "name": "Other",
+      "description": "Miscellaneous files.",
+      "nodeIds": [
+        "table:backend/data/db/careerpilot.db:database",
+        "file:data/db/.gitkeep",
+        "file:data/logs/.gitkeep",
+        "file:data/sessions/.gitkeep",
+        "file:data/uploads/.gitkeep",
+        "file:data/vector_indices/.gitkeep",
+        "service:docker/Dockerfile.backend",
+        "service:docker/Dockerfile.frontend",
+        "config:docker/nginx.conf"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Welcome to CareerPilot",
+      "description": "CareerPilot is an automated job application platform that uses AI to tailor resumes and apply to jobs. This tour will take you through the core components of the system, from the backend intelligence to the frontend user interface.",
+      "nodeIds": [
+        "file:backend/app/main.py",
+        "file:frontend/src/main.tsx",
+        "document:CLAUDE.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "Backend API & Routing",
+      "description": "The backend is built with FastAPI. It handles job searches, resume management, and application tracking. Requests flow through a central router to specialized endpoints for analytics, jobs, and applications.",
+      "nodeIds": [
+        "file:backend/app/api/v1/router.py",
+        "file:backend/app/api/v1/jobs.py",
+        "file:backend/app/api/v1/applications.py"
+      ],
+      "languageLesson": "FastAPI leverages Python's type hints for automatic request validation and documentation (Swagger/OpenAPI), making it highly developer-friendly for building robust APIs."
+    },
+    {
+      "order": 3,
+      "title": "Core Intelligence: LLM & ATS",
+      "description": "This layer represents the platform's 'brain'. It integrates with Large Language Models to analyze job descriptions and resumes, identifying skill gaps and tailoring content to maximize ATS (Applicant Tracking System) scores.",
+      "nodeIds": [
+        "file:backend/app/core/llm/client.py",
+        "file:backend/app/core/llm/prompts/resume_tailor.py"
+      ],
+      "languageLesson": "The core logic uses advanced Python patterns like async/await for non-blocking LLM calls and structured Pydantic models for parsing complex AI responses."
+    },
+    {
+      "order": 4,
+      "title": "Job Automation Engine",
+      "description": "The automation engine executes the actual application process. It uses browser automation to interact with platforms like LinkedIn and Indeed, filling out forms and submitting applications on the user's behalf.",
+      "nodeIds": [
+        "file:backend/app/core/automation/agent.py",
+        "file:backend/app/core/automation/platforms/base.py",
+        "file:backend/app/core/automation/platforms/linkedin.py"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "Asynchronous Processing",
+      "description": "Long-running tasks like document generation and job applications are processed asynchronously. CareerPilot uses background workers and a queue system (Redis) to ensure the main API remains responsive.",
+      "nodeIds": [
+        "file:backend/app/workers/application_worker.py",
+        "file:backend/app/services/queue.py",
+        "file:backend/app/db/redis.py"
+      ]
+    },
+    {
+      "order": 6,
+      "title": "Frontend: React & State Management",
+      "description": "The frontend is a modern React application that provides a seamless user experience. It uses centralized stores for managing application state and hooks for interacting with backend services.",
+      "nodeIds": [
+        "file:frontend/src/App.tsx",
+        "file:frontend/src/store/useAppStore.ts",
+        "file:frontend/src/services/api.ts"
+      ],
+      "languageLesson": "TypeScript is used throughout the frontend to provide strong typing, reducing runtime errors and improving the developer experience when managing complex data structures."
+    },
+    {
+      "order": 7,
+      "title": "User Interface: Dashboard & Analytics",
+      "description": "The final stop is the user interface where candidates manage their job search. The dashboard and analytics pages provide insights into application success rates and resume performance.",
+      "nodeIds": [
+        "file:frontend/src/pages/DashboardPage.tsx",
+        "file:frontend/src/pages/AnalyticsPage.tsx",
+        "file:frontend/src/components/dashboard/ApplicationFunnel.tsx"
+      ]
+    }
+  ]
+}
