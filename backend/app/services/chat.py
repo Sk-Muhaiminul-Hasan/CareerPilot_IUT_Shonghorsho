@@ -8,7 +8,7 @@ from app.core.llm.client import LLMClient
 from app.core.matching.vector_store import VectorStore
 # Adjust these import paths below if AutoApply uses different model filenames
 from app.models.job import Job  
-from app.models.resume import ResumeProfile 
+from app.models.resume import Resume 
 
 logger = structlog.get_logger(__name__)
 
@@ -70,23 +70,41 @@ CONTEXT RECONSTRUCTED:
 
     # 4. Stream response through LiteLLM Wrapper client
     try:
-        # Check if AutoApply's custom LLMClient wrapper supports custom instantiations 
-        # or streaming loops. If standard wrapper doesn't loop, fallback directly to litellm.acompletion
+        import litellm
         llm = LLMClient()
         
-        # Calling streaming using structural async generators
-        response_stream = await llm.acompletion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
-            stream=True
-        )
+        model_chain = llm._get_model_chain(None)
+        response_stream = None
+        last_error = None
         
+        for attempt_model in model_chain:
+            try:
+                logger.info("attempting_stream_completion", model=attempt_model)
+                response_stream = await litellm.acompletion(
+                    model=attempt_model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": message}
+                    ],
+                    temperature=llm._llm.temperature,
+                    max_tokens=llm._llm.max_tokens,
+                    stream=True
+                )
+                break  # Success! Got the stream
+            except Exception as e:
+                logger.warning("stream_completion_attempt_failed", model=attempt_model, error=str(e))
+                last_error = e
+                continue
+        
+        if response_stream is None:
+            raise last_error or Exception("No models available for streaming")
+            
         async for chunk in response_stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                yield content
+            if hasattr(chunk, 'choices') and chunk.choices:
+                delta = chunk.choices[0].delta
+                content = getattr(delta, 'content', None)
+                if content:
+                    yield content
                 
     except Exception as e:
         logger.error("assistant_stream_generation_failed", error=str(e))

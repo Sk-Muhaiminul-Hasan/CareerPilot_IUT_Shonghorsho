@@ -66,6 +66,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     # Prometheus metrics endpoint (disabled in production to avoid data leak)

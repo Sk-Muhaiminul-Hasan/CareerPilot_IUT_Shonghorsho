@@ -40,6 +40,21 @@ class LLMSettings(BaseSettings):
     temperature: float = 0.7
     max_tokens: int = 4096
 
+    @field_validator("fallback_providers", mode="before")
+    @classmethod
+    def assemble_fallback_providers(cls, v: str | list[str]) -> list[str]:
+        """Allow fallback_providers to be parsed from both JSON arrays and comma-separated lists."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
+
     @field_validator("temperature")
     @classmethod
     def validate_temperature(cls, v: float) -> float:
@@ -106,6 +121,21 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
+        """Allow cors_origins to be parsed from both JSON arrays and comma-separated lists."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
 
     @field_validator("min_ats_score")
     @classmethod
