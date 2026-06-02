@@ -14,6 +14,19 @@ from app.schemas.application import (
     ApplicationResponse,
     ApplicationStatusUpdate,
 )
+from app.schemas.calendar_event import (
+    CalendarEventCreate,
+    CalendarEventListResponse,
+    CalendarEventResponse,
+    CalendarEventUpdate,
+)
+from app.schemas.goal import (
+    GoalCreate,
+    GoalListResponse,
+    GoalProgressUpdate,
+    GoalResponse,
+    GoalUpdate,
+)
 from app.schemas.job import (
     JobAnalysisResponse,
     JobListingResponse,
@@ -29,18 +42,46 @@ from app.schemas.resume import (
     ResumeUploadResponse,
 )
 from app.schemas.settings import LLMProviderStatus, SettingsResponse, SettingsUpdate
+from app.schemas.todo_item import (
+    TodoItemCreate,
+    TodoItemListResponse,
+    TodoItemResponse,
+    TodoItemUpdate,
+)
+from app.schemas.tracker import (
+    TrackerCardResponse,
+    TrackerLabelCreate,
+    TrackerLabelResponse,
+    TrackerLabelUpdate,
+    TrackerNoteCreate,
+    TrackerNoteResponse,
+    TrackerNoteUpdate,
+)
 
 __all__ = [
+    # analytics
     "ATSScoreDistribution",
+    "ApplicationFunnelData",
+    "DashboardStats",
+    "LLMUsageStats",
+    "TimelineEntry",
     # application
     "ApplicationBatchCreate",
     "ApplicationCreate",
-    # analytics
-    "ApplicationFunnelData",
     "ApplicationListResponse",
     "ApplicationResponse",
     "ApplicationStatusUpdate",
-    "DashboardStats",
+    # calendar
+    "CalendarEventCreate",
+    "CalendarEventListResponse",
+    "CalendarEventResponse",
+    "CalendarEventUpdate",
+    # goal
+    "GoalCreate",
+    "GoalListResponse",
+    "GoalProgressUpdate",
+    "GoalResponse",
+    "GoalUpdate",
     # job
     "JobAnalysisResponse",
     "JobListResponse",
@@ -48,7 +89,8 @@ __all__ = [
     "JobSearchRequest",
     # settings
     "LLMProviderStatus",
-    "LLMUsageStats",
+    "SettingsResponse",
+    "SettingsUpdate",
     # resume
     "ResumeGenerateRequest",
     "ResumeListResponse",
@@ -56,7 +98,17 @@ __all__ = [
     "ResumeScoreRequest",
     "ResumeScoreResponse",
     "ResumeUploadResponse",
-    "SettingsResponse",
-    "SettingsUpdate",
-    "TimelineEntry",
+    # todo
+    "TodoItemCreate",
+    "TodoItemListResponse",
+    "TodoItemResponse",
+    "TodoItemUpdate",
+    # tracker
+    "TrackerCardResponse",
+    "TrackerLabelCreate",
+    "TrackerLabelResponse",
+    "TrackerLabelUpdate",
+    "TrackerNoteCreate",
+    "TrackerNoteResponse",
+    "TrackerNoteUpdate",
 ]
