@@ -34,6 +34,26 @@ _GITHUB_RE = re.compile(
     r"(?:https?://)?(?:www\.)?github\.com/[a-zA-Z0-9_-]+"
 )
 
+_SAFE_TEXT_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_WEAK_EXTRACT_MIN_CHARS = 100
+
+
+def _sanitize_extracted_text(text: str) -> str:
+    """Remove null bytes, non-printable control characters, and
+    letter-by-letter spacing artifacts left by some PDF encodings.
+
+    Artifact detection: if no word in the text is longer than 4 characters,
+    the PDF is likely per-character-position encoded and every non-newline
+    space between tokens can be safely collapsed.
+    """
+    text = _SAFE_TEXT_RE.sub("", text)
+    words = text.split()
+    if words:
+        max_word_len = max(len(w) for w in words)
+        if max_word_len <= 4:
+            text = re.sub(r"(?<=[^\s\n]) (?=[^\s\n])", "", text)
+    return text
+
 
 class ParsedResume(BaseModel):
     """Structured data extracted from a parsed resume."""
@@ -121,7 +141,10 @@ class DocumentParser:
         return result
 
     def _parse_pdf_sync(self, file_path: Path) -> str:
-        """Synchronous PDF parsing with PyPDF2.
+        """Synchronous PDF parsing with PyPDF2 + pypdf fallback.
+
+        Tries PyPDF2 first; if it is not installed or returns weak text
+        (< 100 chars), falls back to pypdf automatically.
 
         Args:
             file_path: Path to the PDF file.
@@ -129,11 +152,36 @@ class DocumentParser:
         Returns:
             Extracted plain text from all pages.
         """
+        extracted = ""
         try:
             from PyPDF2 import PdfReader
+            reader = PdfReader(str(file_path))
+            pages: list[str] = []
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    pages.append(text)
+
+            extracted = "\n".join(pages)
+        except ImportError:
+            pass
+
+        if len(extracted.strip()) < _WEAK_EXTRACT_MIN_CHARS:
+            extracted = self._parse_pdf_sync_pypdf(file_path)
+
+        sanitized = _sanitize_extracted_text(extracted)
+
+        if not sanitized.strip():
+            raise ParseError(str(file_path), "No text content found in PDF")
+        return sanitized
+
+    def _parse_pdf_sync_pypdf(self, file_path: Path) -> str:
+        """Fallback PDF parsing with pypdf."""
+        try:
+            from pypdf import PdfReader
         except ImportError as exc:
             raise ParseError(
-                str(file_path), "PyPDF2 is required for PDF parsing"
+                str(file_path), "pypdf is required for PDF fallback parsing"
             ) from exc
 
         reader = PdfReader(str(file_path))
@@ -143,8 +191,6 @@ class DocumentParser:
             if text:
                 pages.append(text)
 
-        if not pages:
-            raise ParseError(str(file_path), "No text content found in PDF")
         return "\n".join(pages)
 
     def _parse_docx_sync(self, file_path: Path) -> str:
@@ -168,7 +214,8 @@ class DocumentParser:
 
         if not paragraphs:
             raise ParseError(str(file_path), "No text content found in DOCX")
-        return "\n".join(paragraphs)
+        raw = "\n".join(paragraphs)
+        return _sanitize_extracted_text(raw)
 
     def _extract_sections(self, text: str) -> dict[str, str]:
         """Extract resume sections by matching known header patterns.

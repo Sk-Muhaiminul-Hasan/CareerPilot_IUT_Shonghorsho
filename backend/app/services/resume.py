@@ -124,16 +124,17 @@ async def upload_resume(
             skills_count=len(skills_detected),
         )
     except (ParseError, Exception) as exc:
-        # Parsing failed -- still save the record but with raw byte-decoded text
         logger.warning(
-            "resume_parse_failed_using_fallback",
+            "resume_parse_failed",
             file=file.filename,
             error=str(exc),
         )
-        parsed_text = content.decode("utf-8", errors="ignore")
-        word_count = len(parsed_text.split())
-        # Try skill extraction on the raw text anyway
-        skills_detected = _extract_skills(parsed_text)
+        parsed_text = None
+        skills_detected = []
+
+    if parsed_text:
+        parsed_text = parsed_text.replace("\x00", "").strip()
+        parsed_text = parsed_text if parsed_text else None
 
     resume = Resume(
         name=file.filename or "Untitled Resume",
@@ -141,7 +142,7 @@ async def upload_resume(
         template_id="modern",
         file_path_pdf=str(dest) if file_ext == ".pdf" else None,
         file_path_docx=str(dest) if file_ext == ".docx" else None,
-        content_text=parsed_text[:5000],
+        content_text=parsed_text[:5000] if parsed_text else None,
     )
     db.add(resume)
     await db.commit()
