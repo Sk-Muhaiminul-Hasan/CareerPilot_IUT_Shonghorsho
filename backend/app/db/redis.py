@@ -27,7 +27,8 @@ async def init_redis_pool(redis_url: str) -> None:
             socket_connect_timeout=5,
             socket_timeout=10,
             health_check_interval=30,
-)
+            ssl_cert_reqs=None,  # required for Upstash TLS
+        )
         _redis_client = Redis(connection_pool=_redis_pool)
         # Verify connectivity
         await _redis_client.ping()

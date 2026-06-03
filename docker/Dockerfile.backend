@@ -26,7 +26,7 @@ RUN python -m spacy download en_core_web_sm
 RUN playwright install chromium --with-deps
 
 # Create data directories
-RUN mkdir -p data/db data/sessions data/vector_indices data/generated/resumes data/generated/cover_letters data/uploads
+RUN mkdir -p data/db data/sessions data/generated/resumes data/generated/cover_letters data/uploads
 
 EXPOSE 8000
 

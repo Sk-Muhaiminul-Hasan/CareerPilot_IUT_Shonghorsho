@@ -1,52 +1,38 @@
-# CareerPilot_IUT_Shonghorsho — Project Conventions
+# Project: CareerPilot_IUT_Shonghorsho
 
-## Quick Start
-```bash
-docker compose up --build        # Start all services
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up  # Dev mode with hot reload
-```
+CareerPilot is an AI-powered job application automation system that helps users discover jobs across platforms, generate tailored resumes with ATS optimization, and track applications with real-time progress.
 
-## Architecture
-- Backend: FastAPI (Python 3.11) at `backend/app/`
-- Frontend: React + MUI + TypeScript at `frontend/src/`
-- Queue: Redis for async job processing
-- Database: SQLite (default), PostgreSQL optional
+---
 
-## Directory Layout
-- `backend/app/config/` — Settings and constants
-- `backend/app/core/` — Domain modules (ats/, automation/, documents/, llm/, matching/)
-- `backend/app/api/v1/` — FastAPI routes
-- `backend/app/services/` — Business logic layer
-- `backend/app/models/` — SQLAlchemy models
-- `backend/app/schemas/` — Pydantic request/response schemas
-- `backend/app/workers/` — Background queue workers
-- `frontend/src/` — React SPA
+## Your operating instructions
 
-## Coding Standards
-- Python: async-first, structlog, Pydantic v2, SQLAlchemy 2.0 Mapped[] annotations
-- TypeScript: strict mode, no `any`, React Query for server state, Zustand for UI state
-- Max 300 lines per file
-- Naming: snake_case (Python), PascalCase components / camelCase hooks (TypeScript)
+**Step 1:** Read CLAUDE.md (you are here).
 
-## Adding a New Platform
-1. Create `backend/app/core/automation/platforms/{name}.py`
-2. Implement `JobPlatform` ABC (login, search, scrape_details, apply)
-3. Register in `platforms/__init__.py`: `platform_registry.register("name", NamePlatform)`
+**Step 2:** Identify mode - Plan (design/think), Act (build/fix/write), or Question (ask). If unclear, ask.
 
-## Adding a Resume Template
-1. Create `templates/resume/{name}/template.html` + `style.css`
-2. Add template name to `RESUME_TEMPLATES` in `backend/app/config/constants.py`
+**Step 3 (Plan):** Read .claude/requirements.md, .claude/features/<name>.md, .claude/architecture.md, .claude/data-model.md, .claude/api-routes.md. Write .claude/active-plan.md.
 
-## Common Commands
-```bash
-# Backend
-cd backend && uvicorn app.main:app --reload
-pytest tests/ -v
-ruff check app/
-ruff format app/
+**Step 4 (Act):** Read .claude/active-plan.md, .claude/rules.md, .claude/conventions.md, .claude/known-errors.md, .claude/features/<name>.md. Then write code.
 
-# Frontend
-cd frontend && npm run dev
-npm run build
-npm run lint
-```
+---
+
+## Context files
+
+| File | Read when |
+|------|-----------|
+| .claude/stack.md | Need tech stack or run/build/test commands |
+| .claude/architecture.md | Need folder structure, data flow |
+| .claude/conventions.md | Writing or reviewing any code |
+| .claude/rules.md | Before writing any code |
+| .claude/requirements.md | Need to know if in scope |
+| .claude/data-model.md | Touching DB, types, schema |
+| .claude/api-routes.md | Touching routes, payloads, auth |
+| .claude/decisions.md | Suggesting libraries or architecture |
+| .claude/progress.md | What is built or pending |
+| .claude/known-errors.md | Hit a bug or unexpected issue |
+| .claude/active-plan.md | In act mode - read before coding |
+| .claude/features/<name>.md | Planning or building a feature |
+
+---
+
+Start dev: docker compose up --build | Backend tests: cd backend && pytest tests/ -v | Frontend dev: cd frontend && npm run dev

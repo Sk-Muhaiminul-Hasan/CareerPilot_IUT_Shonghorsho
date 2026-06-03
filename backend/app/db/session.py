@@ -14,8 +14,11 @@ _settings = get_settings()
 
 engine = create_async_engine(
     _settings.database_url,
-    echo=_settings.environment.value == "development",
+    echo=False,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
+    connect_args={"ssl": "require", "prepared_statement_cache_size": 0},
 )
 
 async_session_factory = async_sessionmaker(

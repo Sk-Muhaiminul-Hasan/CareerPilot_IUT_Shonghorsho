@@ -86,8 +86,13 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///data/db/autoapply.db"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+asyncpg://neondb_owner:npg_vdwa5zEC9GMf@ep-plain-paper-aozhhrqo-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb"
+    database_url_sync: str = "postgresql+psycopg2://neondb_owner:npg_vdwa5zEC9GMf@ep-plain-paper-aozhhrqo-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    redis_url: str = "rediss://default:gQAAAAAAAbscAAIgcDIwMDlkMzlhNmY2MTU0ZjlhOGI2YTkyNTMyMWU1OTRhNQ@rested-sheepdog-113436.upstash.io:6379"
+
+    # Vector store
+    vector_store_type: str = "pgvector"  # pgvector (formerly faiss)
+    pgvector_collection: str = "cv_embeddings"
 
     # Application behavior
     apply_mode: ApplyMode = ApplyMode.REVIEW
