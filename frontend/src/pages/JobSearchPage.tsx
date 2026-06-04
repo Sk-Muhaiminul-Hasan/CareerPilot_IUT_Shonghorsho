@@ -5,6 +5,7 @@ import Grid from '@mui/material/Grid';
 import Pagination from '@mui/material/Pagination';
 import Alert from '@mui/material/Alert';
 import SearchIcon from '@mui/icons-material/Search';
+import { useNavigate } from 'react-router-dom';
 
 import JobFilters from '@/components/jobs/JobFilters';
 import JobCard from '@/components/jobs/JobCard';
@@ -20,6 +21,7 @@ import { useAppStore } from '@/store/useAppStore';
 function JobSearchPage() {
   const [page, setPage] = useState(1);
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const searchQuery = useJobStore((s) => s.searchQuery);
   const locationFilter = useJobStore((s) => s.locationFilter);
   const platformFilters = useJobStore((s) => s.platformFilters);
@@ -38,14 +40,36 @@ function JobSearchPage() {
   }, []);
 
   const handleApplyConfirm = useCallback(
-    (resumeId: string) => {
+    (applyMode: string, resumeId: string) => {
       if (!pendingJobId) return;
+      const job = jobsData?.items.find((j) => j.id === pendingJobId);
+
+      if (applyMode === 'manual') {
+        createAppMutation.mutate(
+          { job_id: pendingJobId, apply_mode: 'manual', resume_id: resumeId },
+          {
+            onSuccess: () => {
+              showNotification('Application recorded. Opening job page...', 'success');
+              setPendingJobId(null);
+              if (job?.url) {
+                window.open(job.url, '_blank');
+              }
+            },
+            onError: () => {
+              showNotification('Failed to create application.', 'error');
+            },
+          },
+        );
+        return;
+      }
+
       createAppMutation.mutate(
-        { job_id: pendingJobId, resume_id: resumeId },
+        { job_id: pendingJobId, apply_mode: applyMode, resume_id: resumeId },
         {
-          onSuccess: () => {
+          onSuccess: (data) => {
             showNotification('Application created successfully.', 'success');
             setPendingJobId(null);
+            navigate(`/applications/${(data as { id?: string } | undefined)?.id}`);
           },
           onError: () => {
             showNotification('Failed to create application.', 'error');
@@ -53,7 +77,7 @@ function JobSearchPage() {
         },
       );
     },
-    [pendingJobId, createAppMutation, showNotification],
+    [pendingJobId, createAppMutation, showNotification, navigate, jobsData],
   );
 
   const handleApplyClose = useCallback(() => {
@@ -158,8 +182,9 @@ function JobSearchPage() {
         {pendingJobId && (
           <ApplyModal
             open={!!pendingJobId}
-            jobId={pendingJobId}
-            platform={jobsData?.items.find((j) => j.id === pendingJobId)?.platform ?? ''}
+            jobTitle={jobsData?.items.find((j) => j.id === pendingJobId)?.title ?? 'Job'}
+            company={jobsData?.items.find((j) => j.id === pendingJobId)?.company ?? ''}
+            jobUrl={jobsData?.items.find((j) => j.id === pendingJobId)?.url ?? ''}
             onClose={handleApplyClose}
             onConfirm={handleApplyConfirm}
           />

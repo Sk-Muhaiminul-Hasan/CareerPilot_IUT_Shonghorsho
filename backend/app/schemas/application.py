@@ -12,6 +12,7 @@ class ApplyModeEnum(StrEnum):
     AUTONOMOUS = "autonomous"
     REVIEW = "review"
     BATCH = "batch"
+    MANUAL = "manual"
 
 
 class StatusEnum(StrEnum):

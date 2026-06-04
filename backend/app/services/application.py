@@ -3,7 +3,7 @@
 Handles creating, listing, approving, and updating job applications.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 import structlog
 from redis.asyncio import Redis
@@ -54,7 +54,12 @@ async def create_application(
         apply_mode=data.apply_mode,
         status=ApplicationStatus.QUEUED
         if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+        else ApplicationStatus.APPLIED
+        if data.apply_mode == ApplyModeEnum.MANUAL
         else ApplicationStatus.PENDING_REVIEW,
+        applied_at=datetime.utcnow()
+        if data.apply_mode == ApplyModeEnum.MANUAL
+        else None,
     )
     db.add(application)
     await db.commit()
@@ -109,7 +114,12 @@ async def create_batch(
             apply_mode=data.apply_mode,
             status=ApplicationStatus.QUEUED
             if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+            else ApplicationStatus.APPLIED
+            if data.apply_mode == ApplyModeEnum.MANUAL
             else ApplicationStatus.PENDING_REVIEW,
+            applied_at=datetime.utcnow()
+            if data.apply_mode == ApplyModeEnum.MANUAL
+            else None,
         )
         db.add(app)
         applications.append(app)
@@ -283,7 +293,7 @@ async def update_status(
     if update.notes is not None:
         app.notes = update.notes
     if update.status == ApplicationStatus.APPLIED:
-        app.applied_at = datetime.now(UTC)
+        app.applied_at = datetime.utcnow()
     await db.commit()
     await db.refresh(app)
     logger.info("application_status_updated", app_id=app_id, status=update.status)

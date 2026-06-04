@@ -20,6 +20,8 @@ interface UseWebSocketOptions {
   onProgress?: (data: { application_id: string; status: string; detail?: string }) => void;
   /** Callback for application completion updates. */
   onComplete?: (data: { application_id: string; status: string }) => void;
+  /** Callback for application scoring updates. */
+  onScore?: (data: { application_id: string; ats_score: number | null; reasoning: unknown }) => void;
 }
 
 interface UseWebSocketReturn {
@@ -44,6 +46,7 @@ export function useWebSocket(
     maxRetries = 10,
     onProgress,
     onComplete,
+    onScore,
   } = options;
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -104,6 +107,13 @@ export function useWebSocket(
           onComplete({
             application_id: parsed.application_id ?? '',
             status: parsed.status ?? '',
+          });
+        }
+        if (parsed.type === 'application_scored' && onScore) {
+          onScore({
+            application_id: parsed.application_id ?? '',
+            ats_score: (parsed.payload as { ats_score?: number | null } | undefined)?.ats_score ?? null,
+            reasoning: parsed.payload?.reasoning ?? null,
           });
         }
       } catch {

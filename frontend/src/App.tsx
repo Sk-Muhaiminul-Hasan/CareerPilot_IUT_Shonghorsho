@@ -5,6 +5,7 @@ import Alert from '@mui/material/Alert';
 import AppLayout from '@/components/layout/AppLayout';
 import DashboardPage from '@/pages/DashboardPage';
 import JobSearchPage from '@/pages/JobSearchPage';
+import ApplicationDetailPage from '@/pages/ApplicationDetailPage';
 import ApplicationsPage from '@/pages/ApplicationsPage';
 import ResumesPage from '@/pages/ResumesPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/jobs" element={<JobSearchPage />} />
+          <Route path="/applications/:appId" element={<ApplicationDetailPage />} />
           <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/resumes" element={<ResumesPage />} />
           <Route path="/settings" element={<SettingsPage />} />

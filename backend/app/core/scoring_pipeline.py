@@ -50,9 +50,15 @@ async def _run_ats_scoring(job: Job, resume_id: str) -> ScoreDetails | None:
             result = await db.execute(select(Resume).where(Resume.id == resume_id))
             resume = result.scalar_one_or_none()
 
-        if resume is None or not resume.content_text:
-            logger.warning("scoring_pipeline.no_resume_text", resume_id=resume_id)
+        if resume is None:
+            logger.warning("scoring_pipeline.no_resume", resume_id=resume_id)
             return None
+
+        resume_text = resume.content_text or ""
+        if not resume_text.strip() or len(resume_text.strip()) < 50:
+            logger.warning("scoring_pipeline.resume_text_empty", resume_id=resume_id)
+            fallback_text = f"Resume: {resume.name}" if resume.name else "No resume content available"
+            resume_text = fallback_text
 
         try:
             import spacy
@@ -72,7 +78,7 @@ async def _run_ats_scoring(job: Job, resume_id: str) -> ScoreDetails | None:
         )
 
         return scorer.score_resume(
-            resume_text=resume.content_text,
+            resume_text=resume_text,
             job_description=job.description or "",
             candidate_profile={"skills": [], "experience": [], "education": []},
             job_metadata={
@@ -144,7 +150,7 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                 except Exception as exc:
                     logger.error("scoring_pipeline.reasoning_failed", application_id=application_id, error=str(exc))
 
-            ats_score = score_details.overall_score if score_details is not None else None
+            ats_score = score_details.overall_score if score_details is not None else 0.0
             logger.info(
                 "scoring_pipeline.after_ats_and_reasoning",
                 application_id=application_id,
