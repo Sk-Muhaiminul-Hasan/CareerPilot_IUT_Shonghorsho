@@ -1,3 +1,9 @@
+import sys
+import asyncio
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 """FastAPI application factory and lifespan management."""
 
 from collections.abc import AsyncIterator
@@ -36,9 +42,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     # Create database tables (safe no-op if they already exist)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("database_ready")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_ready")
+    except Exception as exc:
+        logger.warning("database_startup_failed", error=str(exc))
 
     await init_redis_pool(settings.redis_url)
 
@@ -116,3 +125,9 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)

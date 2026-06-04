@@ -30,4 +30,4 @@ RUN mkdir -p data/db data/sessions data/generated/resumes data/generated/cover_l
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "run.py"]

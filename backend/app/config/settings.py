@@ -56,12 +56,10 @@ class LLMSettings(BaseSettings):
 class BrowserSettings(BaseSettings):
     """Browser automation configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="BROWSER__")
+    model_config = SettingsConfigDict(env_prefix="BROWSER__", extra="ignore")
 
     headless: bool = True
     max_parallel: int = 3
-    user_data_dir: str = "./data/sessions/chrome_profile"
-    keep_alive: bool = True
     max_steps: int = 50
     max_failures: int = 3
     step_timeout: int = 120
@@ -78,7 +76,7 @@ class Settings(BaseSettings):
     """Root application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="../.env",
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
         case_sensitive=False,
