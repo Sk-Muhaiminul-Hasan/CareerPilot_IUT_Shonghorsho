@@ -37,6 +37,14 @@ class ApplicationCreate(BaseModel):
     apply_mode: ApplyModeEnum = ApplyModeEnum.REVIEW
 
 
+class ApplicationApply(BaseModel):
+    """Request to create an application via the apply flow."""
+
+    job_id: str
+    resume_id: str | None = None
+    user_id: str = "default_user"
+
+
 class ApplicationBatchCreate(BaseModel):
     """Request to create multiple job applications at once."""
 
@@ -63,6 +71,7 @@ class ApplicationResponse(BaseModel):
     status: str
     apply_mode: str
     ats_score: float | None = None
+    reasoning: dict | None = None
     cover_letter_path: str | None = None
     applied_at: datetime | None = None
     response_date: datetime | None = None

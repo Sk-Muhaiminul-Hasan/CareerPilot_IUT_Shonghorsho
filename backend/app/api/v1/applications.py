@@ -1,7 +1,7 @@
 """Application tracking API routes."""
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.schemas.application import (
     ApplicationStatusUpdate,
 )
 from app.services import application as app_service
+from app.core.scoring_pipeline import run_scoring_pipeline
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -28,12 +29,16 @@ router = APIRouter()
 )
 async def create_application(
     data: ApplicationCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis: Redis | None = Depends(get_redis),
 ) -> ApplicationResponse:
     """Create a single job application."""
     app = await app_service.create_application(db, data, redis)
-    return ApplicationResponse.model_validate(app)
+    response = ApplicationResponse.model_validate(app)
+    background_tasks.add_task(run_scoring_pipeline, app.id, "default_user")
+    logger.info("scoring_pipeline.enqueued", app_id=app.id)
+    return response
 
 
 @router.post(

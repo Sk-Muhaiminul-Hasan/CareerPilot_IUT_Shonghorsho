@@ -10,8 +10,8 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-@router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket) -> None:
+@router.websocket("/ws/{user_id}")
+async def websocket_endpoint(user_id: str, ws: WebSocket) -> None:
     """Main WebSocket endpoint for real-time updates.
 
     Clients connect here to receive live events such as:
@@ -21,21 +21,19 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
     Supports ping/pong keep-alive from the client side.
     """
-    # Validate origin before accepting the connection
     origin = ws.headers.get("origin", "")
     allowed = get_settings().cors_origins
     if origin and origin not in allowed:
         await ws.close(code=4003, reason="Origin not allowed")
         return
 
-    await manager.connect(ws)
+    await manager.connect(user_id, ws)
     try:
         while True:
             data = await ws.receive_text()
-            # Handle ping/pong keep-alive
             if data == "ping":
                 await manager.send_to(ws, {"type": "pong", "payload": {}})
             else:
-                logger.debug("ws_message_received", data=data[:100])
+                logger.debug("ws_message_received", user_id=user_id, data=data[:100])
     except WebSocketDisconnect:
-        await manager.disconnect(ws)
+        await manager.disconnect(user_id, ws)
