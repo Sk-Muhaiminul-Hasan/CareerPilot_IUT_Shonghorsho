@@ -298,7 +298,7 @@ class LinkedInPlatform(JobPlatform):
         listings = []
         text = ""
 
-    # Walk all_results looking for the done action with JSON
+        # Walk all_results looking for the done action with JSON
         if hasattr(raw_result, 'all_results'):
             for action in raw_result.all_results:
                 content = getattr(action, 'extracted_content', None) or ""
@@ -316,20 +316,37 @@ class LinkedInPlatform(JobPlatform):
             start = text.find('[')
             end = text.rfind(']') + 1
             if start != -1 and end > start:
-                items = json.loads(text[start:end])
-                for item in items:
-                    if isinstance(item, dict):
-                        listings.append(
-                            JobListing(
-                                platform="linkedin",
-                                platform_job_id=str(item.get("id", "")),
-                                title=item.get("title", ""),
-                                company=item.get("company", ""),
-                                location=item.get("location", ""),
-                                url=item.get("url") or "",
-                                remote=item.get("remote") in (True, "Remote", "remote", "true", "True", "Yes"),
-                            )
-                        )
+                candidate = text[start:end]
+                decoder = json.JSONDecoder()
+                offset = 0
+                parsed = False
+                while offset < len(candidate):
+                    try:
+                        items, offset = decoder.raw_decode(candidate, offset)
+                        for item in items:
+                            if isinstance(item, dict):
+                                listings.append(
+                                    JobListing(
+                                        platform="linkedin",
+                                        platform_job_id=str(item.get("id", "")),
+                                        title=item.get("title", ""),
+                                        company=item.get("company", ""),
+                                        location=item.get("location", ""),
+                                        url=item.get("url") or "",
+                                        remote=item.get("remote") in (True, "Remote", "remote", "true", "True", "Yes"),
+                                    )
+                                )
+                        parsed = True
+                        break
+                    except json.JSONDecodeError:
+                        new_start = candidate.find('[', start + 1)
+                        if new_start == -1 or new_start >= end or new_start == start:
+                            raise
+                        start = new_start
+                        candidate = text[start:end]
+                        offset = 0
+                if not parsed:
+                    raise json.JSONDecodeError("No valid JSON array found", text[start:end], start or 0)
         except Exception as e:
             logger.error("linkedin.parse_error", error=str(e))
 

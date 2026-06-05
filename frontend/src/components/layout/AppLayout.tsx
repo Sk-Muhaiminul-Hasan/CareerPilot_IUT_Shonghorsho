@@ -9,7 +9,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAppStore } from '@/store/useAppStore';
 
 function AppLayout() {
-  const { connected } = useWebSocket('/ws');
+  const { connected } = useWebSocket('/ws/default_user');
   const setWsConnected = useAppStore((s) => s.setWsConnected);
 
   useEffect(() => {

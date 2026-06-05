@@ -62,12 +62,9 @@ class BrowserAgent:
             traceback.print_exc()
             raise
 
-        browser_config = BrowserConfig(
+        self._browser = Browser(config=BrowserConfig(
             headless=self._settings.headless,
-            user_data_dir=self._settings.user_data_dir,
-            keep_alive=self._settings.keep_alive,
-        )
-        self._browser = Browser(config=browser_config)
+        ))
 
         llm = self._llm or self._get_default_llm()
 
@@ -98,7 +95,7 @@ class BrowserAgent:
             raise BrowserError(str(exc)) from exc
 
         finally:    
-            if not self._settings.keep_alive and self._browser:
+            if self._browser:
                 await self._browser.close()
 
     def _get_default_llm(self) -> Any:

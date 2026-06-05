@@ -56,12 +56,10 @@ class LLMSettings(BaseSettings):
 class BrowserSettings(BaseSettings):
     """Browser automation configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="BROWSER__")
+    model_config = SettingsConfigDict(env_prefix="BROWSER__", extra="ignore")
 
     headless: bool = True
     max_parallel: int = 3
-    user_data_dir: str = "./data/sessions/chrome_profile"
-    keep_alive: bool = True
     max_steps: int = 50
     max_failures: int = 3
     step_timeout: int = 120
@@ -78,7 +76,7 @@ class Settings(BaseSettings):
     """Root application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="../.env",
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
         case_sensitive=False,
@@ -86,8 +84,13 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///data/db/autoapply.db"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+asyncpg://neondb_owner:npg_vdwa5zEC9GMf@ep-plain-paper-aozhhrqo-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb"
+    database_url_sync: str = "postgresql+psycopg2://neondb_owner:npg_vdwa5zEC9GMf@ep-plain-paper-aozhhrqo-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    redis_url: str = "rediss://default:gQAAAAAAAbscAAIgcDIwMDlkMzlhNmY2MTU0ZjlhOGI2YTkyNTMyMWU1OTRhNQ@rested-sheepdog-113436.upstash.io:6379"
+
+    # Vector store
+    vector_store_type: str = "pgvector"  # pgvector (formerly faiss)
+    pgvector_collection: str = "cv_embeddings"
 
     # Application behavior
     apply_mode: ApplyMode = ApplyMode.REVIEW

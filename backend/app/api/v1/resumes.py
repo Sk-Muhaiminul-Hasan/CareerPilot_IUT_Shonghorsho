@@ -3,12 +3,13 @@
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.core.exceptions import RecordNotFoundError
+from app.models.resume import Resume
 from app.schemas.resume import (
     ResumeGenerateRequest,
     ResumeListResponse,
@@ -40,6 +41,7 @@ ALLOWED_MIME_TYPES = {
 )
 async def upload_resume(
     file: UploadFile,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
 ) -> ResumeUploadResponse:
     """Upload a PDF or DOCX resume for parsing and storage."""
@@ -67,7 +69,7 @@ async def upload_resume(
             raise HTTPException(status_code=413, detail="File too large. Max 10MB.")
     await file.seek(0)
 
-    return await resume_service.upload_resume(db, file)
+    return await resume_service.upload_resume(db, file, background_tasks)
 
 
 @router.get(
@@ -156,6 +158,37 @@ async def download_resume(
         media_type=media_type,
         filename=f"{resume.name}.{format}",
     )
+
+
+@router.post(
+    "/{resume_id}/reextract",
+    response_model=dict,
+    summary="Re-extract text from a stored resume file",
+)
+async def reextract_resume(
+    resume_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Re-extract text from a stored PDF or DOCX resume file and update the record."""
+    resume = await resume_service.get_resume(db, resume_id)
+
+    file_path = resume.file_path_pdf or resume.file_path_docx
+    if not file_path or not Path(file_path).exists():
+        raise RecordNotFoundError("Resume file", resume_id)
+
+    try:
+        from app.core.documents.parser import DocumentParser
+
+        parsed = await DocumentParser().parse(Path(file_path))
+        content_text = parsed.raw_text.replace("\x00", "").strip()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to re-extract text: {exc}") from exc
+
+    resume.content_text = content_text or None
+    await db.commit()
+    await db.refresh(resume)
+
+    return JSONResponse({"status": "ok", "text_length": len(content_text)})
 
 
 @router.get(

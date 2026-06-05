@@ -16,10 +16,8 @@ def _make_agent(task="search jobs", llm=None):
     """Create a BrowserAgent with mocked settings."""
     mock_browser_settings = MagicMock()
     mock_browser_settings.headless = True
-    mock_browser_settings.user_data_dir = ""
     mock_browser_settings.max_failures = 3
     mock_browser_settings.max_steps = 50
-    mock_browser_settings.keep_alive = False
 
     mock_settings = MagicMock()
     mock_settings.browser = mock_browser_settings

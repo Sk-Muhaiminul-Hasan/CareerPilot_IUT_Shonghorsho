@@ -122,6 +122,7 @@ function SettingsPage() {
                     <MenuItem value="autonomous">Autonomous (fully automated)</MenuItem>
                     <MenuItem value="review">Review per Job (approve each)</MenuItem>
                     <MenuItem value="batch">Batch Review (approve in bulk)</MenuItem>
+                    <MenuItem value="manual">Apply Manually</MenuItem>
                   </Select>
                 </FormControl>
               </CardContent>

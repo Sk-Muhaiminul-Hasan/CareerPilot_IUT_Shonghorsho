@@ -3,7 +3,7 @@
 Handles creating, listing, approving, and updating job applications.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 import structlog
 from redis.asyncio import Redis
@@ -16,8 +16,11 @@ from app.config.constants import (
     QUEUE_APPLY,
     ApplicationStatus,
 )
+from app.core.documents.generator import DocumentGenerator
 from app.core.exceptions import RecordNotFoundError
+from app.core.llm.client import LLMClient
 from app.models.application import Application
+from app.models.job import Job
 from app.models.resume import Resume
 from app.schemas.application import (
     ApplicationBatchCreate,
@@ -54,7 +57,12 @@ async def create_application(
         apply_mode=data.apply_mode,
         status=ApplicationStatus.QUEUED
         if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+        else ApplicationStatus.APPLIED
+        if data.apply_mode == ApplyModeEnum.MANUAL
         else ApplicationStatus.PENDING_REVIEW,
+        applied_at=datetime.utcnow()
+        if data.apply_mode == ApplyModeEnum.MANUAL
+        else None,
     )
     db.add(application)
     await db.commit()
@@ -109,7 +117,12 @@ async def create_batch(
             apply_mode=data.apply_mode,
             status=ApplicationStatus.QUEUED
             if data.apply_mode == ApplyModeEnum.AUTONOMOUS
+            else ApplicationStatus.APPLIED
+            if data.apply_mode == ApplyModeEnum.MANUAL
             else ApplicationStatus.PENDING_REVIEW,
+            applied_at=datetime.utcnow()
+            if data.apply_mode == ApplyModeEnum.MANUAL
+            else None,
         )
         db.add(app)
         applications.append(app)
@@ -265,26 +278,46 @@ async def update_status(
     app_id: str,
     update: ApplicationStatusUpdate,
 ) -> Application:
-    """Update an application's status and optional notes.
-
-    Args:
-        db: Async database session.
-        app_id: UUID of the application.
-        update: Status update payload.
-
-    Returns:
-        The updated Application.
-
-    Raises:
-        RecordNotFoundError: If application does not exist.
-    """
     app = await get_application(db, app_id)
     app.status = update.status
     if update.notes is not None:
         app.notes = update.notes
     if update.status == ApplicationStatus.APPLIED:
-        app.applied_at = datetime.now(UTC)
+        app.applied_at = datetime.utcnow()
     await db.commit()
     await db.refresh(app)
     logger.info("application_status_updated", app_id=app_id, status=update.status)
+    return app
+
+
+async def generate_cover_letter(
+    db: AsyncSession,
+    app_id: str,
+) -> Application:
+    app = await get_application(db, app_id)
+    if app.job_id is None or app.resume_id is None:
+        raise RecordNotFoundError("Required job or resume for application", app_id)
+
+    job_result = await db.execute(select(Job).where(Job.id == app.job_id))
+    job = job_result.scalar_one_or_none()
+    if job is None:
+        raise RecordNotFoundError("Job", app.job_id)
+
+    resume_result = await db.execute(select(Resume).where(Resume.id == app.resume_id))
+    resume = resume_result.scalar_one_or_none()
+    if resume is None:
+        raise RecordNotFoundError("Resume", app.resume_id)
+
+    llm = LLMClient()
+    generator = DocumentGenerator(llm_client=llm)
+    doc = await generator.generate_cover_letter(
+        resume_text=resume.content_text or "",
+        job_description=job.description or "",
+        template=None,
+    )
+
+    app.cover_letter_path = doc.pdf_path or doc.docx_path
+    await db.commit()
+    await db.refresh(app)
+    logger.info("cover_letter_generated", app_id=app_id, path=app.cover_letter_path)
     return app

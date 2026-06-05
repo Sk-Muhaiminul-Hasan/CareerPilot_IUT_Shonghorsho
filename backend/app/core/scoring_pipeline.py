@@ -1,0 +1,185 @@
+"""Background scoring pipeline for applications.
+
+Runs ATS scoring and LLM reasoning generation for a newly created
+application, updates database state, and pushes results to the user
+over WebSockets.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Any
+
+import structlog
+from pydantic import BaseModel
+from sqlalchemy import select
+
+from app.api.websocket.events import manager as ws_manager
+from app.config.constants import (
+    ApplicationStatus,
+    LLMPurpose,
+)
+from app.config.settings import get_settings
+from app.core.ats.experience_analyzer import ExperienceAnalyzer
+from app.core.ats.keyword_analyzer import KeywordAnalyzer
+from app.core.ats.scorer import ResumeScorer, ScoreDetails
+from app.core.ats.skill_matcher import SkillMatcher
+from app.core.llm.client import LLMClient
+from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT
+from app.db.session import async_session_factory
+from app.models.application import Application
+from app.models.job import Job
+from app.models.resume import Resume
+from app.services.application import get_application
+
+logger = structlog.get_logger(__name__)
+
+
+class ATSReasoningOutput(BaseModel):
+    matches: list[str]
+    gaps: list[str]
+
+
+async def _run_ats_scoring(job: Job, resume_id: str) -> ScoreDetails | None:
+    if not resume_id:
+        return None
+
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(select(Resume).where(Resume.id == resume_id))
+            resume = result.scalar_one_or_none()
+
+        if resume is None:
+            logger.warning("scoring_pipeline.no_resume", resume_id=resume_id)
+            return None
+
+        resume_text = resume.content_text or ""
+        if not resume_text.strip() or len(resume_text.strip()) < 50:
+            logger.warning("scoring_pipeline.resume_text_empty", resume_id=resume_id)
+            fallback_text = f"Resume: {resume.name}" if resume.name else "No resume content available"
+            resume_text = fallback_text
+
+        try:
+            import spacy
+
+            nlp = spacy.load("en_core_web_sm")
+        except (ImportError, OSError):
+            logger.warning("scoring_pipeline.spacy_unavailable")
+            return None
+
+        skill_matcher = SkillMatcher(nlp)
+        keyword_analyzer = KeywordAnalyzer(nlp)
+        experience_analyzer = ExperienceAnalyzer(nlp)
+        scorer = ResumeScorer(
+            skill_matcher=skill_matcher,
+            keyword_analyzer=keyword_analyzer,
+            experience_analyzer=experience_analyzer,
+        )
+
+        return scorer.score_resume(
+            resume_text=resume_text,
+            job_description=job.description or "",
+            candidate_profile={"skills": [], "experience": [], "education": []},
+            job_metadata={
+                "required_skills": job.skills_required.get("required", [])
+                if isinstance(job.skills_required, dict)
+                else []
+            },
+        )
+    except Exception as exc:
+        logger.error("scoring_pipeline.ats_scoring_failed", error=str(exc))
+        return None
+
+
+async def _generate_reasoning(job: Job, score_details: ScoreDetails) -> dict | None:
+    try:
+        llm = LLMClient()
+        prompt = (
+            f"ATS Score: {score_details.overall_score:.2f}\n"
+            f"Missing required skills: {', '.join(score_details.missing_required_skills)}\n"
+            f"Missing preferred skills: {', '.join(score_details.missing_preferred_skills)}\n"
+            f"Improvement suggestions: {'; '.join(score_details.improvement_suggestions)}\n"
+            f"Employer: {job.company}\nRole: {job.title}"
+        )
+        result = await llm.complete_with_structured_output(
+            prompt=prompt,
+            output_schema=ATSReasoningOutput,
+            system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
+            purpose=LLMPurpose.ATS_OPTIMIZE,
+        )
+        return result.model_dump()
+    except Exception as exc:
+        logger.error("scoring_pipeline.reasoning_failed", error=str(exc))
+        return None
+
+
+async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
+    try:
+        logger.info(
+            "scoring_pipeline.started",
+            application_id=application_id,
+            user_id=user_id,
+        )
+        async with async_session_factory() as db:
+            try:
+                application = await get_application(db, application_id)
+            except Exception:
+                logger.error("scoring_pipeline.app_not_found", application_id=application_id)
+                return
+
+            job_result = await db.execute(select(Job).where(Job.id == application.job_id))
+            job = job_result.scalar_one_or_none()
+            if job is None:
+                logger.error(
+                    "scoring_pipeline.job_not_found",
+                    application_id=application_id,
+                    job_id=application.job_id,
+                )
+                return
+
+            score_details, reasoning = await asyncio.gather(
+                _run_ats_scoring(job, application.resume_id or ""),
+                _generate_reasoning(job, ScoreDetails(overall_score=0, skill_score=0, experience_score=0, education_score=0, keyword_score=0)),
+            )
+
+            # Re-run reasoning with actual scores if available
+            if score_details is not None:
+                try:
+                    reasoning = await _generate_reasoning(job, score_details)
+                except Exception as exc:
+                    logger.error("scoring_pipeline.reasoning_failed", application_id=application_id, error=str(exc))
+
+            ats_score = score_details.overall_score if score_details is not None else 0.0
+            logger.info(
+                "scoring_pipeline.after_ats_and_reasoning",
+                application_id=application_id,
+                ats_score=ats_score,
+            )
+            application.ats_score = ats_score
+            application.reasoning = reasoning
+            application.status = ApplicationStatus.APPLIED
+            await db.commit()
+            await db.refresh(application)
+
+        await ws_manager.send_to_user(
+            user_id,
+            {
+                "type": "application_scored",
+                "application_id": application_id,
+                "ats_score": ats_score,
+                "reasoning": reasoning,
+            },
+        )
+
+        logger.info(
+            "scoring_pipeline.completed",
+            application_id=application_id,
+            ats_score=ats_score,
+        )
+    except Exception as exc:
+        logger.error(
+            "scoring_pipeline.unexpected_failure",
+            application_id=application_id,
+            error=str(exc),
+        )

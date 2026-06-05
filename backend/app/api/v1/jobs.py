@@ -27,6 +27,7 @@ async def search_jobs(
     request: JobSearchRequest,
     db: AsyncSession = Depends(get_db),
 ) -> JobListResponse:
+    print("JOB SEARCH ENDPOINT HIT", flush=True)
     """Launch a multi-platform job search.
 
     Platform scrapers are integrated in Phase 4.

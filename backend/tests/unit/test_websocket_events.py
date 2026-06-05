@@ -23,6 +23,9 @@ def _make_mock_ws() -> MagicMock:
     return ws
 
 
+DEFAULT_USER_ID = "default_user"
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -34,7 +37,7 @@ class TestConnectionManagerConnect:
         manager = ConnectionManager()
         ws = _make_mock_ws()
 
-        await manager.connect(ws)
+        await manager.connect(DEFAULT_USER_ID, ws)
 
         ws.accept.assert_awaited_once()
         assert manager.active_count == 1
@@ -45,8 +48,19 @@ class TestConnectionManagerConnect:
         ws1 = _make_mock_ws()
         ws2 = _make_mock_ws()
 
-        await manager.connect(ws1)
-        await manager.connect(ws2)
+        await manager.connect(DEFAULT_USER_ID, ws1)
+        await manager.connect(DEFAULT_USER_ID, ws2)
+
+        assert manager.active_count == 2
+
+    async def test_connection_manager_connect_per_user(self):
+        """Connections should be isolated per user."""
+        manager = ConnectionManager()
+        ws1 = _make_mock_ws()
+        ws2 = _make_mock_ws()
+
+        await manager.connect("user-1", ws1)
+        await manager.connect("user-2", ws2)
 
         assert manager.active_count == 2
 
@@ -57,10 +71,10 @@ class TestConnectionManagerDisconnect:
         manager = ConnectionManager()
         ws = _make_mock_ws()
 
-        await manager.connect(ws)
+        await manager.connect(DEFAULT_USER_ID, ws)
         assert manager.active_count == 1
 
-        await manager.disconnect(ws)
+        await manager.disconnect(DEFAULT_USER_ID, ws)
         assert manager.active_count == 0
 
     async def test_connection_manager_disconnect_idempotent(self):
@@ -68,8 +82,7 @@ class TestConnectionManagerDisconnect:
         manager = ConnectionManager()
         ws = _make_mock_ws()
 
-        # Should not raise even though ws was never connected
-        await manager.disconnect(ws)
+        await manager.disconnect(DEFAULT_USER_ID, ws)
         assert manager.active_count == 0
 
 
@@ -80,8 +93,8 @@ class TestConnectionManagerBroadcast:
         ws1 = _make_mock_ws()
         ws2 = _make_mock_ws()
 
-        await manager.connect(ws1)
-        await manager.connect(ws2)
+        await manager.connect(DEFAULT_USER_ID, ws1)
+        await manager.connect("other-user", ws2)
 
         message = {"type": "update", "data": "hello"}
         await manager.broadcast(message)
@@ -97,20 +110,18 @@ class TestConnectionManagerBroadcast:
         ws_stale = _make_mock_ws()
         ws_stale.send_text = AsyncMock(side_effect=RuntimeError("connection closed"))
 
-        await manager.connect(ws_good)
-        await manager.connect(ws_stale)
+        await manager.connect(DEFAULT_USER_ID, ws_good)
+        await manager.connect(DEFAULT_USER_ID, ws_stale)
         assert manager.active_count == 2
 
         await manager.broadcast({"type": "ping"})
 
-        # Stale connection should have been removed
         assert manager.active_count == 1
         ws_good.send_text.assert_awaited_once()
 
     async def test_connection_manager_broadcast_empty_connections(self):
         """Broadcasting with no connections should be a no-op."""
         manager = ConnectionManager()
-        # Should not raise
         await manager.broadcast({"type": "test"})
         assert manager.active_count == 0
 
@@ -122,8 +133,8 @@ class TestConnectionManagerSendTo:
         ws1 = _make_mock_ws()
         ws2 = _make_mock_ws()
 
-        await manager.connect(ws1)
-        await manager.connect(ws2)
+        await manager.connect(DEFAULT_USER_ID, ws1)
+        await manager.connect(DEFAULT_USER_ID, ws2)
 
         message = {"type": "direct"}
         await manager.send_to(ws1, message)
@@ -137,8 +148,40 @@ class TestConnectionManagerSendTo:
         ws = _make_mock_ws()
         ws.send_text = AsyncMock(side_effect=RuntimeError("closed"))
 
-        await manager.connect(ws)
+        await manager.connect(DEFAULT_USER_ID, ws)
         assert manager.active_count == 1
 
         await manager.send_to(ws, {"type": "fail"})
         assert manager.active_count == 0
+
+
+class TestConnectionManagerSendToUser:
+    async def test_send_to_user_targets_only_user(self):
+        """send_to_user() should only deliver to the target user's sockets."""
+        manager = ConnectionManager()
+        ws1 = _make_mock_ws()
+        ws2 = _make_mock_ws()
+
+        await manager.connect("user-1", ws1)
+        await manager.connect("user-2", ws2)
+
+        await manager.send_to_user("user-1", {"type": "private"})
+
+        ws1.send_text.assert_awaited_once_with(json.dumps({"type": "private"}))
+        ws2.send_text.assert_not_awaited()
+
+    async def test_send_to_user_removes_stale(self):
+        """Stale sockets for a user should be removed."""
+        manager = ConnectionManager()
+        ws_good = _make_mock_ws()
+        ws_stale = _make_mock_ws()
+        ws_stale.send_text = AsyncMock(side_effect=RuntimeError("closed"))
+
+        await manager.connect("user-1", ws_good)
+        await manager.connect("user-1", ws_stale)
+
+        await manager.send_to_user("user-1", {"type": "event"})
+
+        assert manager.active_count == 1
+        ws_good.send_text.assert_awaited_once()
+
