@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -6,7 +7,6 @@ import Skeleton from '@mui/material/Skeleton';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useJob } from '@/hooks/useJobs';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { useApplication } from '@/hooks/useApplications';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Application } from '@/types/application';
@@ -39,23 +39,24 @@ function ApplicationDetailPage() {
 
   const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
 
+  useEffect(() => {
+    if (!appId) return;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//localhost:8000/ws/default_user`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'application_scored' && msg.application_id === appId) {
+          queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
+        }
+      } catch {}
+    };
+    return () => ws.close();
+  }, [appId, queryClient]);
+
   const application: Application | undefined = appData;
   const jobId = application?.job_id ?? '';
   const { data: jobData, isLoading: jobLoading } = useJob(jobId || undefined);
-
-  const { lastMessage } = useWebSocket('/ws/default_user', {
-    onScore: ({ application_id, ats_score, reasoning }) => {
-      if (application_id !== appId) return;
-      queryClient.setQueryData<Application>(['applications', 'detail', appId as string], (prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          ats_score: ats_score ?? prev.ats_score,
-          reasoning: reasoning ?? prev.reasoning,
-        };
-      });
-    },
-  });
 
   if (appLoading) {
     return (
