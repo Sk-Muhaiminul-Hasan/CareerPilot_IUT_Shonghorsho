@@ -1,11 +1,81 @@
 """Integration tests for the Applications API routes."""
 
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
+from app.core.documents.generator import GeneratedDocument
 from app.models.application import Application
 from app.models.job import Job
+from app.models.resume import Resume
 
 API_PREFIX = "/api/v1/applications"
+
+
+def _build_mock_document_generator(pdf_path: str, docx_path: str | None = None):
+    document = GeneratedDocument(
+        document_id="cov123",
+        type="cover_letter",
+        template="modern",
+        pdf_path=pdf_path,
+        docx_path=docx_path,
+    )
+    generator = MagicMock()
+    generator.generate_cover_letter = AsyncMock(return_value=document)
+    return generator, document
+
+
+class TestCoverLetterGeneration:
+    """Tests for cover letter generation endpoints."""
+
+    async def test_generate_cover_letter_success(self, client, sample_application_with_docs):
+        pdf_path = str(Path("data/generated/cover_letters/cov123.pdf"))
+        generator, _ = _build_mock_document_generator(pdf_path)
+
+        with patch("app.services.application.DocumentGenerator", return_value=generator):
+            response = await client.post(
+                f"{API_PREFIX}/{sample_application_with_docs.id}/cover-letter",
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == sample_application_with_docs.id
+        assert body["cover_letter_path"] == pdf_path
+
+    async def test_generate_cover_letter_falls_back_to_docx(self, client, sample_application_with_docs):
+        pdf_path = str(Path("data/generated/cover_letters/cov123.pdf"))
+        docx_path = str(Path("data/generated/cover_letters/cov123.docx"))
+        generator, document = _build_mock_document_generator(pdf_path, docx_path)
+        generator.generate_cover_letter = AsyncMock(return_value=GeneratedDocument(**{**document.model_dump(), "pdf_path": None, "docx_path": docx_path}))
+
+        with patch("app.services.application.DocumentGenerator", return_value=generator):
+            response = await client.post(
+                f"{API_PREFIX}/{sample_application_with_docs.id}/cover-letter",
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["cover_letter_path"] == docx_path
+
+    async def test_download_cover_letter_returns_file(self, client, sample_application_with_docs):
+        pdf_path = str(Path("data/generated/cover_letters/cov123.pdf"))
+        Path(Path(pdf_path).parent).mkdir(parents=True, exist_ok=True)
+        Path(pdf_path).write_text("fake pdf")
+
+        response = await client.get(
+            f"{API_PREFIX}/{sample_application_with_docs.id}/cover-letter/download",
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+
+    async def test_download_cover_letter_missing_returns_404(self, client, sample_application):
+        response = await client.get(
+            f"{API_PREFIX}/{sample_application.id}/cover-letter/download",
+        )
+
+        assert response.status_code == 404
 
 
 @pytest.fixture
@@ -31,6 +101,36 @@ async def sample_application(db_session, sample_job):
     """Create and return a persisted Application linked to sample_job."""
     app = Application(
         job_id=sample_job.id,
+        apply_mode="review",
+        status="queued",
+    )
+    db_session.add(app)
+    await db_session.commit()
+    await db_session.refresh(app)
+    return app
+
+
+@pytest.fixture
+async def sample_resume(db_session):
+    """Create a persisted Resume with non-empty content text."""
+    resume = Resume(
+        name="Test Resume",
+        type="base",
+        template_id="modern",
+        content_text="Python, FastAPI, PostgreSQL, React, Docker",
+    )
+    db_session.add(resume)
+    await db_session.commit()
+    await db_session.refresh(resume)
+    return resume
+
+
+@pytest.fixture
+async def sample_application_with_docs(db_session, sample_job, sample_resume):
+    """Create an application linked to both job and resume for cover letter tests."""
+    app = Application(
+        job_id=sample_job.id,
+        resume_id=sample_resume.id,
         apply_mode="review",
         status="queued",
     )

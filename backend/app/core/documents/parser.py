@@ -282,15 +282,10 @@ class DocumentParser:
     ) -> list[str]:
         """Extract skill keywords from resume text.
 
-        Prioritizes the skills section if found; otherwise scans
-        the full text for common skill patterns.
-
-        Args:
-            text: Full resume text.
-            sections: Already-extracted sections dict.
-
-        Returns:
-            Deduplicated list of skill strings.
+        Strictly prefers a dedicated skills/competencies section.
+        If the section yields no valid skills, does a controlled
+        line-by-line scan of the full text and only keeps lines
+        that plausibly look like skill lists or tool names.
         """
         skills_text = ""
         for key in ("skills", "technical skills", "core competencies", "competencies"):
@@ -298,28 +293,10 @@ class DocumentParser:
                 skills_text = sections[key]
                 break
 
-        if not skills_text:
-            skills_text = text
+        raw_skills = self._parse_skill_lines(skills_text or text)
+        if not raw_skills and skills_text:
+            return []
 
-        raw_skills: list[str] = []
-        for line in skills_text.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            # Skills often listed with commas, pipes, bullets, or semicolons
-            for delimiter in [",", "|", ";", "\u2022", "\u2023", "\u25e6"]:
-                if delimiter in line:
-                    raw_skills.extend(
-                        s.strip() for s in line.split(delimiter) if s.strip()
-                    )
-                    break
-            else:
-                # Single skill per line (common in bullet-point resumes)
-                cleaned = line.lstrip("-*\u2022\u2023 ").strip()
-                if cleaned and len(cleaned) < 60:
-                    raw_skills.append(cleaned)
-
-        # Deduplicate while preserving order
         seen: set[str] = set()
         unique: list[str] = []
         for skill in raw_skills:
@@ -329,3 +306,69 @@ class DocumentParser:
                 unique.append(skill)
 
         return unique
+
+    def _parse_skill_lines(self, text: str) -> list[str]:
+        _NON_SKILL_INDICATORS = (
+            "bachelor", "master", "degree", "diploma", "certificate",
+            "university", "college", "institute", "school", "board",
+            "company", "corporation", "inc", "ltd", "corp",
+            "built", "developed", "designed", "implemented", "created",
+            "using", "worked", "responsible", "managed", "led",
+            "project", "experience", "education", "contact", "references",
+            "summary", "objective", "profile",
+        )
+
+        _TECH_HINTS = (
+            "python", "java", "javascript", "typescript", "react", "angular",
+            "vue", "node", "spring", "django", "flask", "fastapi",
+            "aws", "azure", "gcp", "docker", "kubernetes", "k8s",
+            "sql", "nosql", "postgres", "mysql", "mongodb", "redis",
+            "git", "ci/cd", "agile", "scrum", "rest", "graphql",
+            "tensorflow", "pytorch", "machine learning", "deep learning",
+            "nlp", "cv", "computer vision", "data", "cloud", "devops",
+            "html", "css", "sass", "tailwind", "bootstrap",
+            "laravel", "codeigniter", "php", "ruby", "rails",
+            "c++", "c#", ".net", "go", "golang", "rust", "scala",
+            "kafka", "rabbitmq", "jenkins", "terraform", "ansible",
+            "excel", "tableau", "power bi", "looker",
+            "figma", "sketch", "adobe", "photoshop",
+        )
+
+        raw_skills: list[str] = []
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+
+            lower_line = line.lower()
+
+            # Skip education, work history, date lines
+            if any(ind in lower_line for ind in _NON_SKILL_INDICATORS):
+                continue
+
+            if len(line) > 100:
+                continue
+
+            if re.search(r"\d{4}", line) and ("/" in line or "-" in line or "–" in line):
+                continue
+
+            # Must be either comma/pipe/semicolon separated OR contain a known tech hint
+            is_tech_hint = any(hint in lower_line for hint in _TECH_HINTS)
+            is_list = any(d in line for d in [",", "|", ";", "\u2022", "\u2023"])
+
+            if not is_tech_hint and not is_list:
+                continue
+
+            for delimiter in [",", "|", ";", "\u2022", "\u2023", "\u25e6"]:
+                if delimiter in line:
+                    for part in line.split(delimiter):
+                        part = part.strip().rstrip(".")
+                        if part and len(part) < 60:
+                            raw_skills.append(part)
+                    break
+            else:
+                cleaned = line.lstrip("-*\u2022\u2023 ").strip().rstrip(".")
+                if cleaned and len(cleaned) < 60:
+                    raw_skills.append(cleaned)
+
+        return raw_skills

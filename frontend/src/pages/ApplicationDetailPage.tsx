@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useJob } from '@/hooks/useJobs';
-import { useApplication } from '@/hooks/useApplications';
+import { useApplication, useGenerateCoverLetter } from '@/hooks/useApplications';
+import { downloadCoverLetter } from '@/services/applicationService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Application } from '@/types/application';
 
@@ -38,6 +40,9 @@ function ApplicationDetailPage() {
   const queryClient = useQueryClient();
 
   const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
+  const generateCoverLetterMutation = useGenerateCoverLetter();
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!appId) return;
@@ -175,6 +180,59 @@ function ApplicationDetailPage() {
               </Typography>
             ))}
           </Box>
+        )}
+      </Box>
+
+      {generateError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {generateError}
+        </Alert>
+      )}
+
+      <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+        {application.cover_letter_path ? (
+          <>
+            <Button variant="contained" onClick={() => downloadCoverLetter(application.id)}>
+              Download Cover Letter
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={generating}
+              onClick={async () => {
+                setGenerating(true);
+                setGenerateError(null);
+                try {
+                  await generateCoverLetterMutation.mutateAsync(application.id);
+                } catch (err) {
+                  setGenerateError(err instanceof Error ? err.message : 'Failed to regenerate cover letter');
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+              startIcon={generating ? <CircularProgress size={16} /> : undefined}
+            >
+              {generating ? 'Generating...' : 'Regenerate'}
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="contained"
+            disabled={generating}
+            onClick={async () => {
+              setGenerating(true);
+              setGenerateError(null);
+              try {
+                await generateCoverLetterMutation.mutateAsync(application.id);
+              } catch (err) {
+                setGenerateError(err instanceof Error ? err.message : 'Failed to generate cover letter');
+              } finally {
+                setGenerating(false);
+              }
+            }}
+            startIcon={generating ? <CircularProgress size={16} /> : undefined}
+          >
+            {generating ? 'Generating...' : 'Generate Cover Letter'}
+          </Button>
         )}
       </Box>
 

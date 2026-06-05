@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 
 import structlog
-from fastapi import UploadFile
+from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +85,7 @@ def _extract_skills(text: str) -> list[str]:
 async def upload_resume(
     db: AsyncSession,
     file: UploadFile,
+    background_tasks: BackgroundTasks | None = None,
 ) -> ResumeUploadResponse:
     """Upload, parse, and store a resume file.
 
@@ -94,6 +95,7 @@ async def upload_resume(
     Args:
         db: Async database session.
         file: Uploaded resume file.
+        background_tasks: FasterAPI background task runner.
 
     Returns:
         Upload response with detected metadata.
@@ -147,6 +149,22 @@ async def upload_resume(
     db.add(resume)
     await db.commit()
     await db.refresh(resume)
+
+    if background_tasks and resume.content_text:
+        try:
+            from app.core.rag.cv_pipeline import process_resume_upload
+
+            background_tasks.add_task(
+                process_resume_upload,
+                resume_id=str(resume.id),
+                content_text=resume.content_text or "",
+            )
+        except Exception as exc:
+            logger.warning(
+                "cv_pipeline_schedule_failed",
+                resume_id=str(resume.id),
+                error=str(exc),
+            )
 
     logger.info("resume_uploaded", resume_id=resume.id, filename=file.filename)
 
