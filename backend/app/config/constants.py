@@ -12,7 +12,7 @@ QUEUE_APPLY = "careerpilot:queue:apply"
 QUEUE_SCRAPE = "careerpilot:queue:scrape"
 QUEUE_GENERATE = "careerpilot:queue:generate"
 
-# FAISS index names
+# PGVector index names (formerly FAISS index names)
 INDEX_JOBS = "job_embeddings"
 INDEX_RESUMES = "resume_embeddings"
 INDEX_SKILLS = "skill_embeddings"

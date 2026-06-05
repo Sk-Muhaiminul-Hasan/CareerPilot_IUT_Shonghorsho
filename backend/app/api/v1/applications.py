@@ -1,11 +1,16 @@
 """Application tracking API routes."""
 
+from pathlib import Path
+
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_redis
 from app.config.constants import DEFAULT_PAGE_SIZE
+from app.core.scoring_pipeline import run_scoring_pipeline
 from app.schemas.application import (
     ApplicationBatchCreate,
     ApplicationCreate,
@@ -27,11 +32,16 @@ router = APIRouter()
 )
 async def create_application(
     data: ApplicationCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> ApplicationResponse:
     """Create a single job application."""
-    app = await app_service.create_application(db, data)
-    return ApplicationResponse.model_validate(app)
+    app = await app_service.create_application(db, data, redis)
+    response = ApplicationResponse.model_validate(app)
+    background_tasks.add_task(run_scoring_pipeline, app.id, "default_user")
+    logger.info("scoring_pipeline.enqueued", app_id=app.id)
+    return response
 
 
 @router.post(
@@ -43,9 +53,10 @@ async def create_application(
 async def batch_create(
     data: ApplicationBatchCreate,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> list[ApplicationResponse]:
     """Create multiple job applications at once."""
-    apps = await app_service.create_batch(db, data)
+    apps = await app_service.create_batch(db, data, redis)
     return [ApplicationResponse.model_validate(a) for a in apps]
 
 
@@ -86,9 +97,10 @@ async def get_application(
 async def approve_application(
     app_id: str,
     db: AsyncSession = Depends(get_db),
+    redis: Redis | None = Depends(get_redis),
 ) -> ApplicationResponse:
     """Approve a pending application for automated submission."""
-    app = await app_service.approve_application(db, app_id)
+    app = await app_service.approve_application(db, app_id, redis)
     return ApplicationResponse.model_validate(app)
 
 
@@ -102,6 +114,44 @@ async def update_status(
     update: ApplicationStatusUpdate,
     db: AsyncSession = Depends(get_db),
 ) -> ApplicationResponse:
-    """Update an application's status and optional notes."""
     app = await app_service.update_status(db, app_id, update)
     return ApplicationResponse.model_validate(app)
+
+
+@router.post(
+    "/{app_id}/cover-letter",
+    response_model=ApplicationResponse,
+    summary="Generate cover letter for an application",
+)
+async def generate_cover_letter(
+    app_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ApplicationResponse:
+    app = await app_service.generate_cover_letter(db, app_id)
+    return ApplicationResponse.model_validate(app)
+
+
+@router.get(
+    "/{app_id}/cover-letter/download",
+    summary="Download generated cover letter",
+)
+async def download_cover_letter(
+    app_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    app = await app_service.get_application(db, app_id)
+    if not app.cover_letter_path or not Path(app.cover_letter_path).exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Cover letter not found. Generate one first.",
+        )
+    media_type = (
+        "application/pdf"
+        if app.cover_letter_path.endswith(".pdf")
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    return FileResponse(
+        path=app.cover_letter_path,
+        media_type=media_type,
+        filename=f"cover_letter_{app.id[-8:]}.{Path(app.cover_letter_path).suffix.lstrip('.')}",
+    )

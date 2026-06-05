@@ -12,6 +12,7 @@ class ApplyModeEnum(StrEnum):
     AUTONOMOUS = "autonomous"
     REVIEW = "review"
     BATCH = "batch"
+    MANUAL = "manual"
 
 
 class StatusEnum(StrEnum):
@@ -35,6 +36,14 @@ class ApplicationCreate(BaseModel):
     job_id: str
     resume_id: str | None = None
     apply_mode: ApplyModeEnum = ApplyModeEnum.REVIEW
+
+
+class ApplicationApply(BaseModel):
+    """Request to create an application via the apply flow."""
+
+    job_id: str
+    resume_id: str | None = None
+    user_id: str = "default_user"
 
 
 class ApplicationBatchCreate(BaseModel):
@@ -63,6 +72,7 @@ class ApplicationResponse(BaseModel):
     status: str
     apply_mode: str
     ats_score: float | None = None
+    reasoning: dict | None = None
     cover_letter_path: str | None = None
     applied_at: datetime | None = None
     response_date: datetime | None = None

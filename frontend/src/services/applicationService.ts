@@ -55,3 +55,14 @@ export async function updateApplicationStatus(
   const { data } = await api.put<Application>(`/applications/${appId}/status`, update);
   return data;
 }
+
+/** Generate a cover letter for an application. */
+export async function generateCoverLetter(appId: string): Promise<Application> {
+  const { data } = await api.post<Application>(`/applications/${appId}/cover-letter`);
+  return data;
+}
+
+/** Trigger browser download of a generated cover letter. */
+export function downloadCoverLetter(appId: string): void {
+  window.open(`/applications/${appId}/cover-letter/download`, '_blank');
+}

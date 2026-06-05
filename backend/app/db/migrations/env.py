@@ -7,6 +7,9 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Import pgvector for Alembic compatibility
+import pgvector.psycopg2
+
 from app.models import Base
 
 # Alembic Config object

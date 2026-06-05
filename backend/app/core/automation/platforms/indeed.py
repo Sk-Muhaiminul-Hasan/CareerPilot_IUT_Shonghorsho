@@ -208,8 +208,26 @@ class IndeedPlatform(JobPlatform):
             ``True`` if the application was submitted successfully.
 
         Raises:
+            AuthenticationError: If authentication fails.
             ApplicationSubmissionError: If application submission fails.
         """
+        import os
+
+        try:
+            await self.login({
+                "email": os.environ.get("INDEED_EMAIL", ""),
+                "password": os.environ.get("INDEED_PASSWORD", ""),
+            })
+        except AuthenticationError as e:
+            logger.warning("indeed.apply_auth_failed", error=str(e))
+            raise
+
+        if not resume_path:
+            raise ApplicationSubmissionError(
+                "indeed",
+                "No resume provided. Upload a resume before applying to jobs.",
+            )
+
         task = (
             f"Navigate to {job.url}. "
             "Click the 'Apply now' or 'Apply on company site' button. "

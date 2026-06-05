@@ -13,6 +13,12 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
 import type { Application } from '@/types/application';
 
+const APPLY_MODE_LABELS: Record<string, string> = {
+  review: 'Reviewed before applying',
+  autonomous: 'Auto Applied (Beta)',
+  manual: 'Applied Manually',
+};
+
 interface ApplicationCardProps {
   application: Application;
   onApprove?: (appId: string) => void;
@@ -23,12 +29,15 @@ const STATUS_CONFIG: Record<
   string,
   { color: 'default' | 'warning' | 'info' | 'success' | 'error'; icon: React.ReactElement }
 > = {
-  pending: { color: 'warning', icon: <HourglassEmptyIcon fontSize="small" /> },
+  queued: { color: 'default', icon: <HourglassEmptyIcon fontSize="small" /> },
+  pending_review: { color: 'warning', icon: <HourglassEmptyIcon fontSize="small" /> },
   approved: { color: 'info', icon: <CheckCircleIcon fontSize="small" /> },
+  applying: { color: 'info', icon: <HourglassEmptyIcon fontSize="small" /> },
   applied: { color: 'success', icon: <SendIcon fontSize="small" /> },
   interview: { color: 'success', icon: <EmojiEventsIcon fontSize="small" /> },
   rejected: { color: 'error', icon: <CancelIcon fontSize="small" /> },
   offer: { color: 'success', icon: <EmojiEventsIcon fontSize="small" /> },
+  failed: { color: 'error', icon: <CancelIcon fontSize="small" /> },
 };
 
 function ApplicationCard({ application, onApprove, onUpdateStatus }: ApplicationCardProps) {
@@ -45,12 +54,21 @@ function ApplicationCard({ application, onApprove, onUpdateStatus }: Application
             <Typography variant="subtitle1" fontWeight={600} noWrap>
               Application #{application.id.slice(0, 8)}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              Job: {application.job_id.slice(0, 8)}...
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Mode: {application.apply_mode}
-            </Typography>
+            <Box sx={{ mb: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Job: {application.job_id.slice(0, 8)}...
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Mode: {APPLY_MODE_LABELS[application.apply_mode] ?? application.apply_mode}
+              </Typography>
+              <Chip
+                label={APPLY_MODE_LABELS[application.apply_mode] ?? application.apply_mode}
+                size="small"
+                sx={{ alignSelf: 'flex-start', bgcolor: 'action.hover' }}
+              />
+            </Box>
           </Box>
 
           <Chip
@@ -83,7 +101,7 @@ function ApplicationCard({ application, onApprove, onUpdateStatus }: Application
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2 }}>
-        {application.status === 'pending' && onApprove && (
+        {application.status === 'pending_review' && onApprove && (
           <Button size="small" variant="contained" onClick={() => onApprove(application.id)}>
             Approve
           </Button>

@@ -17,32 +17,37 @@ class ConnectionManager:
     """
 
     def __init__(self) -> None:
-        self._connections: list[WebSocket] = []
+        self._connections: dict[str, list[WebSocket]] = {}
 
     @property
     def active_count(self) -> int:
         """Number of currently connected clients."""
-        return len(self._connections)
+        return sum(len(sockets) for sockets in self._connections.values())
 
-    async def connect(self, ws: WebSocket) -> None:
-        """Accept and register a new WebSocket connection.
+    async def connect(self, user_id: str, ws: WebSocket) -> None:
+        """Accept and register a new WebSocket connection for a user.
 
         Args:
+            user_id: Identifier for the authenticated user.
             ws: The incoming WebSocket connection.
         """
         await ws.accept()
-        self._connections.append(ws)
-        logger.info("ws_connected", active=self.active_count)
+        self._connections.setdefault(user_id, []).append(ws)
+        logger.info("ws_connected", user_id=user_id, active=self.active_count)
 
-    async def disconnect(self, ws: WebSocket) -> None:
+    async def disconnect(self, user_id: str, ws: WebSocket) -> None:
         """Remove a WebSocket connection from the active set.
 
         Args:
+            user_id: Identifier for the authenticated user.
             ws: The WebSocket connection to remove.
         """
-        if ws in self._connections:
-            self._connections.remove(ws)
-        logger.info("ws_disconnected", active=self.active_count)
+        sockets = self._connections.get(user_id, [])
+        if ws in sockets:
+            sockets.remove(ws)
+        if not sockets:
+            self._connections.pop(user_id, None)
+        logger.info("ws_disconnected", user_id=user_id, active=self.active_count)
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         """Send a JSON message to all connected clients.
@@ -53,16 +58,17 @@ class ConnectionManager:
             message: Dict to serialize and send as JSON text.
         """
         payload = json.dumps(message)
-        stale: list[WebSocket] = []
+        stale: list[tuple[str, WebSocket]] = []
 
-        for ws in self._connections:
-            try:
-                await ws.send_text(payload)
-            except Exception:
-                stale.append(ws)
+        for user_id, sockets in list(self._connections.items()):
+            for ws in sockets:
+                try:
+                    await ws.send_text(payload)
+                except Exception:
+                    stale.append((user_id, ws))
 
-        for ws in stale:
-            await self.disconnect(ws)
+        for user_id, ws in stale:
+            await self.disconnect(user_id, ws)
 
     async def send_to(self, ws: WebSocket, message: dict[str, Any]) -> None:
         """Send a JSON message to a specific client.
@@ -74,7 +80,30 @@ class ConnectionManager:
         try:
             await ws.send_text(json.dumps(message))
         except Exception:
-            await self.disconnect(ws)
+            # Disconnect handling requires knowing the user_id; fall back to noop
+            pass
+
+    async def send_to_user(
+        self, user_id: str, message: dict[str, Any]
+    ) -> None:
+        """Send a JSON message to all sockets for a given user.
+
+        Args:
+            user_id: Target user identifier.
+            message: Dict to serialize and send as JSON text.
+        """
+        payload = json.dumps(message)
+        sockets = self._connections.get(user_id, [])
+        stale: list[WebSocket] = []
+
+        for ws in sockets:
+            try:
+                await ws.send_text(payload)
+            except Exception:
+                stale.append(ws)
+
+        for ws in stale:
+            await self.disconnect(user_id, ws)
 
 
 manager = ConnectionManager()

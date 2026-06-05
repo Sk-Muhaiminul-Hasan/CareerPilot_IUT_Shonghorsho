@@ -6,12 +6,14 @@ Modules:
     resume      -- Resume upload, generation, and scoring
     analytics   -- Dashboard statistics and reporting
     queue       -- Redis-based task queue operations
+    nudge       -- AI-powered career nudges
 """
 
 __all__ = [
     "analytics",
     "application",
     "job_search",
+    "nudge",
     "queue",
     "resume",
 ]

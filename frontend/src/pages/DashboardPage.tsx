@@ -11,13 +11,16 @@ import Chip from '@mui/material/Chip';
 import StatsCards from '@/components/dashboard/StatsCards';
 import ApplicationFunnel from '@/components/dashboard/ApplicationFunnel';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import NudgeCard from '@/components/dashboard/NudgeCard';
 import { useDashboardStats, useApplicationFunnel } from '@/hooks/useAnalytics';
 import { useApplications } from '@/hooks/useApplications';
+import { useNudge } from '@/hooks/useNudge';
 
 function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: funnel, isLoading: funnelLoading } = useApplicationFunnel();
   const { data: recentApps } = useApplications(1, 5);
+  const { data: nudge, isLoading: nudgeLoading } = useNudge();
 
   return (
     <ErrorBoundary>
@@ -28,6 +31,8 @@ function DashboardPage() {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           Overview of your job application pipeline
         </Typography>
+
+        <NudgeCard nudge={nudge} loading={nudgeLoading} />
 
         <StatsCards stats={stats} loading={statsLoading} />
 

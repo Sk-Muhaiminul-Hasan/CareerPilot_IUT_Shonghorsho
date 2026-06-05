@@ -29,6 +29,12 @@ export async function generateResume(request: ResumeGenerateRequest): Promise<Re
   return data;
 }
 
+/** Trigger LLM re-extraction for an already-uploaded resume. */
+export async function reextractResume(resumeId: string): Promise<{ status: string; text_length: number }> {
+  const { data } = await api.post(`/resumes/${resumeId}/reextract`);
+  return data;
+}
+
 /** Score a resume's ATS compatibility against a specific job. */
 export async function scoreResume(
   resumeId: string,

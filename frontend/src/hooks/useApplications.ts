@@ -69,3 +69,15 @@ export function useUpdateApplicationStatus() {
     },
   });
 }
+
+/** Generate a cover letter for an application. */
+export function useGenerateCoverLetter() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (appId: string) => appService.generateCoverLetter(appId),
+    onSuccess: (updatedApp) => {
+      queryClient.setQueryData(['applications', 'detail', updatedApp.id], updatedApp);
+      void queryClient.invalidateQueries({ queryKey: ['applications'] });
+    },
+  });
+}

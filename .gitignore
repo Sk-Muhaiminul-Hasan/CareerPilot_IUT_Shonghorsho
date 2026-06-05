@@ -32,8 +32,6 @@ env/
 data/db/*.db
 data/sessions/*
 !data/sessions/.gitkeep
-data/vector_indices/*
-!data/vector_indices/.gitkeep
 data/generated/*
 !data/generated/resumes/.gitkeep
 !data/generated/cover_letters/.gitkeep
@@ -63,3 +61,10 @@ Thumbs.db
 temp.py
 .qodo
 uv.lock
+.kilo/
+API.md
+ARCHITECTURE.md
+INTEGRATION_PLAN.md
+TOOLS.md
+.claude/
+venv311/

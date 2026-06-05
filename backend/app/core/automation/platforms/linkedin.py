@@ -119,21 +119,17 @@ class LinkedInPlatform(JobPlatform):
         query: str,
         location: str = "",
         filters: dict[str, Any] | None = None,
-    ) -> list[JobListing]:
-        """Search LinkedIn for jobs matching the query.
+        ) -> list[JobListing]:
+        import os
+        # Login before searching
+        try:
+            await self.login({
+                "email": os.environ.get("LINKEDIN_EMAIL", ""),
+                "password": os.environ.get("LINKEDIN_PASSWORD", ""),
+            })
+        except Exception as e:
+            logger.warning("linkedin.login_skipped", error=str(e))
 
-        Args:
-            query: Job search keywords (e.g. "Software Engineer").
-            location: Geographic filter (e.g. "San Francisco, CA").
-            filters: Optional LinkedIn-specific filters (date_posted,
-                experience_level, remote, job_type).
-
-        Returns:
-            List of ``JobListing`` objects from search results.
-
-        Raises:
-            SearchError: If the search fails.
-        """
         search_url = f"{LINKEDIN_JOBS_URL}?keywords={query}"
         if location:
             search_url += f"&location={location}"
@@ -141,13 +137,14 @@ class LinkedInPlatform(JobPlatform):
         filter_instructions = self._build_filter_instructions(filters)
 
         task = (
-            f"Navigate to {search_url}. "
+            f"Navigate to {search_url} and wait for job listings to load. "
             f"{filter_instructions}"
-            "Extract the first 20 job listings visible on the page. "
-            "For each job, extract: the job title, company name, location, "
-            "the direct job URL, and whether it mentions remote work. "
-            "Return the results as a JSON array of objects with keys: "
-            "id, title, company, location, url, remote."
+            "Look at the job cards on the left panel. "
+            "For the first 10 job cards, extract in ONE pass without clicking anything: "
+            "job title, company name, location, "
+            "the full href URL (starts with https://www.linkedin.com/jobs/view/), "
+            "and whether it mentions remote. "
+            "Return as JSON array with keys: id, title, company, location, url, remote."
         )
 
         agent = BrowserAgent(task=task)
@@ -215,8 +212,26 @@ class LinkedInPlatform(JobPlatform):
             ``True`` if the application was submitted successfully.
 
         Raises:
+            AuthenticationError: If authentication fails.
             ApplicationSubmissionError: If application submission fails.
         """
+        import os
+
+        try:
+            await self.login({
+                "email": os.environ.get("LINKEDIN_EMAIL", ""),
+                "password": os.environ.get("LINKEDIN_PASSWORD", ""),
+            })
+        except AuthenticationError as e:
+            logger.warning("linkedin.apply_auth_failed", error=str(e))
+            raise
+
+        if not resume_path:
+            raise ApplicationSubmissionError(
+                "linkedin",
+                "No resume provided. Upload a resume before applying to jobs.",
+            )
+
         task = (
             f"Navigate to {job.url}. "
             "Click the 'Easy Apply' button if available. "
@@ -277,35 +292,64 @@ class LinkedInPlatform(JobPlatform):
             parts.append(f"Filter by job type: {filters['job_type']}. ")
         return "".join(parts)
 
-    def _parse_search_results(
-        self,
-        raw_result: Any,
-        query: str,
-    ) -> list[JobListing]:
-        """Parse browser-use Agent output into JobListing models.
+    def _parse_search_results(self, raw_result: Any, query: str) -> list[JobListing]:
+        import json
 
-        Args:
-            raw_result: Raw output from the browser-use Agent.
-            query: Original search query for logging context.
+        listings = []
+        text = ""
 
-        Returns:
-            List of parsed ``JobListing`` objects.
-        """
-        listings: list[JobListing] = []
-        if isinstance(raw_result, list):
-            for item in raw_result:
-                if isinstance(item, dict):
-                    listings.append(
-                        JobListing(
-                            platform="linkedin",
-                            platform_job_id=str(item.get("id", "")),
-                            title=item.get("title", ""),
-                            company=item.get("company", ""),
-                            location=item.get("location", ""),
-                            url=item.get("url", ""),
-                            remote=item.get("remote", False),
-                        )
-                    )
+        # Walk all_results looking for the done action with JSON
+        if hasattr(raw_result, 'all_results'):
+            for action in raw_result.all_results:
+                content = getattr(action, 'extracted_content', None) or ""
+                if '[' in content and 'title' in content:
+                    text = content
+                    break
+
+        if not text and hasattr(raw_result, 'final_result'):
+            text = str(raw_result.final_result() or "")
+
+        if not text:
+            text = str(raw_result)
+
+        try:
+            start = text.find('[')
+            end = text.rfind(']') + 1
+            if start != -1 and end > start:
+                candidate = text[start:end]
+                decoder = json.JSONDecoder()
+                offset = 0
+                parsed = False
+                while offset < len(candidate):
+                    try:
+                        items, offset = decoder.raw_decode(candidate, offset)
+                        for item in items:
+                            if isinstance(item, dict):
+                                listings.append(
+                                    JobListing(
+                                        platform="linkedin",
+                                        platform_job_id=str(item.get("id", "")),
+                                        title=item.get("title", ""),
+                                        company=item.get("company", ""),
+                                        location=item.get("location", ""),
+                                        url=item.get("url") or "",
+                                        remote=item.get("remote") in (True, "Remote", "remote", "true", "True", "Yes"),
+                                    )
+                                )
+                        parsed = True
+                        break
+                    except json.JSONDecodeError:
+                        new_start = candidate.find('[', start + 1)
+                        if new_start == -1 or new_start >= end or new_start == start:
+                            raise
+                        start = new_start
+                        candidate = text[start:end]
+                        offset = 0
+                if not parsed:
+                    raise json.JSONDecodeError("No valid JSON array found", text[start:end], start or 0)
+        except Exception as e:
+            logger.error("linkedin.parse_error", error=str(e))
+
         return listings
 
     def _parse_job_details(

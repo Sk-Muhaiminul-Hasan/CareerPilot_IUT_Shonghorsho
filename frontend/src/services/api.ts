@@ -7,7 +7,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30_000,
+  timeout: 300_000,
 });
 
 /** Attach a unique trace-id header to every outgoing request. */

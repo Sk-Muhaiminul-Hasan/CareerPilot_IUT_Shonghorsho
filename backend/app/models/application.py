@@ -35,6 +35,7 @@ class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Scoring
     ats_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reasoning: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Documents
     cover_letter_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

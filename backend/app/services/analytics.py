@@ -62,7 +62,10 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
     offer = (await db.execute(_count_status(ApplicationStatus.OFFER))).scalar() or 0
 
     avg_ats_result = await db.execute(
-        select(func.avg(Application.ats_score)).where(Application.ats_score.isnot(None)),
+        select(func.avg(Application.ats_score)).where(
+            Application.ats_score.isnot(None),
+            Application.status == ApplicationStatus.APPLIED,
+        ),
     )
     avg_ats = avg_ats_result.scalar() or 0.0
 

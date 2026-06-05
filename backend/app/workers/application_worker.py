@@ -17,7 +17,7 @@ from app.config.constants import QUEUE_APPLY, ApplicationStatus
 from app.config.settings import get_settings
 from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
-from app.core.exceptions import AutoApplyError
+from app.core.exceptions import AuthenticationError, AutoApplyError
 from app.db.redis import get_redis, init_redis_pool
 from app.db.session import async_session_factory
 from app.models.application import Application
@@ -49,6 +49,24 @@ async def _broadcast_progress(
     }
     if detail:
         message["detail"] = detail
+    await ws_manager.broadcast(message)
+
+
+async def _broadcast_complete(
+    application_id: str,
+    status: str,
+) -> None:
+    """Send application completion event via WebSocket.
+
+    Args:
+        application_id: Unique application identifier.
+        status: Final status string (APPLIED or FAILED).
+    """
+    message: dict[str, Any] = {
+        "type": "application_complete",
+        "application_id": application_id,
+        "status": status,
+    }
     await ws_manager.broadcast(message)
 
 
@@ -198,6 +216,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail=f"Unknown platform: {platform_name}",
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
         return
 
     try:
@@ -229,6 +248,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         # --------------------------------------------------------------
@@ -236,6 +256,27 @@ async def process_application(payload: dict[str, Any]) -> None:
         # --------------------------------------------------------------
         await _broadcast_progress(app_id, "generating_resume")
         resume_path: str | None = None
+        base_resume_path: str | None = None
+
+        # Get base resume file path as fallback before generating tailored
+        if resume_id:
+            try:
+                async with async_session_factory() as db:
+                    base_result = await db.execute(
+                        select(Resume).where(Resume.id == resume_id),
+                    )
+                    base_resume = base_result.scalar_one_or_none()
+                    if base_resume:
+                        base_resume_path = (
+                            base_resume.file_path_pdf or base_resume.file_path_docx
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "worker.base_resume_lookup_failed",
+                    resume_id=resume_id,
+                    error=str(exc),
+                )
+
         try:
             if resume_id:
                 async with async_session_factory() as db:
@@ -265,9 +306,17 @@ async def process_application(payload: dict[str, Any]) -> None:
                         "worker.resume_generated",
                         resume_id=tailored_resume.id,
                     )
+                    # Fall back to base resume if tailored has no file path
+                    if not resume_path and base_resume_path:
+                        resume_path = base_resume_path
+                        logger.info("worker.using_base_resume_fallback")
             else:
                 logger.info("worker.no_base_resume", app_id=app_id)
         except Exception as exc:
+            # Fall back to base resume if tailored generation fails
+            if base_resume_path:
+                resume_path = base_resume_path
+                logger.info("worker.using_base_resume_fallback_after_error")
             logger.warning(
                 "worker.resume_generation_failed",
                 app_id=app_id,
@@ -310,6 +359,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=skip_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         logger.debug("worker.ats_threshold", min_score=min_score)
@@ -318,6 +368,19 @@ async def process_application(payload: dict[str, Any]) -> None:
         # Step 4: Apply via platform
         # --------------------------------------------------------------
         await _broadcast_progress(app_id, "submitting")
+
+        if not resume_path:
+            error_msg = "No resume available for application. Please upload a resume first."
+            logger.error("worker.no_resume_available", app_id=app_id)
+            await _update_application_status(
+                app_id, ApplicationStatus.FAILED, notes=error_msg,
+            )
+            await _broadcast_progress(
+                app_id, ApplicationStatus.FAILED, detail=error_msg,
+            )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+            return
+
         try:
             platform = platform_registry.create(platform_name)
 
@@ -335,7 +398,7 @@ async def process_application(payload: dict[str, Any]) -> None:
 
             applied = await platform.apply(
                 job=job_listing,
-                resume_path=resume_path or "",
+                resume_path=resume_path,
                 cover_letter_path=None,
             )
 
@@ -344,6 +407,21 @@ async def process_application(payload: dict[str, Any]) -> None:
                     "Platform returned unsuccessful apply result",
                     code="PLATFORM_APPLY_FAILED",
                 )
+        except AuthenticationError as exc:
+            error_msg = (
+                f"Authentication required: {exc.message}. "
+                "Please provide LinkedIn credentials via "
+                "LINKEDIN_EMAIL and LINKEDIN_PASSWORD environment variables."
+            )
+            logger.error("worker.auth_required", app_id=app_id, platform=platform_name)
+            await _update_application_status(
+                app_id, ApplicationStatus.FAILED, notes=error_msg,
+            )
+            await _broadcast_progress(
+                app_id, ApplicationStatus.FAILED, detail=error_msg,
+            )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+            return
         except KeyError as exc:
             error_msg = f"Platform creation failed: {exc}"
             logger.error(
@@ -355,6 +433,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
         except Exception as exc:
             error_msg = f"Application submission failed: {exc}"
@@ -373,6 +452,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_progress(
                 app_id, ApplicationStatus.FAILED, detail=error_msg,
             )
+            await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
         # --------------------------------------------------------------
@@ -385,6 +465,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             applied_at=datetime.now(UTC),
         )
         await _broadcast_progress(app_id, ApplicationStatus.APPLIED)
+        await _broadcast_complete(app_id, ApplicationStatus.APPLIED)
         logger.info(
             "worker.completed",
             job_id=job_id,
@@ -407,6 +488,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail=str(exc),
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
 
     except Exception as exc:
         logger.error(
@@ -425,6 +507,7 @@ async def process_application(payload: dict[str, Any]) -> None:
             ApplicationStatus.FAILED,
             detail="Unexpected error during application",
         )
+        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
 
 
 async def run_worker() -> None:

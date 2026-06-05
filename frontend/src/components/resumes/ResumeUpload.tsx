@@ -31,6 +31,10 @@ function ResumeUpload() {
             `Resume "${data.name}" uploaded. Detected ${data.skills_detected.length} skills.`,
             'success',
           );
+          showNotification(
+            'Background profile extraction is running. Check your profile shortly.',
+            'info',
+          );
         },
         onError: () => {
           showNotification('Failed to upload resume. Please try again.', 'error');

@@ -17,14 +17,18 @@ import CodeIcon from '@mui/icons-material/Code';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import SaveIcon from '@mui/icons-material/Save';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import type { CandidateProfile } from '@/types/settings';
 import SkillsEditor from './SkillsEditor';
 import ExperienceForm from './ExperienceForm';
 import EducationForm from './EducationForm';
+import { useResumes } from '@/hooks/useResumes';
+import { reextractResume } from '@/services/resumeService';
+import { useAppStore } from '@/store/useAppStore';
 
 interface CandidateProfileEditorProps {
   profile: CandidateProfile | null;
-  onSave: (profile: CandidateProfile) => void;
+  onSave: (profile: CandidateProfile) => Promise<void> | void;
 }
 
 const EMPTY_PROFILE: CandidateProfile = {
@@ -34,15 +38,21 @@ const EMPTY_PROFILE: CandidateProfile = {
   location: '',
   linkedin_url: '',
   github_url: '',
+  title: '',
   summary: '',
   skills: [],
   experience: [],
   education: [],
   certifications: [],
+  projects: [],
 };
 
 function CandidateProfileEditor({ profile, onSave }: CandidateProfileEditorProps) {
   const [form, setForm] = useState<CandidateProfile>({ ...EMPTY_PROFILE });
+  const { data: resumes } = useResumes();
+  const latestResume = Array.isArray(resumes?.items) ? resumes.items[0] : null;
+  const latestResumeId = latestResume?.id ?? null;
+  const showNotification = useAppStore((s) => s.showNotification);
 
   useEffect(() => {
     if (profile) {
@@ -71,6 +81,20 @@ function CandidateProfileEditor({ profile, onSave }: CandidateProfileEditorProps
   const handleSave = useCallback(() => {
     onSave(form);
   }, [form, onSave]);
+
+  const handleReExtract = useCallback(async () => {
+    if (!latestResumeId) {
+      showNotification('No resume available to re-extract.', 'warning');
+      return;
+    }
+    try {
+      await reextractResume(latestResumeId);
+      showNotification('Profile re-extraction started.', 'success');
+      onSave(form);
+    } catch {
+      showNotification('Re-extraction failed. Please try again.', 'error');
+    }
+  }, [latestResumeId, reextractResume, onSave, form, showNotification]);
 
   return (
     <Card>
@@ -204,7 +228,23 @@ function CandidateProfileEditor({ profile, onSave }: CandidateProfileEditorProps
           </AccordionDetails>
         </Accordion>
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        {profile && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Profile populated from CV
+            </Typography>
+          </Box>
+        )}
+
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<AutoFixHighIcon />}
+            onClick={handleReExtract}
+            size="large"
+          >
+            Re-extract
+          </Button>
           <Button
             variant="contained"
             startIcon={<SaveIcon />}
