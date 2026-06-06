@@ -51,6 +51,8 @@ class SettingsResponse(BaseModel):
     min_ats_score: float = 0.75
     max_parallel: int = 3
     preferred_provider: str = "openai"
+    preferred_model: str | None = None
+    user_api_key: str | None = None
     platforms_enabled: list[str] = Field(
         default_factory=lambda: ["linkedin", "indeed", "glassdoor"],
     )
@@ -77,6 +79,8 @@ class SettingsUpdate(BaseModel):
     min_ats_score: float | None = Field(default=None, ge=0.0, le=1.0)
     max_parallel: int | None = Field(default=None, ge=1, le=5)
     preferred_provider: str | None = None
+    preferred_model: str | None = None
+    user_api_key: str | None = None
     platforms_enabled: list[str] | None = None
     candidate_profile: CandidateProfileSchema | None = None
 

@@ -8,7 +8,7 @@ from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.llm.client import LLMClient
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.models.application import Application
 from app.models.job import Job
 from app.schemas.job import JobListingResponse
@@ -127,6 +127,11 @@ async def get_nudge(
     )
 
     llm = LLMClient()
+    user_cfg = UserLLMConfig(
+        preferred_provider=settings.preferred_provider if settings else None,
+        preferred_model=settings.preferred_model if settings else None,
+        user_api_key=settings.user_api_key if settings else None,
+    )
     system_prompt = (
         "You are a supportive career coach. Reply ONLY with a JSON object "
         "containing:\n"
@@ -143,6 +148,7 @@ async def get_nudge(
             system_prompt=system_prompt,
             response_format={"type": "json_object"},
             purpose="nudge",
+            user_settings=user_cfg,
         )
 
         data = json.loads(response.content)

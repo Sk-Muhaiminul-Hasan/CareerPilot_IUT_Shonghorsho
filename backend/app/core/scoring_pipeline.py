@@ -22,12 +22,13 @@ from app.core.ats.experience_analyzer import ExperienceAnalyzer
 from app.core.ats.keyword_analyzer import KeywordAnalyzer
 from app.core.ats.scorer import ResumeScorer, ScoreDetails
 from app.core.ats.skill_matcher import SkillMatcher
-from app.core.llm.client import LLMClient
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT
 from app.db.session import async_session_factory
 from app.models.job import Job
 from app.models.resume import Resume
 from app.services.application import get_application
+from app.services.settings_helper import get_or_create_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -96,7 +97,11 @@ async def _run_ats_scoring(job: Job, resume_id: str, user_id: str) -> ScoreDetai
         return None
 
 
-async def _generate_reasoning(job: Job, score_details: ScoreDetails) -> dict | None:
+async def _generate_reasoning(
+    job: Job,
+    score_details: ScoreDetails,
+    user_settings: UserLLMConfig | None,
+) -> dict | None:
     try:
         llm = LLMClient()
         prompt = (
@@ -111,6 +116,7 @@ async def _generate_reasoning(job: Job, score_details: ScoreDetails) -> dict | N
             output_schema=ATSReasoningOutput,
             system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
             purpose=LLMPurpose.ATS_OPTIMIZE,
+            user_settings=user_settings,
         )
         return result.model_dump()
     except Exception as exc:
@@ -149,6 +155,13 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                 )
                 return
 
+            settings = await get_or_create_settings(db, user_id)
+            user_cfg = UserLLMConfig(
+                preferred_provider=settings.preferred_provider,
+                preferred_model=settings.preferred_model,
+                user_api_key=settings.user_api_key,
+            )
+
             score_details, reasoning = await asyncio.gather(
                 _run_ats_scoring(
                     job, application.resume_id or "", user_id,
@@ -162,15 +175,20 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                         education_score=0,
                         keyword_score=0,
                     ),
+                    user_cfg,
                 ),
             )
 
             # Re-run reasoning with actual scores if available
             if score_details is not None:
                 try:
-                    reasoning = await _generate_reasoning(job, score_details)
+                    reasoning = await _generate_reasoning(job, score_details, user_cfg)
                 except Exception as exc:
-                    logger.error("scoring_pipeline.reasoning_failed", application_id=application_id, error=str(exc))
+                    logger.error(
+                        "scoring_pipeline.reasoning_failed",
+                        application_id=application_id,
+                        error=str(exc),
+                    )
 
             ats_score = score_details.overall_score if score_details is not None else 0.0
             logger.info(

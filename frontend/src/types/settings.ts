@@ -37,6 +37,8 @@ export interface Settings {
   min_ats_score: number;
   max_parallel: number;
   preferred_provider: string;
+  preferred_model: string | null;
+  user_api_key: string | null;
   platforms_enabled: string[];
   candidate_profile: CandidateProfile;
 }
@@ -50,6 +52,8 @@ export interface SettingsUpdate {
   min_ats_score?: number;
   max_parallel?: number;
   preferred_provider?: string;
+  preferred_model?: string | null;
+  user_api_key?: string | null;
   platforms_enabled?: string[];
   candidate_profile?: CandidateProfile;
 }

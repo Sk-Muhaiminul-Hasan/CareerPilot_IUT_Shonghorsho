@@ -352,6 +352,14 @@ async def generate_tailored_resume(
     resume_data = _build_resume_data_from_text(base.content_text or "")
     resume_data["user_id"] = user_id
 
+    from app.core.llm.client import UserLLMConfig
+    from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
+    db_settings = await _get_or_create_settings(db, user_id)
+    user_cfg = UserLLMConfig(
+        preferred_provider=db_settings.preferred_provider if db_settings else None,
+        preferred_model=db_settings.preferred_model if db_settings else None,
+        user_api_key=db_settings.user_api_key if db_settings else None,
+    )
     llm = LLMClient()
     generator = DocumentGenerator(
         llm_client=llm,
@@ -364,6 +372,7 @@ async def generate_tailored_resume(
         job_description=job.description or "",
         template_name=request.template_id,
         formats=request.output_formats,
+        user_settings=user_cfg,
     )
 
     # Create the tailored resume record
@@ -623,12 +632,19 @@ async def optimize_resume(
         suggestions = score_result.suggestions
 
     # Use LLM to rewrite the resume
+    from app.core.llm.client import UserLLMConfig
     from app.core.llm.prompts.ats_optimize import (
         ATS_OPTIMIZE_SYSTEM_PROMPT,
         render_ats_optimize_prompt,
     )
     from app.core.llm.prompts.resume_tailor import TailoredResumeData
-
+    from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
+    db_settings = await _get_or_create_settings(db, user_id)
+    user_cfg = UserLLMConfig(
+        preferred_provider=db_settings.preferred_provider if db_settings else None,
+        preferred_model=db_settings.preferred_model if db_settings else None,
+        user_api_key=db_settings.user_api_key if db_settings else None,
+    )
     llm = LLMClient()
     prompt = render_ats_optimize_prompt(
         resume_text, job_description, score_breakdown, suggestions,
@@ -638,6 +654,7 @@ async def optimize_resume(
         output_schema=TailoredResumeData,
         system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
         purpose="ats_optimize",
+        user_settings=user_cfg,
     )
 
     # Render optimized resume to PDF/DOCX

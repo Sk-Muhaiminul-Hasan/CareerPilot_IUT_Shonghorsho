@@ -7,10 +7,16 @@ import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { useJob } from '@/hooks/useJobs';
 import { useApplication, useGenerateCoverLetter } from '@/hooks/useApplications';
 import { downloadCoverLetter } from '@/services/applicationService';
+import { generateResume, getDownloadUrl } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
+import TemplateSelector from '@/components/resumes/TemplateSelector';
 import type { Application } from '@/types/application';
 
 const APPLY_MODE_LABELS: Record<string, string> = {
@@ -44,6 +50,12 @@ function ApplicationDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [resumeGenerating, setResumeGenerating] = useState(false);
+  const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!appId) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -62,6 +74,32 @@ function ApplicationDetailPage() {
   const application: Application | undefined = appData;
   const jobId = application?.job_id ?? '';
   const { data: jobData, isLoading: jobLoading } = useJob(jobId || undefined);
+
+  const handleGenerateResume = async () => {
+    if (!application?.resume_id || !application?.job_id) return;
+    setResumeGenerating(true);
+    setResumeGenerateError(null);
+    setGeneratedResumeId(null);
+    try {
+      const result = await generateResume({
+        base_resume_id: application.resume_id,
+        job_id: application.job_id,
+        template_id: selectedTemplate,
+        output_formats: ['pdf', 'docx'],
+      });
+      setGeneratedResumeId(result.id);
+    } catch (err) {
+      setResumeGenerateError(err instanceof Error ? err.message : 'Failed to generate resume. Please try again.');
+    } finally {
+      setResumeGenerating(false);
+    }
+  };
+
+  const handleResumeModalClose = () => {
+    setResumeModalOpen(false);
+    setResumeGenerateError(null);
+    setGeneratedResumeId(null);
+  };
 
   if (appLoading) {
     return (
@@ -189,7 +227,7 @@ function ApplicationDetailPage() {
         </Alert>
       )}
 
-      <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         {application.cover_letter_path ? (
           <>
             <Button variant="contained" onClick={() => downloadCoverLetter(application.id)}>
@@ -234,6 +272,17 @@ function ApplicationDetailPage() {
             {generating ? 'Generating...' : 'Generate Cover Letter'}
           </Button>
         )}
+
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setResumeModalOpen(true);
+            setGeneratedResumeId(null);
+            setResumeGenerateError(null);
+          }}
+        >
+          Generate Tailored Resume
+        </Button>
       </Box>
 
       {application.notes && (
@@ -241,6 +290,73 @@ function ApplicationDetailPage() {
           Notes: {application.notes}
         </Typography>
       )}
+
+      <Dialog open={resumeModalOpen} onClose={handleResumeModalClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Generate Tailored Resume</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {jobLoading ? 'Loading job details...' : `${jobData?.title ?? 'Job'}${jobData?.company ? ` at ${jobData.company}` : ''}`}
+          </Typography>
+
+          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>
+            Select Template
+          </Typography>
+          <TemplateSelector selectedId={selectedTemplate} onSelect={setSelectedTemplate} />
+
+          {(resumeGenerateError || generateError) && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {resumeGenerateError ?? generateError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
+          {resumeGenerating ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', py: 1 }}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" color="text.secondary">
+                Tailoring your resume for this role...
+              </Typography>
+            </Box>
+          ) : generatedResumeId ? (
+            <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+              <Button
+                variant="contained"
+                href={getDownloadUrl(generatedResumeId, 'pdf')}
+                sx={{ flex: 1 }}
+              >
+                Download PDF
+              </Button>
+              <Button
+                variant="outlined"
+                href={getDownloadUrl(generatedResumeId, 'docx')}
+                sx={{ flex: 1 }}
+              >
+                Download DOCX
+              </Button>
+            </Box>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'flex-end' }}>
+                <Button onClick={handleResumeModalClose} disabled={resumeGenerating}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleGenerateResume}
+                  disabled={!application.resume_id || !application.job_id}
+                >
+                  Generate
+                </Button>
+              </Box>
+              {(!application.resume_id || !application.job_id) && (
+                <Typography variant="caption" color="text.secondary">
+                  A base resume and job are required to generate a tailored resume.
+                </Typography>
+              )}
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

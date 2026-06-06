@@ -23,6 +23,14 @@ class UserSettings(TimestampMixin, Base):
 
     # LLM preferences
     preferred_provider: Mapped[str] = mapped_column(String(50), nullable=False, default="openai")
+    preferred_model: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
+    user_api_key: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+    )
+    # NOTE: user_api_key is stored as plaintext for now.
+    # It should be encrypted before production use.
 
     # Platform config
     platforms_enabled: Mapped[list] = mapped_column(
@@ -37,5 +45,6 @@ class UserSettings(TimestampMixin, Base):
     def __repr__(self) -> str:
         return (
             f"<UserSettings(apply_mode='{self.apply_mode}', "
-            f"provider='{self.preferred_provider}')>"
+            f"provider='{self.preferred_provider}', "
+            f"model='{self.preferred_model}')>"
         )

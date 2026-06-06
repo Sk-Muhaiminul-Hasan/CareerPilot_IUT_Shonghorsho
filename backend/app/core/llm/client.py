@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import litellm
@@ -23,6 +24,15 @@ from app.observability.metrics import (
 logger = structlog.get_logger(__name__)
 
 
+@dataclass
+class UserLLMConfig:
+    """Per-user LLM configuration stored in settings."""
+
+    preferred_provider: str | None = None
+    preferred_model: str | None = None
+    user_api_key: str | None = None
+
+
 class LLMResponse(BaseModel):
     """Structured response from an LLM completion call."""
 
@@ -36,6 +46,17 @@ class LLMResponse(BaseModel):
     total_tokens: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
+
+
+_PROVIDER_MODEL_DEFAULTS = {
+    "openai": "gpt-4o-mini",
+    "anthropic": "claude-3-5-sonnet-20241022",
+    "gemini": "gemini-1.5-flash",
+    "google": "gemini-1.5-flash",
+    "groq": "llama-3.1-70b-versatile",
+    "openrouter": "openrouter/auto",
+    "server": None,
+}
 
 
 class LLMClient:
@@ -88,9 +109,29 @@ class LLMClient:
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _get_model_chain(self, model: str | None) -> list[str]:
+    def _resolve_model(
+        self,
+        model: str | None,
+        user_settings: UserLLMConfig | None,
+    ) -> str:
+        """Resolve the effective model considering user preferences."""
+        if user_settings and user_settings.preferred_model:
+            raw = user_settings.preferred_model
+            provider = user_settings.preferred_provider or "openai"
+            if provider == "openai" and not raw.startswith("openai/"):
+                return raw
+            if provider != "openai" and "/" not in raw:
+                return f"{provider}/{raw}"
+            return raw
+        return model or self._llm.default_model
+
+    def _get_model_chain(
+        self,
+        model: str | None,
+        user_settings: UserLLMConfig | None,
+    ) -> list[str]:
         """Return the ordered list of models to try (primary + fallbacks)."""
-        primary = model or self._llm.default_model
+        primary = self._resolve_model(model, user_settings)
         fallbacks = [
             f"{provider}/{primary.split('/')[-1]}"
             for provider in self._llm.fallback_providers
@@ -115,11 +156,15 @@ class LLMClient:
         max_tokens: int | None = None,
         response_format: dict[str, Any] | None = None,
         purpose: str = "general",
+        user_settings: UserLLMConfig | None = None,
     ) -> LLMResponse:
         """Send completion request with fallback chain and metrics.
 
         Uses ``litellm.acompletion()`` under the hood. Falls back through
         configured providers on failure. Records Prometheus metrics.
+
+        When ``user_settings`` is provided with ``user_api_key`` set, the
+        per-user provider/model/api_key are used instead of server defaults.
 
         Args:
             prompt: The user prompt text.
@@ -129,6 +174,7 @@ class LLMClient:
             max_tokens: Max completion tokens override.
             response_format: JSON mode / structured output spec.
             purpose: Label for metrics (e.g. ``cover_letter``).
+            user_settings: Optional per-user LLM configuration.
 
         Returns:
             Populated ``LLMResponse`` with content and usage metadata.
@@ -141,26 +187,29 @@ class LLMClient:
         messages = self._build_messages(prompt, system_prompt)
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
-        model_chain = self._get_model_chain(model)
+        model_chain = self._get_model_chain(model, user_settings)
         metadata = self._portkey_metadata()
+        user_api_key = user_settings.user_api_key if user_settings else None
         last_error: Exception | None = None
 
         for attempt_model in model_chain:
             provider = attempt_model.split("/")[0] if "/" in attempt_model else "openai"
             start = time.perf_counter()
             try:
-                kwargs: dict[str, Any] = {
+                all_kwargs: dict[str, Any] = {
                     "model": attempt_model,
                     "messages": messages,
                     "temperature": temp,
                     "max_tokens": tokens,
                 }
                 if response_format is not None:
-                    kwargs["response_format"] = response_format
+                    all_kwargs["response_format"] = response_format
                 if metadata:
-                    kwargs["metadata"] = metadata
+                    all_kwargs["metadata"] = metadata
+                if user_api_key:
+                    all_kwargs["api_key"] = user_api_key
 
-                response = await litellm.acompletion(**kwargs)
+                response = await litellm.acompletion(**all_kwargs)
                 latency_s = time.perf_counter() - start
                 elapsed_ms = latency_s * 1000
 
@@ -256,6 +305,7 @@ class LLMClient:
         system_prompt: str = "",
         model: str | None = None,
         purpose: str = "structured",
+        user_settings: UserLLMConfig | None = None,
     ) -> BaseModel:
         """Get structured JSON output parsed into a Pydantic model.
 
@@ -265,6 +315,7 @@ class LLMClient:
             system_prompt: Optional system prompt.
             model: Override model identifier.
             purpose: Label for metrics.
+            user_settings: Optional per-user LLM configuration.
 
         Returns:
             Instance of ``output_schema`` populated from the LLM response.
@@ -285,6 +336,7 @@ class LLMClient:
             system_prompt=augmented_system,
             model=model,
             purpose=purpose,
+            user_settings=user_settings,
         )
 
         try:

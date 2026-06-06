@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -10,6 +11,7 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DownloadIcon from '@mui/icons-material/Download';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 import ResumeUpload from '@/components/resumes/ResumeUpload';
 import TemplateSelector from '@/components/resumes/TemplateSelector';
@@ -19,6 +21,7 @@ import { useResumes } from '@/hooks/useResumes';
 import { getDownloadUrl } from '@/services/resumeService';
 
 function ResumesPage() {
+  const navigate = useNavigate();
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const { data: resumeData, isLoading } = useResumes();
 
@@ -32,9 +35,22 @@ function ResumesPage() {
         <Typography variant="h4" gutterBottom>
           Resumes
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Upload, generate, and manage your resumes
         </Typography>
+
+        <Box sx={{ mb: 4 }}>
+          <Button
+            variant="outlined"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={() => navigate('/jobs')}
+          >
+            Generate Tailored Resume
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+            Select a job on the Job Search page to generate a tailored resume
+          </Typography>
+        </Box>
 
         <ResumeUpload />
 

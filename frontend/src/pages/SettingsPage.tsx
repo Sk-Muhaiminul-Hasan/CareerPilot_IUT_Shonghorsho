@@ -18,6 +18,7 @@ import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LLMProvidersCard from '@/components/settings/LLMProvidersCard';
 import CandidateProfileEditor from '@/components/settings/CandidateProfileEditor';
+import AIConfigCard from '@/components/settings/AIConfigCard';
 import { useSettings, useUpdateSettings, useLLMProviders } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import type { CandidateProfile } from '@/types/settings';
@@ -217,6 +218,26 @@ function SettingsPage() {
                 </FormGroup>
               </CardContent>
             </Card>
+          </Grid>
+
+          {/* AI Configuration */}
+          <Grid item xs={12}>
+            <AIConfigCard
+              settings={settings ? {
+                preferred_provider: settings.preferred_provider,
+                preferred_model: settings.preferred_model ?? null,
+                user_api_key: settings.user_api_key ?? null,
+              } : null}
+              onSave={(field: string, value: unknown) =>
+                updateMutation.mutate(
+                  { [field]: value },
+                  {
+                    onSuccess: () => showNotification('Settings saved.', 'success'),
+                    onError: () => showNotification('Failed to save settings.', 'error'),
+                  },
+                )
+              }
+            />
           </Grid>
 
           {/* LLM Providers */}

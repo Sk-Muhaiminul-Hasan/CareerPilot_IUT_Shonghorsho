@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict
 from app.core.documents.docx_renderer import DOCXRenderer
 from app.core.documents.pdf_renderer import PDFRenderer
 from app.core.exceptions import GenerationError
-from app.core.llm.client import LLMClient
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.core.llm.prompts.cover_letter import (
     CoverLetterTemplate,
     render_prompt,
@@ -77,6 +77,7 @@ class DocumentGenerator:
         job_description: str,
         template_name: str = "modern",
         formats: list[str] | None = None,
+        user_settings: UserLLMConfig | None = None,
     ) -> GeneratedDocument:
         """Generate a tailored resume in specified formats."""
         formats = formats or ["pdf", "docx"]
@@ -84,7 +85,7 @@ class DocumentGenerator:
 
         context = resume_data
         if self._llm and job_description:
-            context = await self._tailor_resume(resume_data, job_description)
+            context = await self._tailor_resume(resume_data, job_description, user_settings)
 
         user_id = "default_user"
         if isinstance(resume_data, dict):
@@ -170,6 +171,7 @@ class DocumentGenerator:
         template: CoverLetterTemplate | None = None,
         formats: list[str] | None = None,
         user_id: str = "default_user",
+        user_settings: UserLLMConfig | None = None,
     ) -> GeneratedDocument:
         """Generate a cover letter using LLM and render to PDF/DOCX."""
         formats = formats or ["pdf", "docx"]
@@ -182,7 +184,7 @@ class DocumentGenerator:
             )
 
         content = await self._generate_letter_content(
-            template, job_description, resume_text, company_info,
+            template, job_description, resume_text, company_info, user_settings,
         )
 
         tasks: list[asyncio.Task[Path]] = []
@@ -299,6 +301,7 @@ class DocumentGenerator:
         self,
         resume_data: dict[str, Any],
         job_description: str,
+        user_settings: UserLLMConfig | None,
     ) -> dict[str, Any]:
         if not self._llm:
             return resume_data
@@ -316,6 +319,7 @@ class DocumentGenerator:
                 output_schema=TailoredResumeData,
                 system_prompt=RESUME_TAILOR_SYSTEM_PROMPT,
                 purpose="resume_tailor",
+                user_settings=user_settings,
             )
             tailored = result.model_dump()
             logger.info("resume_tailored_via_llm", skills_count=len(tailored.get("skills", [])))
@@ -330,6 +334,7 @@ class DocumentGenerator:
         job_description: str,
         resume_text: str,
         company_info: str,
+        user_settings: UserLLMConfig | None,
     ) -> str:
         if not self._llm:
             return self._fallback_cover_letter(job_description)
@@ -338,7 +343,7 @@ class DocumentGenerator:
             template, job_description, resume_text, company_info,
         )
         response = await self._llm.complete(
-            prompt=prompt, purpose="cover_letter",
+            prompt=prompt, purpose="cover_letter", user_settings=user_settings,
         )
         return response.content
 

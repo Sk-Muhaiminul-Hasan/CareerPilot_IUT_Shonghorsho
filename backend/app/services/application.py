@@ -18,7 +18,7 @@ from app.config.constants import (
 )
 from app.core.documents.generator import DocumentGenerator
 from app.core.exceptions import RecordNotFoundError
-from app.core.llm.client import LLMClient
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.core.storage import storage as storage_client
 from app.models.application import Application
 from app.models.job import Job
@@ -328,6 +328,13 @@ async def generate_cover_letter(
     if resume is None:
         raise RecordNotFoundError("Resume", app.resume_id)
 
+    from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
+    user_settings = await _get_or_create_settings(db, user_id)
+    user_cfg = UserLLMConfig(
+        preferred_provider=user_settings.preferred_provider if user_settings else None,
+        preferred_model=user_settings.preferred_model if user_settings else None,
+        user_api_key=user_settings.user_api_key if user_settings else None,
+    )
     llm = LLMClient()
     generator = DocumentGenerator(
         llm_client=llm,
@@ -340,6 +347,7 @@ async def generate_cover_letter(
         job_description=job.description or "",
         template=None,
         user_id=user_id,
+        user_settings=user_cfg,
     )
 
     app.cover_letter_path = doc.pdf_path or doc.docx_path
