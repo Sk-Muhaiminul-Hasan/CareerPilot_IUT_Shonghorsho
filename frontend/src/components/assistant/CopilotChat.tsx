@@ -1,153 +1,152 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Drawer, Box, Typography, TextField, IconButton, Paper, Stack, Chip } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Box,
+  Chip,
+  Drawer,
+  IconButton,
+  Paper,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import CloseIcon from '@mui/icons-material/Close';
+import DescriptionIcon from '@mui/icons-material/Description';
 import SendIcon from '@mui/icons-material/Send';
 import WorkIcon from '@mui/icons-material/Work';
-import DescriptionIcon from '@mui/icons-material/Description';
-import { useChatStore } from '../../store/useChatStore';
+
+import { sendChatMessage } from '@/services/chatService';
+import { useChatStore } from '@/store/useChatStore';
+import type { ChatArtifact, ChatAttachment, ChatSource } from '@/types/chat';
+import { AssistantContextMenu } from './AssistantContextMenu';
+import { ArtifactPanel } from './ArtifactPanel';
 
 interface Message {
   sender: 'user' | 'assistant';
   text: string;
+  sources?: ChatSource[];
+}
+
+interface StoredArtifact extends ChatArtifact {
+  id: string;
 }
 
 export const CopilotChat: React.FC = () => {
-  
   const { isOpen, activeJobId, userProfileId, closeChat } = useChatStore();
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'assistant',
-      text: "Hi! I am your career copilot. Ask me things like 'Am I ready for this role?' or request a custom roadmap!",
+      text: "Hi, I already have your CV context when it is available. Ask about readiness, gaps, roadmaps, or cover letters.",
     },
   ]);
   const [input, setInput] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [showJobDescription, setShowJobDescription] = useState(false);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [artifacts, setArtifacts] = useState<StoredArtifact[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const shouldShowJobDescription =
+    showJobDescription ||
+    Boolean(jobDescription.trim()) ||
+    (!activeJobId && /\b(ready|cover letter|posting|job description|role)\b/i.test(input));
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
   useEffect(() => {
     if (isOpen && activeJobId) {
-      setMessages([
-        {
-          sender: 'assistant',
-          text: '🔍 Analyzing your background against this specific position... One moment while I run a gap analysis.',
-        },
-      ]);
-
-      // Automatically trigger the streaming handler with a hidden context-aware prompt
-      triggerAutomatedEvaluation();
+      void sendAutomatedEvaluation();
     }
   }, [activeJobId, isOpen]);
-  
-  const triggerAutomatedEvaluation = async () => {
-    setIsTyping(true);
-    setMessages((prev) => [...prev, { sender: 'assistant', text: '' }]);
 
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/assistant/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message:
-            'Please perform a comprehensive review of my fitness for this role. What are my gaps and match score?',
-          active_job_id: activeJobId,
-          user_profile_id: userProfileId,
-        }),
-      });
-
-      if (!response.body) throw new Error('Stream body missing');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              accumulatedText += parsed.text;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { sender: 'assistant', text: accumulatedText };
-                return updated;
-              });
-            } catch (e) {}
-          }
-        }
+  const addAttachment = (attachment: ChatAttachment) => {
+    setAttachments((current) => {
+      if (current.some((item) => item.type === attachment.type && item.label === attachment.label)) {
+        return current;
       }
-    } catch (err) {
-      console.error(err);
+      return [...current, attachment];
+    });
+    setMenuAnchor(null);
+  };
+
+  const addArtifacts = (items: ChatArtifact[]) => {
+    if (items.length === 0) return;
+    const stamp = Date.now();
+    setArtifacts((current) => [
+      ...items.map((item, index) => ({ ...item, id: `${stamp}-${index}` })),
+      ...current,
+    ].slice(0, 10));
+  };
+
+  const sendAutomatedEvaluation = async () => {
+    setIsTyping(true);
+    setMessages([
+      {
+        sender: 'assistant',
+        text: 'Analyzing your background against this saved job context...',
+      },
+    ]);
+    try {
+      const response = await sendChatMessage({
+        query: 'Please review my fitness for this role. What are my gaps and match score?',
+        active_job_id: activeJobId,
+        user_profile_id: userProfileId,
+        attachments,
+      });
+      setMessages((current) => [
+        ...current,
+        { sender: 'assistant', text: response.answer, sources: response.sources },
+      ]);
+      addArtifacts(response.artifacts);
+    } catch {
+      setMessages((current) => [
+        ...current,
+        { sender: 'assistant', text: 'Sorry, I could not reach the assistant API.' },
+      ]);
     } finally {
       setIsTyping(false);
     }
   };
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
 
   const handleSendMessage = async () => {
     if (!input.trim() || isTyping) return;
 
     const userMsg = input.trim();
     setInput('');
-    setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
+    setMessages((current) => [...current, { sender: 'user', text: userMsg }]);
     setIsTyping(true);
 
-    // Placeholder array index for incoming stream text chunks
-    setMessages((prev) => [...prev, { sender: 'assistant', text: '' }]);
-
     try {
-      const response = await fetch('http://localhost:8000/api/v1/assistant/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg,
-          active_job_id: activeJobId,
-          user_profile_id: userProfileId,
-        }),
+      const response = await sendChatMessage({
+        query: userMsg,
+        active_job_id: activeJobId,
+        user_profile_id: userProfileId,
+        job_description: jobDescription.trim() || undefined,
+        attachments,
       });
-
-      if (!response.body) throw new Error('No readable response body');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedResponse = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const textChunk = decoder.decode(value, { stream: true });
-        // Process standard text/event-stream chunks (data: {...})
-        const lines = textChunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              accumulatedResponse += parsed.text;
-
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { sender: 'assistant', text: accumulatedResponse };
-                return updated;
-              });
-            } catch (e) {
-              // Handle mid-chunk parsing offsets gracefully
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) => [
-        ...prev,
-        { sender: 'assistant', text: 'Sorry, I lost connection to the server.' },
+      setMessages((current) => [
+        ...current,
+        { sender: 'assistant', text: response.answer, sources: response.sources },
+      ]);
+      addArtifacts(response.artifacts);
+    } catch {
+      setMessages((current) => [
+        ...current,
+        { sender: 'assistant', text: 'Sorry, I could not reach the assistant API.' },
       ]);
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
   return (
@@ -157,35 +156,20 @@ export const CopilotChat: React.FC = () => {
       variant="persistent"
       PaperProps={{ sx: { width: 380, display: 'flex', flexDirection: 'column' } }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #e0e0e0',
-        }}
-      >
-        <Typography variant="h6">Career Copilot</Typography>
-        {activeJobId && (
-          <Typography variant="caption" color="primary">
-            Targeting Job Context Active
-          </Typography>
-        )}
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
+        <Typography variant="h6" sx={{ flex: 1 }}>
+          Career Copilot
+        </Typography>
+        {activeJobId && <Chip icon={<WorkIcon />} label="Job" size="small" color="success" />}
         <IconButton onClick={closeChat} size="small">
           <CloseIcon />
         </IconButton>
       </Box>
 
-      {/* Messages */}
-      <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', bgcolor: '#f9f9f9' }}>
+      <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', bgcolor: '#f7f8fa' }}>
         <Stack spacing={2}>
           {messages.map((msg, index) => (
-            <Box
-              key={index}
-              sx={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}
-            >
+            <Box key={index} sx={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
               <Paper
                 sx={{
                   p: 1.5,
@@ -197,67 +181,96 @@ export const CopilotChat: React.FC = () => {
                 <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
                   {msg.text}
                 </Typography>
+                {msg.sources && msg.sources.length > 0 && (
+                  <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                    {msg.sources.slice(0, 3).map((source) => (
+                      <Tooltip key={source.id} title={source.text}>
+                        <Chip size="small" label={source.id} />
+                      </Tooltip>
+                    ))}
+                  </Stack>
+                )}
               </Paper>
             </Box>
           ))}
+          {isTyping && (
+            <Typography variant="caption" color="text.secondary">
+              Thinking...
+            </Typography>
+          )}
           <div ref={scrollRef} />
         </Stack>
       </Box>
 
-      {/* Context Tagging Chip Tray */}
-      {(activeJobId || userProfileId) && (
-        <Box sx={{ px: 2, pt: 1.5, pb: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1, borderTop: '1px solid #e0e0e0' }}>
+      <ArtifactPanel artifacts={artifacts} />
+
+      {(attachments.length > 0 || activeJobId || userProfileId) && (
+        <Box sx={{ px: 2, py: 1, display: 'flex', flexWrap: 'wrap', gap: 1, borderTop: '1px solid #e0e0e0' }}>
           {userProfileId && (
-            <Chip
-              icon={<DescriptionIcon fontSize="small" />}
-              label={`Resume: ${userProfileId}`}
-              variant="outlined"
-              size="small"
-              onDelete={() => useChatStore.setState({ userProfileId: null })}
-              sx={{
-                borderRadius: '16px',
-                backgroundColor: 'rgba(25, 118, 210, 0.06)',
-                borderColor: 'rgba(25, 118, 210, 0.15)',
-                color: 'text.secondary',
-                fontSize: '0.75rem',
-                '& .MuiChip-icon': { color: 'primary.main' },
-              }}
-            />
+            <Chip icon={<DescriptionIcon />} label={userProfileId === 'default_user' ? 'Demo CV' : userProfileId} size="small" />
           )}
-          {activeJobId && (
+          {attachments.map((attachment, index) => (
             <Chip
-              icon={<WorkIcon fontSize="small" />}
-              label={`Job Context: ${activeJobId}`}
-              variant="outlined"
+              key={`${attachment.type}-${attachment.label}`}
+              label={attachment.label}
               size="small"
-              onDelete={() => useChatStore.setState({ activeJobId: null })}
-              sx={{
-                borderRadius: '16px',
-                backgroundColor: 'rgba(76, 175, 80, 0.06)',
-                borderColor: 'rgba(76, 175, 80, 0.15)',
-                color: 'text.secondary',
-                fontSize: '0.75rem',
-                '& .MuiChip-icon': { color: 'success.main' },
-              }}
+              onDelete={() => removeAttachment(index)}
             />
-          )}
+          ))}
         </Box>
       )}
 
-      {/* Input */}
-      <Box sx={{ p: 2, borderTop: (activeJobId || userProfileId) ? 'none' : '1px solid #e0e0e0', display: 'flex', gap: 1 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Ask me anything..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-        />
-        <IconButton color="primary" onClick={handleSendMessage} disabled={isTyping}>
-          <SendIcon />
-        </IconButton>
+      <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0' }}>
+        <Stack spacing={1}>
+          {shouldShowJobDescription && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              maxRows={6}
+              size="small"
+              placeholder="Paste job description..."
+              value={jobDescription}
+              onChange={(event) => setJobDescription(event.target.value)}
+            />
+          )}
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <Tooltip title="Add context">
+              <IconButton size="small" onClick={(event) => setMenuAnchor(event.currentTarget)}>
+                <AddIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Mention context">
+              <IconButton size="small" onClick={(event) => setMenuAnchor(event.currentTarget)}>
+                <AlternateEmailIcon />
+              </IconButton>
+            </Tooltip>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Ask me anything..."
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && !event.shiftKey && handleSendMessage()}
+            />
+            <IconButton color="primary" onClick={handleSendMessage} disabled={isTyping}>
+              <SendIcon />
+            </IconButton>
+          </Box>
+        </Stack>
       </Box>
+
+      <AssistantContextMenu
+        anchorEl={menuAnchor}
+        activeJobId={activeJobId}
+        userProfileId={userProfileId}
+        onAddAttachment={addAttachment}
+        onClose={() => setMenuAnchor(null)}
+        onShowJobDescription={() => {
+          setShowJobDescription(true);
+          setMenuAnchor(null);
+        }}
+      />
     </Drawer>
   );
 };

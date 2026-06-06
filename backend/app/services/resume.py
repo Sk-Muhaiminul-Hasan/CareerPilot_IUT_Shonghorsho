@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.documents.generator import DocumentGenerator
 from app.core.documents.parser import DocumentParser, ParsedResume
 from app.core.exceptions import ParseError, RecordNotFoundError
-from app.core.llm.client import LLMClient
 from app.models.job import Job
 from app.models.resume import Resume
 from app.schemas.resume import (
@@ -342,6 +341,8 @@ async def generate_tailored_resume(
     resume_data = _build_resume_data_from_text(base.content_text or "")
 
     # Generate via DocumentGenerator (LLM tailoring + rendering)
+    from app.core.llm.client import LLMClient
+
     llm = LLMClient()
     generator = DocumentGenerator(llm_client=llm)
     doc = await generator.generate_resume(
@@ -609,6 +610,7 @@ async def optimize_resume(
         render_ats_optimize_prompt,
     )
     from app.core.llm.prompts.resume_tailor import TailoredResumeData
+    from app.core.llm.client import LLMClient
 
     llm = LLMClient()
     prompt = render_ats_optimize_prompt(

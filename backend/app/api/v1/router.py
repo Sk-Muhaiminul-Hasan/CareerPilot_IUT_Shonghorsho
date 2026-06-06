@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.v1.analytics import router as analytics_router
 from app.api.v1.applications import router as applications_router
 from app.api.v1.assistant import router as assistant_router
+from app.api.v1.chat import router as chat_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.resumes import router as resumes_router
 from app.api.v1.settings import router as settings_router
@@ -17,3 +18,4 @@ v1_router.include_router(resumes_router, prefix="/resumes", tags=["Resumes"])
 v1_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 v1_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
 v1_router.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
+v1_router.include_router(chat_router, tags=["Assistant"])
