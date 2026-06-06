@@ -1,5 +1,5 @@
 import api from './api';
-import type { ChatAttachment, ChatResponse } from '@/types/chat';
+import type { ChatAttachment, ChatMessage, ChatResponse } from '@/types/chat';
 
 export interface SendChatRequest {
   query: string;
@@ -7,6 +7,7 @@ export interface SendChatRequest {
   user_profile_id?: string | null;
   job_description?: string;
   attachments?: ChatAttachment[];
+  conversation_history?: ChatMessage[];
 }
 
 export async function sendChatMessage(request: SendChatRequest): Promise<ChatResponse> {

@@ -21,6 +21,23 @@ resume scoring, and automation branches unless a shared contract is needed.
 3. CV text is chunked and indexed in `data/vector_indices`.
 4. Assistant prompts receive retrieved CV chunks and optional job context.
 5. Responses return `answer`, `sources`, `intent`, and optional metadata.
+6. Generated roadmaps, cover letters, readiness reports, and gap analyses are
+   saved to the frontend Artifacts page via local storage.
+
+## Manual P3 Flow
+
+1. Open `Resumes`.
+2. Upload a PDF/DOCX CV. The page should open the parsed text editor after the
+   upload succeeds.
+3. Make a small text edit and save it.
+4. Click `Use in Copilot`.
+5. Open Copilot and ask a personal question.
+6. Click source chips or attached CV chips to jump back to the CV context.
+7. Open `Artifacts` to reuse generated outputs.
+
+The `Open demo CV` action is only a placeholder for testing before Pillar 2 is
+complete. It is visible and clickable so users can inspect what the assistant is
+using.
 
 ## Common Issues
 
@@ -31,6 +48,9 @@ resume scoring, and automation branches unless a shared contract is needed.
   `data/vector_indices` and retry. The index is rebuilt on demand.
 - Frontend chat does not stream: the compatibility endpoint returns one SSE
   answer chunk. That is expected for now; the core service returns JSON.
+- OpenAI shows not configured: make sure `LLM__OPENAI_API_KEY` or
+  `OPENAI_API_KEY` is set in either `backend/.env` or the repo root `.env`, then
+  restart the backend.
 
 ## Run Checks
 

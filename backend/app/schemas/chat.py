@@ -70,6 +70,10 @@ class ChatArtifact(BaseModel):
     type: str
     title: str
     content: str
+    format: str = "markdown"
+    filename: str | None = None
+    description: str | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class ChatResponse(BaseModel):

@@ -9,7 +9,11 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { useUploadResume } from '@/hooks/useResumes';
 import { useAppStore } from '@/store/useAppStore';
 
-function ResumeUpload() {
+interface ResumeUploadProps {
+  onUploaded?: (resumeId: string) => void;
+}
+
+function ResumeUpload({ onUploaded }: ResumeUploadProps) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadMutation = useUploadResume();
@@ -31,13 +35,14 @@ function ResumeUpload() {
             `Resume "${data.name}" uploaded. Detected ${data.skills_detected.length} skills.`,
             'success',
           );
+          onUploaded?.(data.id);
         },
         onError: () => {
           showNotification('Failed to upload resume. Please try again.', 'error');
         },
       });
     },
-    [uploadMutation, showNotification],
+    [onUploaded, uploadMutation, showNotification],
   );
 
   const handleDrop = useCallback(

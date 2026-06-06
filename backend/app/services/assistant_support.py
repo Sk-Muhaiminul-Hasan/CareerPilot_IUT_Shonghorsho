@@ -110,21 +110,6 @@ def source_payload(cv: CVContext) -> list[dict[str, Any]]:
     ]
 
 
-def build_artifacts(intent: AssistantIntent, answer: str, query: str) -> list[dict[str, str]]:
-    """Create reusable assistant artifacts for output-oriented intents."""
-    if intent == AssistantIntent.READINESS:
-        return [_artifact("readiness_report", "Readiness report", answer)]
-    if intent == AssistantIntent.GAP_ANALYSIS:
-        return [_artifact("skill_gap_report", "Skill gap analysis", answer)]
-    if intent == AssistantIntent.ROADMAP:
-        return [_artifact("roadmap", "3-month roadmap", answer)]
-    if intent == AssistantIntent.COVER_LETTER:
-        return [_artifact("cover_letter", "Cover letter draft", answer)]
-    if any(term in query.lower() for term in ("draft", "write", "make", "build")):
-        return [_artifact("assistant_note", "Assistant draft", answer)]
-    return []
-
-
 def fallback_answer(
     *,
     intent: AssistantIntent,
@@ -137,21 +122,21 @@ def fallback_answer(
     evidence = format_cv_context(cv)
     if intent == AssistantIntent.READINESS:
         return (
-            "Verdict: Partially ready.\n\n"
-            "Reasoning: I found relevant CV evidence, but the LLM provider is not "
-            "available to complete a deeper comparison. Use the evidence below to "
-            "validate the fit against the JD.\n\n"
-            f"CV evidence:\n{evidence}\n\n"
-            f"Job description considered:\n{job_description[:1200]}"
+            "I would call this partially ready for now.\n\n"
+            "The good news: your CV has relevant signals. The part I would be careful "
+            "with is the exact JD match, because I need the live LLM pass for a richer "
+            "comparison.\n\n"
+            f"What I can ground from your CV:\n{evidence}\n\n"
+            f"Role context I considered:\n{job_description[:1200]}"
         )
     if intent == AssistantIntent.GAP_ANALYSIS:
         missing = _simple_missing_terms(cv.full_text, benchmark)
         gaps = ", ".join(missing) if missing else "No obvious gaps found."
         return (
-            "Skill gap analysis:\n\n"
+            "Here is the honest gap read.\n\n"
             f"Benchmark: {benchmark}\n\n"
-            f"Likely missing or weak skills: {gaps}\n\n"
-            f"Grounding from CV:\n{evidence}"
+            f"The areas that look missing or thin: {gaps}\n\n"
+            f"What I found in your CV:\n{evidence}"
         )
     if intent == AssistantIntent.ROADMAP:
         return _fallback_roadmap(evidence)
@@ -165,11 +150,12 @@ def fallback_answer(
             "needs and contribute with practical, project-backed skills.\n\n"
             "Sincerely,"
         )
-    return f"Based on your CV, here is the most relevant context I found:\n\n{evidence}\n\nQuery: {query}"
-
-
-def _artifact(kind: str, title: str, content: str) -> dict[str, str]:
-    return {"type": kind, "title": title, "content": content}
+    if any(term in query.lower() for term in ("greet", "hello", "opening", "start")):
+        return (
+            "Hey, I have your CV context loaded. I can help with fit checks, gap reads, "
+            "roadmaps, and tailored letters."
+        )
+    return f"Here is what I can tell from your CV so far:\n\n{evidence}\n\nYou asked: {query}"
 
 
 def _simple_missing_terms(cv_text: str, benchmark: str) -> list[str]:

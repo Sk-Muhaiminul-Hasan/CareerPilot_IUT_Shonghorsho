@@ -4,6 +4,11 @@ export interface ChatAttachment {
   value: string;
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 export interface ChatSource {
   id: string;
   resume_id: string;
@@ -17,6 +22,10 @@ export interface ChatArtifact {
   type: string;
   title: string;
   content: string;
+  format: string;
+  filename?: string | null;
+  description?: string | null;
+  data: Record<string, unknown>;
 }
 
 export interface ChatResponse {

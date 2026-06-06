@@ -51,6 +51,20 @@ class ResumeOptimizeRequest(BaseModel):
     job_id: str | None = None
 
 
+class ResumeContentResponse(BaseModel):
+    """Parsed resume text exposed for simple Pillar 3 review/editing."""
+
+    resume_id: str
+    name: str
+    content_text: str
+
+
+class ResumeContentUpdate(BaseModel):
+    """Request to update parsed resume text."""
+
+    content_text: str = Field(default="", max_length=20000)
+
+
 class ResumeResponse(BaseModel):
     """Single resume in API responses."""
 

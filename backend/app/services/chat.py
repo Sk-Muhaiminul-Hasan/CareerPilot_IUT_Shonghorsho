@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm.prompts.assistant import SYSTEM_PROMPT, AssistantIntent, render_assistant_prompt
 from app.models.job import Job
+from app.services.artifact_builder import build_artifacts
 from app.services.assistant_support import (
     benchmark_context,
-    build_artifacts,
     classify_intent,
     fallback_answer,
     format_attachments,
@@ -43,9 +43,9 @@ async def process_chat_query(
     llm_client: LLMClient | None = None,
 ) -> dict[str, Any]:
     """Process a Pillar 3 assistant query and return a JSON-safe response."""
-    del conversation_history
     normalized_query = query.strip()
     intent = classify_intent(normalized_query)
+    conversational_query = _query_with_history(normalized_query, conversation_history)
     attached_context = format_attachments(attachments)
     job_context = await _resolve_job_description(db, job_id, job_description, attached_context)
 
@@ -76,7 +76,7 @@ async def process_chat_query(
     benchmark = benchmark_context(normalized_query, intent)
     prompt = render_assistant_prompt(
         intent=intent,
-        query=_query_with_attachments(normalized_query, attached_context),
+        query=_query_with_attachments(conversational_query, attached_context),
         cv_context=format_cv_context(cv),
         job_description=job_context,
         benchmark_context=benchmark,
@@ -177,3 +177,20 @@ def _query_with_attachments(query: str, attached_context: str) -> str:
     if not attached_context:
         return query
     return f"{query}\n\nUser-attached context:\n{attached_context}"
+
+
+def _query_with_history(
+    query: str,
+    conversation_history: list[dict[str, str]] | None,
+) -> str:
+    if not conversation_history:
+        return query
+    recent = conversation_history[-6:]
+    lines = [
+        f"{str(item.get('role', 'user')).title()}: {str(item.get('content', '')).strip()}"
+        for item in recent
+        if str(item.get("content", "")).strip()
+    ]
+    if not lines:
+        return query
+    return f"Recent chat:\n{chr(10).join(lines)}\n\nCurrent user message:\n{query}"

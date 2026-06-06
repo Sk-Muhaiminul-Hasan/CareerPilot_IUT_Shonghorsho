@@ -12,6 +12,15 @@ export function useResumes() {
   });
 }
 
+/** Fetch parsed text for one resume. */
+export function useResumeContent(resumeId: string | null) {
+  return useQuery({
+    queryKey: [...RESUMES_KEY, 'content', resumeId],
+    queryFn: () => resumeService.getResumeContent(resumeId ?? ''),
+    enabled: Boolean(resumeId),
+  });
+}
+
 /** Upload a resume file. */
 export function useUploadResume() {
   const queryClient = useQueryClient();
@@ -49,6 +58,19 @@ export function useOptimizeResume() {
     mutationFn: (resumeId: string) => resumeService.optimizeResume(resumeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: RESUMES_KEY });
+    },
+  });
+}
+
+/** Update parsed resume text. */
+export function useUpdateResumeContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resumeId, contentText }: { resumeId: string; contentText: string }) =>
+      resumeService.updateResumeContent(resumeId, { content_text: contentText }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: RESUMES_KEY });
+      void queryClient.invalidateQueries({ queryKey: [...RESUMES_KEY, 'content', data.resume_id] });
     },
   });
 }

@@ -20,6 +20,11 @@ function LLMProvidersCard({ providers }: LLMProvidersCardProps) {
         <Typography variant="h6" gutterBottom>
           LLM Providers
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Provider status is read from environment variables such as{' '}
+          <strong>LLM__OPENAI_API_KEY</strong>. The backend now checks both backend/.env
+          and the repo root .env.
+        </Typography>
 
         <Divider sx={{ mb: 2 }} />
 

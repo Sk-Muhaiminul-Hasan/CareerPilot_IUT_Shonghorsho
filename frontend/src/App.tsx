@@ -9,6 +9,7 @@ import ApplicationsPage from '@/pages/ApplicationsPage';
 import ResumesPage from '@/pages/ResumesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
+import ArtifactsPage from '@/pages/ArtifactsPage';
 import { useAppStore } from '@/store/useAppStore';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
           <Route path="/jobs" element={<JobSearchPage />} />
           <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/resumes" element={<ResumesPage />} />
+          <Route path="/artifacts" element={<ArtifactsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

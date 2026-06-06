@@ -13,12 +13,11 @@ import {
   Button,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DownloadIcon from '@mui/icons-material/Download';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import type { ChatArtifact } from '@/types/chat';
-
-interface StoredArtifact extends ChatArtifact {
-  id: string;
-}
+import { ArtifactVisualizer } from './ArtifactVisualizer';
+import type { StoredArtifact } from '@/store/useArtifactStore';
+import { artifactFormat, downloadArtifact } from '@/utils/artifactFiles';
 
 interface ArtifactPanelProps {
   artifacts: StoredArtifact[];
@@ -50,12 +49,17 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifacts }) => {
                 {artifact.title}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap>
-                {artifact.type.replace(/_/g, ' ')}
+                {artifact.type.replace(/_/g, ' ')} · {artifactFormat(artifact)}
               </Typography>
             </Box>
             <Tooltip title="Copy">
               <IconButton size="small" onClick={() => copyArtifact(artifact)}>
                 <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Download">
+              <IconButton size="small" onClick={() => downloadArtifact(artifact)}>
+                <DownloadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Open">
@@ -69,6 +73,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifacts }) => {
       <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="md">
         <DialogTitle>{selected?.title}</DialogTitle>
         <DialogContent dividers>
+          {selected && <ArtifactVisualizer artifact={selected} />}
           <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', m: 0 }}>
             {selected?.content}
           </Typography>

@@ -1,5 +1,6 @@
 """User settings API routes with database persistence."""
 
+import os
 import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -75,18 +76,23 @@ async def list_llm_providers() -> list[LLMProviderStatus]:
     settings = get_app_settings()
     llm = settings.llm
 
+    openai_key = (
+        llm.openai_api_key.get_secret_value()
+        or os.getenv("OPENAI_API_KEY", "")
+    )
+
     providers_config = [
-        ("openai", llm.openai_api_key, "gpt-4o"),
-        ("groq", llm.groq_api_key, "llama-3.1-70b-versatile"),
-        ("gemini", llm.gemini_api_key, "gemini-pro"),
-        ("openrouter", llm.openrouter_api_key, llm.default_model),
-        ("github", llm.github_token, "gpt-4o"),
+        ("openai", openai_key, "gpt-4o"),
+        ("groq", llm.groq_api_key.get_secret_value(), "llama-3.1-70b-versatile"),
+        ("gemini", llm.gemini_api_key.get_secret_value(), "gemini-pro"),
+        ("openrouter", llm.openrouter_api_key.get_secret_value(), llm.default_model),
+        ("github", llm.github_token.get_secret_value(), "gpt-4o"),
     ]
 
     return [
         LLMProviderStatus(
             provider=name,
-            configured=bool(key.get_secret_value()),
+            configured=bool(key),
             model=model,
             is_primary=llm.preferred_provider == name,
         )
