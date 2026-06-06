@@ -156,11 +156,7 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                 return
 
             settings = await get_or_create_settings(db, user_id)
-            user_cfg = UserLLMConfig(
-                preferred_provider=settings.preferred_provider,
-                preferred_model=settings.preferred_model,
-                user_api_key=settings.user_api_key,
-            )
+            user_cfg = UserLLMConfig.from_settings(settings)
 
             score_details, reasoning = await asyncio.gather(
                 _run_ats_scoring(

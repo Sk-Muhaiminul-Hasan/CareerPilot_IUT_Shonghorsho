@@ -97,7 +97,7 @@ async def search_jobs(
             )
             continue
 
-    for listing in listings:
+        for listing in listings:
             try:
                 job = _listing_to_job(listing, user_id)
                 existing = await db.execute(
@@ -138,11 +138,12 @@ async def search_jobs(
             )
             for listing in exa_listings:
                 try:
-                    job = _listing_to_job(listing)
+                    job = _listing_to_job(listing, user_id)
                     existing = await db.execute(
                         select(Job).where(
                             Job.platform == job.platform,
                             Job.platform_job_id == job.platform_job_id,
+                            Job.user_id == user_id,
                         ),
                     )
                     if existing.scalar_one_or_none() is None:

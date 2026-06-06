@@ -23,14 +23,67 @@ from app.observability.metrics import (
 
 logger = structlog.get_logger(__name__)
 
+_VALID_PROVIDERS = {"openai", "anthropic", "openrouter", "groq", "gemini", "google", "server"}
+
+_AUTO_PREFIX: dict[str, str] = {
+    "openrouter": "openrouter/",
+    "anthropic": "anthropic/",
+    "groq": "groq/",
+    "gemini": "gemini/",
+    "google": "gemini/",
+}
+
 
 @dataclass
 class UserLLMConfig:
     """Per-user LLM configuration stored in settings."""
 
+    # Legacy unified fields (still written by older frontend code, kept during transition)
     preferred_provider: str | None = None
     preferred_model: str | None = None
     user_api_key: str | None = None
+
+    # General-purpose AI — used for nudges, cover letters, resume tailoring, chat.
+    general_provider: str | None = None
+    general_model: str | None = None
+    general_api_key: str | None = None
+
+    # Extraction AI — used only for CV parsing (needs reliable JSON/structured output).
+    extraction_provider: str | None = None
+    extraction_model: str | None = None
+    extraction_api_key: str | None = None
+
+    def provider_for(self, purpose: str) -> str | None:
+        if purpose == "extraction":
+            return self.extraction_provider or self.preferred_provider
+        return self.general_provider or self.preferred_provider
+
+    def model_for(self, purpose: str) -> str | None:
+        if purpose == "extraction":
+            return self.extraction_model or self.preferred_model
+        return self.general_model or self.preferred_model
+
+    def api_key_for(self, purpose: str) -> str | None:
+        if purpose == "extraction":
+            return self.extraction_api_key or self.user_api_key
+        return self.general_api_key or self.user_api_key
+
+    @classmethod
+    def from_settings(cls, settings_obj: Any) -> UserLLMConfig:
+        """Build config from a SQLAlchemy UserSettings model instance."""
+        if settings_obj is None:
+            return cls()
+        return cls(
+            preferred_provider=getattr(settings_obj, "preferred_provider", None),
+            preferred_model=getattr(settings_obj, "preferred_model", None),
+            user_api_key=getattr(settings_obj, "user_api_key", None),
+            general_provider=getattr(settings_obj, "general_provider", None),
+            general_model=getattr(settings_obj, "general_model", None),
+            general_api_key=getattr(settings_obj, "general_api_key", None),
+            extraction_provider=getattr(settings_obj, "extraction_provider", None),
+            extraction_model=getattr(settings_obj, "extraction_model", None),
+            extraction_api_key=getattr(settings_obj, "extraction_api_key", None),
+        )
 
 
 class LLMResponse(BaseModel):
@@ -48,15 +101,16 @@ class LLMResponse(BaseModel):
     latency_ms: float = 0.0
 
 
-_PROVIDER_MODEL_DEFAULTS = {
+_PROVIDER_MODEL_DEFAULTS: dict[str, str] = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-sonnet-20241022",
     "gemini": "gemini-1.5-flash",
     "google": "gemini-1.5-flash",
     "groq": "llama-3.1-70b-versatile",
     "openrouter": "openrouter/auto",
-    "server": None,
 }
+
+_EXTRACTION_MODEL_FALLBACK = "gpt-4o-mini"
 
 
 class LLMClient:
@@ -80,7 +134,6 @@ class LLMClient:
             litellm.set_verbose = False
             litellm.success_callback = ["portkey"]
             litellm.failure_callback = ["portkey"]
-            # Portkey headers are passed via metadata per-request
             logger.info("portkey_gateway_configured")
 
     def _configure_api_keys(self) -> None:
@@ -96,8 +149,8 @@ class LLMClient:
                 setattr(litellm, attr, value)
         openai_key = self._llm.openai_api_key.get_secret_value()
         if openai_key:
-            import os
-            os.environ["OPENAI_API_KEY"] = openai_key
+            import os as _os
+            _os.environ["OPENAI_API_KEY"] = openai_key
 
     def _build_messages(
         self, prompt: str, system_prompt: str
@@ -113,25 +166,46 @@ class LLMClient:
         self,
         model: str | None,
         user_settings: UserLLMConfig | None,
+        purpose: str = "general",
     ) -> str:
-        """Resolve the effective model considering user preferences."""
-        if user_settings and user_settings.preferred_model:
-            raw = user_settings.preferred_model
-            provider = user_settings.preferred_provider or "openai"
-            if provider == "openai" and not raw.startswith("openai/"):
+        """Resolve the effective model considering user preferences and purpose."""
+        fallback_default = (
+            _EXTRACTION_MODEL_FALLBACK
+            if purpose == "extraction"
+            else self._llm.default_model
+        )
+
+        if user_settings:
+            provider = user_settings.provider_for(purpose) or "openai"
+            raw = user_settings.model_for(purpose)
+
+            if raw:
+                if provider == "openai":
+                    if raw.startswith("openai/"):
+                        return raw
+                    return raw
+                if provider in _AUTO_PREFIX:
+                    prefix = _AUTO_PREFIX[provider]
+                    if not raw.startswith(prefix):
+                        return f"{prefix}{raw}"
                 return raw
-            if provider != "openai" and "/" not in raw:
-                return f"{provider}/{raw}"
-            return raw
-        return model or self._llm.default_model
+
+        resolved = model or fallback_default
+        if "/" in resolved:
+            prefix = resolved.split("/", 1)[0]
+            known_providers = set(_PROVIDER_MODEL_DEFAULTS.keys()) - {"server"}
+            if prefix not in known_providers:
+                return f"{self._llm.preferred_provider}/{resolved}"
+        return resolved
 
     def _get_model_chain(
         self,
         model: str | None,
         user_settings: UserLLMConfig | None,
+        purpose: str = "general",
     ) -> list[str]:
         """Return the ordered list of models to try (primary + fallbacks)."""
-        primary = self._resolve_model(model, user_settings)
+        primary = self._resolve_model(model, user_settings, purpose)
         fallbacks = [
             f"{provider}/{primary.split('/')[-1]}"
             for provider in self._llm.fallback_providers
@@ -163,8 +237,9 @@ class LLMClient:
         Uses ``litellm.acompletion()`` under the hood. Falls back through
         configured providers on failure. Records Prometheus metrics.
 
-        When ``user_settings`` is provided with ``user_api_key`` set, the
-        per-user provider/model/api_key are used instead of server defaults.
+        When ``user_settings`` is provided with an API key for the given
+        ``purpose``, the per-user provider/model/api_key are used instead of
+        server defaults.
 
         Args:
             prompt: The user prompt text.
@@ -173,7 +248,8 @@ class LLMClient:
             temperature: Sampling temperature override.
             max_tokens: Max completion tokens override.
             response_format: JSON mode / structured output spec.
-            purpose: Label for metrics (e.g. ``cover_letter``).
+            purpose: Label for metrics and AI slot selection
+                (``general`` or ``extraction``).
             user_settings: Optional per-user LLM configuration.
 
         Returns:
@@ -187,13 +263,17 @@ class LLMClient:
         messages = self._build_messages(prompt, system_prompt)
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
-        model_chain = self._get_model_chain(model, user_settings)
+        model_chain = self._get_model_chain(model, user_settings, purpose)
         metadata = self._portkey_metadata()
-        user_api_key = user_settings.user_api_key if user_settings else None
+        user_api_key = user_settings.api_key_for(purpose) if user_settings else None
         last_error: Exception | None = None
 
         for attempt_model in model_chain:
-            provider = attempt_model.split("/")[0] if "/" in attempt_model else "openai"
+            provider = (
+                attempt_model.split("/", 1)[0]
+                if "/" in attempt_model
+                else "openai"
+            )
             start = time.perf_counter()
             try:
                 all_kwargs: dict[str, Any] = {
@@ -309,12 +389,15 @@ class LLMClient:
     ) -> BaseModel:
         """Get structured JSON output parsed into a Pydantic model.
 
+        Uses prompt-based JSON schema injection rather than ``response_format``
+        so it works with any LiteLLM provider.
+
         Args:
             prompt: The user prompt text.
             output_schema: Pydantic model class for response validation.
             system_prompt: Optional system prompt.
             model: Override model identifier.
-            purpose: Label for metrics.
+            purpose: Label for metrics and AI slot selection.
             user_settings: Optional per-user LLM configuration.
 
         Returns:

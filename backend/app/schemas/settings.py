@@ -50,9 +50,18 @@ class SettingsResponse(BaseModel):
     apply_mode: str = "review"
     min_ats_score: float = 0.75
     max_parallel: int = 3
-    preferred_provider: str = "openai"
-    preferred_model: str | None = None
-    user_api_key: str | None = None
+
+    # Two separate AI slots
+    general_provider: str | None = None
+    general_model: str | None = None
+    general_api_key: str | None = None
+
+    extraction_provider: str | None = None
+    extraction_model: str | None = None
+    extraction_api_key: str | None = None
+
+    onboarding_complete: bool = False
+
     platforms_enabled: list[str] = Field(
         default_factory=lambda: ["linkedin", "indeed", "glassdoor"],
     )
@@ -73,14 +82,22 @@ class SettingsResponse(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    """Request to update user settings."""
+    """Request to update user settings. Only provided fields are changed."""
 
     apply_mode: str | None = None
     min_ats_score: float | None = Field(default=None, ge=0.0, le=1.0)
     max_parallel: int | None = Field(default=None, ge=1, le=5)
-    preferred_provider: str | None = None
-    preferred_model: str | None = None
-    user_api_key: str | None = None
+
+    general_provider: str | None = None
+    general_model: str | None = None
+    general_api_key: str | None = None
+
+    extraction_provider: str | None = None
+    extraction_model: str | None = None
+    extraction_api_key: str | None = None
+
+    onboarding_complete: bool | None = None
+
     platforms_enabled: list[str] | None = None
     candidate_profile: CandidateProfileSchema | None = None
 

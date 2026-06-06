@@ -330,11 +330,7 @@ async def generate_cover_letter(
 
     from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
     user_settings = await _get_or_create_settings(db, user_id)
-    user_cfg = UserLLMConfig(
-        preferred_provider=user_settings.preferred_provider if user_settings else None,
-        preferred_model=user_settings.preferred_model if user_settings else None,
-        user_api_key=user_settings.user_api_key if user_settings else None,
-    )
+    user_cfg = UserLLMConfig.from_settings(user_settings)
     llm = LLMClient()
     generator = DocumentGenerator(
         llm_client=llm,

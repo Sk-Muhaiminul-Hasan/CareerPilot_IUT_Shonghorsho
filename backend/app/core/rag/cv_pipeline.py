@@ -43,6 +43,16 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
         return
 
     profile = {}
+    user_cfg = None
+    try:
+        from app.core.llm.client import UserLLMConfig
+        from app.services.settings_helper import get_or_create_settings as _goc
+        async with async_session_factory() as _session:
+            _settings = await _goc(_session, user_id)
+            user_cfg = UserLLMConfig.from_settings(_settings)
+    except Exception:
+        pass
+
     try:
         llm = LLMClient()
         result = await llm.complete_with_structured_output(
@@ -51,8 +61,8 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
                 f"Resume:\n{content_text[:6000]}"
             ),
             output_schema=CandidateProfileSchema,
-            purpose="cv_extraction",
-            model="gpt-4o-mini",
+            purpose="extraction",
+            user_settings=user_cfg,
         )
         profile = result.model_dump()
     except Exception as exc:

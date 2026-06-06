@@ -127,11 +127,7 @@ async def get_nudge(
     )
 
     llm = LLMClient()
-    user_cfg = UserLLMConfig(
-        preferred_provider=settings.preferred_provider if settings else None,
-        preferred_model=settings.preferred_model if settings else None,
-        user_api_key=settings.user_api_key if settings else None,
-    )
+    user_cfg = UserLLMConfig.from_settings(settings)
     system_prompt = (
         "You are a supportive career coach. Reply ONLY with a JSON object "
         "containing:\n"

@@ -1,6 +1,6 @@
 """User settings database model."""
 
-from sqlalchemy import JSON, Float, Integer, String
+from sqlalchemy import JSON, Boolean, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -21,16 +21,34 @@ class UserSettings(TimestampMixin, Base):
     max_parallel: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     min_ats_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.75)
 
-    # LLM preferences
-    preferred_provider: Mapped[str] = mapped_column(String(50), nullable=False, default="openai")
-    preferred_model: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
-    user_api_key: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        default=None,
+    # General AI — powered nudges, cover letters, resume tailoring, chat.
+    general_provider: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default=None,
     )
-    # NOTE: user_api_key is stored as plaintext for now.
-    # It should be encrypted before production use.
+    general_model: Mapped[str | None] = mapped_column(
+        String(200), nullable=True, default=None,
+    )
+    general_api_key: Mapped[str | None] = mapped_column(
+        String(512), nullable=True, default=None,
+    )
+    # NOTE: api_key fields stored as plaintext — needs encryption for prod.
+
+    # Extraction AI — CV parsing / structured extraction.
+    extraction_provider: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default=None,
+    )
+    extraction_model: Mapped[str | None] = mapped_column(
+        String(200), nullable=True, default=None,
+    )
+    extraction_api_key: Mapped[str | None] = mapped_column(
+        String(512), nullable=True, default=None,
+    )
+    # NOTE: api_key fields stored as plaintext — needs encryption for prod.
+
+    # Onboarding tracking
+    onboarding_complete: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false",
+    )
 
     # Platform config
     platforms_enabled: Mapped[list] = mapped_column(
@@ -44,7 +62,7 @@ class UserSettings(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return (
-            f"<UserSettings(apply_mode='{self.apply_mode}', "
-            f"provider='{self.preferred_provider}', "
-            f"model='{self.preferred_model}')>"
+            f"<UserSettings(id='{self.id}', "
+            f"general_provider='{self.general_provider}', "
+            f"extraction_provider='{self.extraction_provider}')>"
         )
