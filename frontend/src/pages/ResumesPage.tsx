@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -9,25 +9,73 @@ import CardActions from '@mui/material/CardActions';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import Stack from '@mui/material/Stack';
+import Paper from '@mui/material/Paper';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DownloadIcon from '@mui/icons-material/Download';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import SaveIcon from '@mui/icons-material/Save';
 
 import ResumeUpload from '@/components/resumes/ResumeUpload';
 import TemplateSelector from '@/components/resumes/TemplateSelector';
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { useResumes } from '@/hooks/useResumes';
+import { useResumeContent, useResumes, useUpdateResumeContent } from '@/hooks/useResumes';
 import { downloadResume } from '@/services/resumeService';
+import { useChatStore } from '@/store/useChatStore';
+import { useAppStore } from '@/store/useAppStore';
+import { DEMO_CV_TEXT } from '@/data/demoProfile';
 
 function ResumesPage() {
   const navigate = useNavigate();
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [draftContent, setDraftContent] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: resumeData, isLoading } = useResumes();
+  const selectedResumeId = searchParams.get('resumeId');
+  const isDemoSelected = searchParams.get('demo') === '1';
+  const { data: selectedContent, isLoading: contentLoading } = useResumeContent(
+    isDemoSelected ? null : selectedResumeId,
+  );
+  const updateContent = useUpdateResumeContent();
+  const openChatWithResume = useChatStore((s) => s.openChatWithResume);
+  const showNotification = useAppStore((s) => s.showNotification);
 
   const handleTemplateSelect = useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
   }, []);
+
+  useEffect(() => {
+    if (isDemoSelected) {
+      setDraftContent(DEMO_CV_TEXT);
+    } else if (selectedContent) {
+      setDraftContent(selectedContent.content_text);
+    }
+  }, [isDemoSelected, selectedContent]);
+
+  const selectResume = (resumeId: string) => {
+    setSearchParams({ resumeId });
+  };
+
+  const selectDemo = () => {
+    setSearchParams({ demo: '1' });
+  };
+
+  const useInCopilot = (resumeId: string) => {
+    openChatWithResume(resumeId);
+    showNotification(
+      resumeId === 'default_user' ? 'Demo CV attached to Copilot.' : 'CV attached to Copilot.',
+      'success',
+    );
+  };
+
+  const saveSelectedResume = async () => {
+    if (!selectedResumeId || isDemoSelected) return;
+    await updateContent.mutateAsync({ resumeId: selectedResumeId, contentText: draftContent });
+    showNotification('Resume text saved.', 'success');
+  };
 
   const handleDownload = async (resumeId: string, format: 'pdf' | 'docx') => {
     await downloadResume(resumeId, format);
@@ -36,27 +84,72 @@ function ResumesPage() {
   return (
     <ErrorBoundary>
       <Box>
-        <Typography variant="h4" gutterBottom>
-          Resumes
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload, generate, and manage your resumes
-        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" sx={{ mb: 3 }}>
+          <Box>
+            <Typography variant="h4" gutterBottom>
+              Profile & CV Workspace
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Upload a CV, review the parsed text, make quick edits, and attach it to Copilot.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/jobs')}
+            >
+              Generate Tailored Resume
+            </Button>
+            <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={selectDemo}>
+              Open demo CV
+            </Button>
+          </Stack>
+        </Stack>
 
-        <Box sx={{ mb: 4 }}>
-          <Button
-            variant="outlined"
-            startIcon={<AutoAwesomeIcon />}
-            onClick={() => navigate('/jobs')}
-          >
-            Generate Tailored Resume
-          </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-            Select a job on the Job Search page to generate a tailored resume
-          </Typography>
-        </Box>
+        <ResumeUpload onUploaded={selectResume} />
 
-        <ResumeUpload />
+        {(selectedResumeId || isDemoSelected) && (
+          <Paper variant="outlined" sx={{ mt: 3, p: 2, borderRadius: 1 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ mb: 1.5 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="h6">
+                  {isDemoSelected ? 'Demo CV context' : selectedContent?.name ?? 'Resume context'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {isDemoSelected
+                    ? 'This is placeholder context so Pillar 3 can be tested before Pillar 2 finishes full CV intelligence.'
+                    : 'Simple parsed text editor. Pillar 2 can replace this with a richer structured editor later.'}
+                </Typography>
+              </Box>
+              <Button
+                startIcon={<SmartToyIcon />}
+                variant="contained"
+                onClick={() => useInCopilot(isDemoSelected ? 'default_user' : selectedResumeId ?? '')}
+              >
+                Use in Copilot
+              </Button>
+              {!isDemoSelected && (
+                <Button
+                  startIcon={<SaveIcon />}
+                  onClick={saveSelectedResume}
+                  disabled={!selectedResumeId || contentLoading || updateContent.isPending}
+                >
+                  Save
+                </Button>
+              )}
+            </Stack>
+            <TextField
+              fullWidth
+              multiline
+              minRows={10}
+              maxRows={18}
+              value={draftContent}
+              onChange={(event) => setDraftContent(event.target.value)}
+              disabled={isDemoSelected}
+              placeholder="Parsed resume text will appear here after upload."
+            />
+          </Paper>
+        )}
 
         <Box sx={{ mt: 4, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
@@ -118,7 +211,21 @@ function ResumesPage() {
                     </Typography>
                   </CardContent>
 
-                  <CardActions sx={{ px: 2, pb: 2 }}>
+                  <CardActions sx={{ px: 2, pb: 2, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      startIcon={<VisibilityIcon />}
+                      onClick={() => selectResume(resume.id)}
+                    >
+                      View/Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<SmartToyIcon />}
+                      onClick={() => useInCopilot(resume.id)}
+                    >
+                      Copilot
+                    </Button>
                     {resume.has_pdf && (
                       <Button
                         size="small"

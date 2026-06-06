@@ -1,77 +1,45 @@
 import { createTheme } from '@mui/material/styles';
 
+/** Kinetic Accountability design system — see Designs/DESIGN.md */
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#003d9b',
-      light: '#0052cc',
-      dark: '#001848',
+      main: '#004ac6',
+      light: '#2563eb',
+      dark: '#003ea8',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#585f6c',
-      light: '#dce2f3',
-      dark: '#404754',
+      main: '#712ae2',
+      light: '#8a4cfc',
+      dark: '#5a00c6',
       contrastText: '#ffffff',
     },
+    error: {
+      main: '#ba1a1a',
+    },
     background: {
-      default: '#f9f9ff',
+      default: '#f8f9ff',
       paper: '#ffffff',
     },
     text: {
-      primary: '#141b2b',
-      secondary: '#434654',
+      primary: '#0b1c30',
+      secondary: '#434655',
     },
-    divider: '#c3c6d6',
-    error: {
-      main: '#ba1a1a',
-      contrastText: '#ffffff',
-    },
+    divider: '#c3c6d7',
   },
   typography: {
-    fontFamily: '"Hanken Grotesk", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: {
-      fontWeight: 700,
-      letterSpacing: '-0.02em',
-    },
-    h2: {
-      fontWeight: 700,
-      letterSpacing: '-0.02em',
-    },
-    h3: {
-      fontWeight: 700,
-      letterSpacing: '-0.02em',
-    },
-    h4: {
-      fontWeight: 700,
-      letterSpacing: '-0.02em',
-    },
-    h5: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 600,
-    },
-    subtitle1: {
-      fontWeight: 500,
-    },
-    body1: {
-      fontWeight: 400,
-      lineHeight: 1.5,
-    },
-    body2: {
-      fontWeight: 400,
-      lineHeight: 1.43,
-    },
-    button: {
-      fontWeight: 600,
-      textTransform: 'none',
-      letterSpacing: '0.01em',
-    },
-    overline: {
-      fontWeight: 700,
-      letterSpacing: '0.05em',
-    },
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: { fontWeight: 800, letterSpacing: '-0.02em' },
+    h2: { fontWeight: 700, letterSpacing: '-0.01em' },
+    h3: { fontWeight: 700 },
+    h4: { fontWeight: 700, letterSpacing: '-0.01em' },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 600 },
+    subtitle1: { fontWeight: 500 },
+    body1: { fontSize: '1rem', lineHeight: 1.5 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.43 },
+    caption: { fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.05em' },
   },
   shape: {
     borderRadius: 8,
@@ -83,12 +51,12 @@ const theme = createTheme({
       },
       styleOverrides: {
         root: {
-          border: '1px solid',
-          borderColor: '#e1e8fd',
-          borderRadius: 16,
+          border: '1px solid #e2e8f0',
+          borderRadius: 24,
+          boxShadow: '0 4px 12px rgba(11, 28, 48, 0.05)',
           transition: 'box-shadow 0.2s ease-in-out',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            boxShadow: '0 8px 24px rgba(11, 28, 48, 0.09)',
           },
         },
       },
@@ -100,54 +68,55 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 600,
+          fontWeight: 500,
           borderRadius: 8,
-          padding: '10px 20px',
         },
-        containedPrimary: {
-          background: 'linear-gradient(135deg, #003d9b 0%, #0052cc 100%)',
-          '&:hover': {
-            background: 'linear-gradient(135deg, #001848 0%, #003d9b 100%)',
-          },
+        contained: {
+          boxShadow: 'none',
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          fontWeight: 500,
-          borderRadius: 6,
+          fontWeight: 600,
+          fontSize: '0.72rem',
+          letterSpacing: '0.04em',
+          borderRadius: 9999,
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          borderRight: '1px solid #e1e8fd',
-          background: '#ffffff',
+          borderRight: '1px solid #e2e8f0',
+          backgroundColor: '#ffffff',
         },
       },
     },
-    MuiTextField: {
+    MuiLinearProgress: {
       styleOverrides: {
         root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-            '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#003d9b',
-            },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#003d9b',
-              borderWidth: '2px',
-            },
-          },
+          borderRadius: 9999,
+          height: 12,
+          backgroundColor: '#e5eeff',
+        },
+        bar: {
+          borderRadius: 9999,
         },
       },
     },
-    MuiPaper: {
+    MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
         },
       },
     },

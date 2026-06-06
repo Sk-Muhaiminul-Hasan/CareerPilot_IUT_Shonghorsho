@@ -10,6 +10,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import StarIcon from '@mui/icons-material/Star';
 import EventIcon from '@mui/icons-material/Event';
 
+import { useChatStore } from '@/store/useChatStore';
 import type { Job } from '@/types/job';
 
 interface JobCardProps {
@@ -46,6 +47,7 @@ function formatDeadline(iso: string): string {
 function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
   const matchPercent = job.match_score != null ? Math.round(job.match_score * 100) : null;
   const workTypeChip = getWorkTypeChip(job.work_type);
+  const openChatWithJob = useChatStore((s) => s.openChatWithJob);
 
   return (
     <Card>
@@ -112,6 +114,18 @@ function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
             Apply
           </Button>
         )}
+
+        {/* Linked Pillar 3 Context Button */}
+        <Button
+          size="small"
+          variant="outlined"
+          color="secondary"
+          onClick={() => {
+            openChatWithJob(job.id);
+          }}
+        >
+          Am I Ready?
+        </Button>
       </CardActions>
     </Card>
   );

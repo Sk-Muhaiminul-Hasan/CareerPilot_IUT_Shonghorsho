@@ -23,6 +23,7 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+const ArtifactsPage = lazy(() => import('@/pages/ArtifactsPage'));
 
 // Guards authenticated routes: checks onboarding completion before
 // rendering the app shell. Redirects to /onboarding when AI is not yet set up.
@@ -78,7 +79,7 @@ function App() {
         }
       >
         <Routes>
-          {/* ── Public routes (always accessible) ── */}
+          {/* Public routes (always accessible) */}
           <Route
             path="/"
             element={user ? <Navigate to="/dashboard" replace /> : <HomePage />}
@@ -86,7 +87,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
 
-          {/* ── Protected routes: each wraps ProtectedInner (onboarding guard + AppLayout) ── */}
+          {/* Protected routes: each wraps ProtectedInner (onboarding guard + AppLayout) */}
           <Route
             path="/dashboard"
             element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
@@ -124,8 +125,14 @@ function App() {
           >
             <Route index element={<AnalyticsPage />} />
           </Route>
+          <Route
+            path="/artifacts"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ArtifactsPage />} />
+          </Route>
 
-          {/* ── Fallback: unknown paths go to home ── */}
+          {/* Fallback: unknown paths go to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

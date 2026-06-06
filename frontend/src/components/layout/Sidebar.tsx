@@ -6,21 +6,21 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import WorkIcon from '@mui/icons-material/Work';
-import SendIcon from '@mui/icons-material/Send';
-import DescriptionIcon from '@mui/icons-material/Description';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import SettingsIcon from '@mui/icons-material/Settings';
+import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export const DRAWER_WIDTH = 260;
+export const DRAWER_WIDTH = 240;
 
 interface NavItem {
   label: string;
@@ -29,51 +29,74 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
-  { label: 'Job Search', path: '/jobs', icon: <WorkIcon /> },
-  { label: 'Applications', path: '/applications', icon: <SendIcon /> },
-  { label: 'Resumes', path: '/resumes', icon: <DescriptionIcon /> },
-  { label: 'Analytics', path: '/analytics', icon: <BarChartIcon /> },
-  { label: 'Settings', path: '/settings', icon: <SettingsIcon /> },
+  { label: 'Dashboard', path: '/dashboard', icon: <GridViewRoundedIcon /> },
+  { label: 'Job Search', path: '/jobs', icon: <WorkOutlineIcon /> },
+  { label: 'Applications', path: '/applications', icon: <SendOutlinedIcon /> },
+  { label: 'Resumes', path: '/resumes', icon: <DescriptionOutlinedIcon /> },
+  { label: 'Artifacts', path: '/artifacts', icon: <Inventory2OutlinedIcon /> },
+  { label: 'Analytics', path: '/analytics', icon: <BarChartOutlinedIcon /> },
+  { label: 'Settings', path: '/settings', icon: <SettingsOutlinedIcon /> },
 ];
 
-function Sidebar() {
+function DrawerContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const logout = useAuthStore((s) => s.logout);
 
-  const drawerContent = (
-    <Box>
-      <Toolbar sx={{ px: 2 }}>
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Logo area */}
+      <Box
+        sx={{
+          px: 2.5,
+          py: 2.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.25,
+          borderBottom: '1px solid #e2e8f0',
+        }}
+      >
         <Box
-          component="img"
-          src="/auto-logo.png"
-          alt="Auto"
           sx={{
-            width: 32,
-            height: 32,
-            objectFit: 'contain',
-            mr: 1.25,
+            width: 36,
+            height: 36,
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             flexShrink: 0,
-          }}
-        />
-        <Typography
-          variant="h6"
-          noWrap
-          sx={{
-            color: '#003d9b',
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            fontFamily: '"Hanken Grotesk", sans-serif',
+            overflow: 'hidden',
           }}
         >
-          CareerPilot
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List sx={{ px: 1, pt: 1 }}>
+          <img src="/auto-logo.png" alt="Auto" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontWeight: 800,
+              fontSize: '1rem',
+              color: '#0b1c30',
+              lineHeight: 1.2,
+            }}
+          >
+            CareerPilot AI
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.7rem',
+              color: '#737686',
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Career Accountable
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Nav items */}
+      <List sx={{ px: 1.5, pt: 1.5, flex: 1 }}>
         {NAV_ITEMS.map((item) => {
           const selected = location.pathname === item.path;
           return (
@@ -85,20 +108,34 @@ function Sidebar() {
                   setSidebarOpen(false);
                 }}
                 sx={{
-                  borderRadius: 1,
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 1,
+                  '& .MuiListItemIcon-root': {
+                    color: selected ? '#ffffff' : '#737686',
+                    minWidth: 36,
+                    transition: 'color 0.15s',
+                  },
+                  '& .MuiListItemText-primary': {
+                    fontWeight: selected ? 600 : 500,
+                    fontSize: '0.9rem',
+                    color: selected ? '#ffffff' : '#0b1c30',
+                    transition: 'color 0.15s',
+                  },
                   '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'white',
+                    backgroundColor: '#004ac6',
                     '&:hover': {
-                      backgroundColor: 'primary.dark',
+                      backgroundColor: '#003ea8',
                     },
-                    '& .MuiListItemIcon-root': {
-                      color: 'white',
-                    },
+                  },
+                  '&:not(.Mui-selected):hover': {
+                    backgroundColor: '#eff4ff',
+                    '& .MuiListItemIcon-root': { color: '#004ac6' },
+                    '& .MuiListItemText-primary': { color: '#004ac6' },
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.label} />
               </ListItemButton>
             </ListItem>
@@ -122,24 +159,24 @@ function Sidebar() {
       </List>
     </Box>
   );
+}
+
+function Sidebar() {
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
 
   return (
     <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: 0 }}>
-      {/* Mobile drawer */}
       <Drawer
         variant="temporary"
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { width: DRAWER_WIDTH },
-        }}
+        sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
       >
-        {drawerContent}
+        <DrawerContent />
       </Drawer>
 
-      {/* Desktop drawer */}
       <Drawer
         variant="permanent"
         sx={{
@@ -148,7 +185,7 @@ function Sidebar() {
         }}
         open
       >
-        {drawerContent}
+        <DrawerContent />
       </Drawer>
     </Box>
   );

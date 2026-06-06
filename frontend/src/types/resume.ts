@@ -54,6 +54,17 @@ export interface ResumeGenerateRequest {
   output_formats?: string[];
 }
 
+/** Parsed text for simple Pillar 3 resume review/editing. */
+export interface ResumeContent {
+  resume_id: string;
+  name: string;
+  content_text: string;
+}
+
+export interface ResumeContentUpdate {
+  content_text: string;
+}
+
 /** Paginated list of resumes. */
 export interface ResumeListResponse {
   items: Resume[];
