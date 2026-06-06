@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -18,12 +18,14 @@ from pydantic import BaseModel, ConfigDict
 from app.core.documents.docx_renderer import DOCXRenderer
 from app.core.documents.pdf_renderer import PDFRenderer
 from app.core.exceptions import GenerationError
-from app.core.llm.client import LLMClient
 from app.core.llm.prompts.cover_letter import (
     CoverLetterTemplate,
     render_prompt,
     select_best_template,
 )
+
+if TYPE_CHECKING:
+    from app.core.llm.client import LLMClient
 
 logger = structlog.get_logger(__name__)
 

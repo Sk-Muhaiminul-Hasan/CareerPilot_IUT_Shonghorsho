@@ -63,3 +63,6 @@ Thumbs.db
 temp.py
 .qodo
 uv.lock
+
+backend/data/uploads/*.pdf
+backend/data/vector_indices/

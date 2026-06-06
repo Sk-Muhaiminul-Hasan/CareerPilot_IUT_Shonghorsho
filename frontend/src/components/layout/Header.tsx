@@ -7,12 +7,19 @@ import Chip from '@mui/material/Chip';
 import MenuIcon from '@mui/icons-material/Menu';
 import CircleIcon from '@mui/icons-material/Circle';
 
+// Import the Chat bubble icon and our isolated chat store hook
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import { useChatStore } from '@/store/useChatStore';
+
 import { useAppStore } from '@/store/useAppStore';
 import { DRAWER_WIDTH } from './Sidebar';
 
 function Header() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const wsConnected = useAppStore((s) => s.wsConnected);
+
+  // Bind the global layout action trigger directly to our state store
+  const toggleCopilotChat = useChatStore((s) => s.toggleChat);
 
   return (
     <AppBar
@@ -56,6 +63,16 @@ function Header() {
             size="small"
             sx={{ fontWeight: 500 }}
           />
+
+          {/* Connected Copilot Panel Injection Switch */}
+          <IconButton
+            color="primary"
+            aria-label="Toggle Copilot Chat"
+            onClick={toggleCopilotChat}
+            sx={{ ml: 1 }}
+          >
+            <ChatBubbleOutlineIcon />
+          </IconButton>
         </Box>
       </Toolbar>
     </AppBar>
