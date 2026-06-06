@@ -37,7 +37,7 @@ function ProtectedInner() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!onboardingStatus.onboarding_complete) {
+  if (!onboardingStatus.onboarding_complete && !onboardingStatus.has_general_ai && !onboardingStatus.has_extraction_ai) {
     return <Navigate to="/onboarding" replace />;
   }
 
