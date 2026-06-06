@@ -250,7 +250,7 @@ function StepThree({ onSkip }: { onSkip: () => void }) {
 function OnboardingPage() {
   const navigate = useNavigate();
   const showNotification = useAppStore((s) => s.showNotification);
-  const { data: status, isLoading } = useOnboardingStatus();
+  const { data: status, isLoading, isError } = useOnboardingStatus();
   const completeOnboardingMutation = useCompleteOnboarding();
   const updateMutation = useUpdateSettings();
 
@@ -259,14 +259,18 @@ function OnboardingPage() {
   const [extraction, setExtraction] = useState({ provider: 'openai', model: 'gpt-4o-mini', apiKey: '' });
 
   useEffect(() => {
-    if (status?.onboarding_complete && !isLoading) {
+    // Only redirect away when we have a successful status response that says
+    // onboarding is already done. Don't redirect on isError/isLoading — that
+    // would trap a user with a misconfigured Supabase session on a blank
+    // page and prevent them from completing onboarding.
+    if (status?.onboarding_complete && !isLoading && !isError) {
       navigate('/dashboard', { replace: true });
     }
-  }, [status, isLoading, navigate]);
+  }, [status, isLoading, isError, navigate]);
 
-  if (isLoading) {
-    return <LoadingState message="Loading..." />;
-  }
+  // If the status query is still loading OR failed (e.g. 401 from a bad
+  // Supabase session), still show the steps so the user can finish.
+  // The data hook will simply be undefined in the error case.
 
   const handleSaveAndContinue = async () => {
     try {

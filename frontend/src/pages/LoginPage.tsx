@@ -222,7 +222,8 @@ function LoginPage() {
 
       if (session && user) {
         setSession(session.access_token, user, true);
-        navigate('/dashboard', { replace: true });
+        // First-time users must complete onboarding before reaching the dashboard.
+        navigate('/onboarding', { replace: true });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed';
