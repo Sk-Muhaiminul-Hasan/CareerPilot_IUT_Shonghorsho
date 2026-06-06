@@ -134,17 +134,6 @@ function StepOne({
           Skip for now
         </MuiLink>
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <MuiLink
-          component="button"
-          type="button"
-          variant="body2"
-          onClick={onSkip}
-          sx={{ textTransform: 'none', cursor: 'pointer' }}
-        >
-          Skip for now
-        </MuiLink>
-      </Box>
     </Stack>
   );
 }
@@ -200,17 +189,6 @@ function StepTwo({
       <Alert severity="warning" sx={{ borderRadius: 1, fontSize: '0.8rem' }}>
         ⚠️ Use a model with reliable JSON output (e.g. gpt-4o-mini, claude-3-5-sonnet-20241022, gemini-1.5-flash). Small or free-tier models like gpt-5-nano may fail to parse your CV correctly.
       </Alert>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <MuiLink
-          component="button"
-          type="button"
-          variant="body2"
-          onClick={onSkip}
-          sx={{ textTransform: 'none', cursor: 'pointer' }}
-        >
-          Skip for now
-        </MuiLink>
-      </Box>
       <TextField
         label="API Key"
         type="password"
@@ -233,6 +211,17 @@ function StepTwo({
           </Box>
         }
       />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+        <MuiLink
+          component="button"
+          type="button"
+          variant="body2"
+          onClick={onSkip}
+          sx={{ textTransform: 'none', cursor: 'pointer' }}
+        >
+          Skip for now
+        </MuiLink>
+      </Box>
     </Stack>
   );
 }
