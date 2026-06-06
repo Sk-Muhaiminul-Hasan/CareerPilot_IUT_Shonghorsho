@@ -17,6 +17,13 @@ class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_application_job_id", "job_id"),
     )
 
+    user_id: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="default_user",
+        index=True,
+    )
+
     # Foreign keys
     job_id: Mapped[str] = mapped_column(
         String(32),

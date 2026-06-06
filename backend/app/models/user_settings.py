@@ -1,23 +1,19 @@
 """User settings database model."""
 
-from sqlalchemy import JSON, CheckConstraint, Float, Integer, String
+from sqlalchemy import JSON, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
 
 class UserSettings(TimestampMixin, Base):
-    """User preferences and configuration. Single-row table."""
+    """User preferences and configuration."""
 
     __tablename__ = "user_settings"
-    __table_args__ = (
-        CheckConstraint("id = 'singleton'", name="ck_user_settings_singleton"),
-    )
 
     id: Mapped[str] = mapped_column(
-        String(20),
+        String(32),
         primary_key=True,
-        default="singleton",
     )
 
     # Application behavior

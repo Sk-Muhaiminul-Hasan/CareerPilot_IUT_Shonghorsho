@@ -40,15 +40,18 @@ async def query_cv_chunks(
     query: str,
     resume_id: str | None = None,
     section_filter: str | None = None,
+    user_id: str | None = None,
     k: int = 4,
 ) -> list[dict[str, Any]]:
     filter: dict | None = None
-    if resume_id is not None or section_filter is not None:
+    if resume_id is not None or section_filter is not None or user_id is not None:
         conditions: list[dict[str, Any]] = []
         if resume_id is not None:
             conditions.append({"resume_id": resume_id})
         if section_filter is not None:
             conditions.append({"section": section_filter})
+        if user_id is not None:
+            conditions.append({"user_id": user_id})
         filter = {"$and": conditions} if len(conditions) > 1 else conditions[0]
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _run_query, query, k, filter)

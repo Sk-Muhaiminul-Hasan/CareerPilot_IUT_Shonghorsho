@@ -18,6 +18,13 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_job_match_score", "match_score"),
     )
 
+    user_id: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="default_user",
+        index=True,
+    )
+
     # Platform identification
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     platform_job_id: Mapped[str] = mapped_column(String(200), nullable=False)

@@ -17,6 +17,7 @@ env/
 .env
 .env.local
 .env.*.local
+backend/.env
 
 # IDE
 .idea/
@@ -29,16 +30,16 @@ env/
 .claude/
 
 # Data (runtime generated)
-data/db/*.db
-data/sessions/*
-!data/sessions/.gitkeep
-data/generated/*
-!data/generated/resumes/.gitkeep
-!data/generated/cover_letters/.gitkeep
-data/logs/*
-!data/logs/.gitkeep
-data/uploads/*
-!data/uploads/.gitkeep
+backend/data/db/*.db
+backend/data/sessions/*
+!backend/data/sessions/.gitkeep
+backend/data/generated/*
+!backend/data/generated/resumes/.gitkeep
+!backend/data/generated/cover_letters/.gitkeep
+backend/data/logs/*
+!backend/data/logs/.gitkeep
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
 
 # Node / Frontend
 frontend/node_modules/

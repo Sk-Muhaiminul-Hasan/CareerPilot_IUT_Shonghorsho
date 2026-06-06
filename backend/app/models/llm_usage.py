@@ -11,6 +11,13 @@ class LLMUsage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     __tablename__ = "llm_usage"
 
+    user_id: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="default_user",
+        index=True,
+    )
+
     # Provider info
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)

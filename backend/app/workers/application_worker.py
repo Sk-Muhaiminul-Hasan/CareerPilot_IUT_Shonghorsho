@@ -6,9 +6,12 @@ score with ATS, apply via platform, and broadcast progress.
 """
 
 import asyncio
+import tempfile
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+import httpx
 import structlog
 from sqlalchemy import select
 
@@ -18,6 +21,7 @@ from app.config.settings import get_settings
 from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
 from app.core.exceptions import AuthenticationError, AutoApplyError
+from app.core.storage import storage as storage_client
 from app.db.redis import get_redis, init_redis_pool
 from app.db.session import async_session_factory
 from app.models.application import Application
@@ -381,6 +385,31 @@ async def process_application(payload: dict[str, Any]) -> None:
             await _broadcast_complete(app_id, ApplicationStatus.FAILED)
             return
 
+        local_resume_path = resume_path
+        if not Path(resume_path).exists():
+            try:
+                signed_url = await storage_client.get_signed_url("resumes", resume_path)
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(signed_url)
+                    response.raise_for_status()
+                suffix = ".pdf" if resume_path.endswith(".pdf") else ".docx"
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                    tmp.write(response.content)
+                    local_resume_path = tmp.name
+                logger.info("worker.resume_downloaded_from_storage", path=local_resume_path)
+            except Exception as exc:
+                logger.error("worker.resume_download_failed", error=str(exc))
+                await _update_application_status(
+                    app_id,
+                    ApplicationStatus.FAILED,
+                    notes=f"Failed to download resume for application: {exc}",
+                )
+                await _broadcast_progress(
+                    app_id, ApplicationStatus.FAILED, detail="Resume download failed",
+                )
+                await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+                return
+
         try:
             platform = platform_registry.create(platform_name)
 
@@ -398,7 +427,7 @@ async def process_application(payload: dict[str, Any]) -> None:
 
             applied = await platform.apply(
                 job=job_listing,
-                resume_path=resume_path,
+                resume_path=local_resume_path,
                 cover_letter_path=None,
             )
 

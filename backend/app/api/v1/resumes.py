@@ -1,15 +1,17 @@
 """Resume management API routes."""
 
+import tempfile
 from pathlib import Path
 
+import httpx
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.core.exceptions import RecordNotFoundError
-from app.models.resume import Resume
+from app.core.storage import storage as storage_client
 from app.schemas.resume import (
     ResumeGenerateRequest,
     ResumeListResponse,
@@ -43,6 +45,7 @@ async def upload_resume(
     file: UploadFile,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ResumeUploadResponse:
     """Upload a PDF or DOCX resume for parsing and storage."""
     # Validate file extension
@@ -69,7 +72,7 @@ async def upload_resume(
             raise HTTPException(status_code=413, detail="File too large. Max 10MB.")
     await file.seek(0)
 
-    return await resume_service.upload_resume(db, file, background_tasks)
+    return await resume_service.upload_resume(db, file, background_tasks, user_id)
 
 
 @router.get(
@@ -79,9 +82,10 @@ async def upload_resume(
 )
 async def list_resumes(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ResumeListResponse:
     """List all uploaded and generated resumes."""
-    return await resume_service.list_resumes(db)
+    return await resume_service.list_resumes(db, user_id)
 
 
 @router.post(
@@ -93,12 +97,10 @@ async def list_resumes(
 async def generate_resume(
     request: ResumeGenerateRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ResumeResponse:
-    """Generate a job-tailored resume from a base resume.
-
-    Uses LLM to rewrite content. Placeholder until Phase 5.
-    """
-    return await resume_service.generate_tailored_resume(db, request)
+    """Generate a job-tailored resume from a base resume."""
+    return await resume_service.generate_tailored_resume(db, request, user_id)
 
 
 @router.post(
@@ -110,9 +112,10 @@ async def score_resume(
     resume_id: str,
     request: ResumeScoreRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ResumeScoreResponse:
     """Score a resume's ATS compatibility against a specific job."""
-    return await resume_service.score_resume(db, resume_id, request)
+    return await resume_service.score_resume(db, resume_id, request, user_id)
 
 
 @router.post(
@@ -124,13 +127,10 @@ async def optimize_resume(
     resume_id: str,
     request: ResumeOptimizeRequest = ResumeOptimizeRequest(),
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ResumeResponse:
-    """Optimize a resume for ATS keyword matching using LLM rewriting.
-
-    Creates a new optimized resume linked to the original with improved
-    ATS compatibility scores.
-    """
-    return await resume_service.optimize_resume(db, resume_id, request.job_id)
+    """Optimize a resume for ATS keyword matching using LLM rewriting."""
+    return await resume_service.optimize_resume(db, resume_id, request.job_id, user_id)
 
 
 @router.get(
@@ -141,23 +141,18 @@ async def download_resume(
     resume_id: str,
     format: str = Query(default="pdf", pattern="^(pdf|docx)$"),
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> FileResponse:
     """Download a resume in PDF or DOCX format."""
-    resume = await resume_service.get_resume(db, resume_id)
+    resume = await resume_service.get_resume(db, resume_id, user_id)
 
-    file_path = resume.file_path_pdf if format == "pdf" else resume.file_path_docx
-    if not file_path or not Path(file_path).exists():
+    storage_path = resume.file_path_pdf if format == "pdf" else resume.file_path_docx
+    if not storage_path:
         raise RecordNotFoundError("Resume file", resume_id)
 
-    media_type = (
-        "application/pdf" if format == "pdf" else
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-    return FileResponse(
-        path=file_path,
-        media_type=media_type,
-        filename=f"{resume.name}.{format}",
-    )
+    bucket = "resumes"
+    signed_url = await storage_client.get_signed_url(bucket, storage_path)
+    return RedirectResponse(url=signed_url)
 
 
 @router.post(
@@ -168,21 +163,39 @@ async def download_resume(
 async def reextract_resume(
     resume_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> JSONResponse:
     """Re-extract text from a stored PDF or DOCX resume file and update the record."""
-    resume = await resume_service.get_resume(db, resume_id)
+    resume = await resume_service.get_resume(db, resume_id, user_id)
 
-    file_path = resume.file_path_pdf or resume.file_path_docx
-    if not file_path or not Path(file_path).exists():
+    storage_path = resume.file_path_pdf or resume.file_path_docx
+    if not storage_path:
         raise RecordNotFoundError("Resume file", resume_id)
 
+    tmp_path = None
     try:
+        bucket = "resumes"
+        signed_url = await storage_client.get_signed_url(bucket, storage_path)
+
+        async with httpx.AsyncClient() as client:
+            file_response = await client.get(signed_url)
+            file_response.raise_for_status()
+            file_bytes = file_response.content
+
+        suffix = ".pdf" if storage_path.endswith(".pdf") else ".docx"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
         from app.core.documents.parser import DocumentParser
 
-        parsed = await DocumentParser().parse(Path(file_path))
+        parsed = await DocumentParser().parse(Path(tmp_path))
         content_text = parsed.raw_text.replace("\x00", "").strip()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to re-extract text: {exc}") from exc
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
 
     resume.content_text = content_text or None
     await db.commit()
@@ -199,14 +212,10 @@ async def reextract_resume(
 async def extract_profile_from_resume(
     resume_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> CandidateProfileSchema:
-    """Extract structured candidate profile data from a resume.
-
-    Parses the resume's stored text content using DocumentParser's
-    section extraction and contact info regex to build a structured
-    CandidateProfile that can pre-fill the profile editor.
-    """
-    resume = await resume_service.get_resume(db, resume_id)
+    """Extract structured candidate profile data from a resume."""
+    resume = await resume_service.get_resume(db, resume_id, user_id)
     content = resume.content_text or ""
 
     if not content.strip():

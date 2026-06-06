@@ -4,7 +4,9 @@ Handles upload, listing, generation, and scoring of resumes.
 Uses DocumentParser for real file parsing and SkillMatcher for skill extraction.
 """
 
+import os
 import re
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -17,6 +19,7 @@ from app.core.documents.generator import DocumentGenerator
 from app.core.documents.parser import DocumentParser, ParsedResume
 from app.core.exceptions import ParseError, RecordNotFoundError
 from app.core.llm.client import LLMClient
+from app.core.storage import storage as storage_client
 from app.models.job import Job
 from app.models.resume import Resume
 from app.schemas.resume import (
@@ -29,8 +32,6 @@ from app.schemas.resume import (
 )
 
 logger = structlog.get_logger(__name__)
-
-UPLOAD_DIR = Path("data/uploads")
 
 _parser = DocumentParser()
 
@@ -86,6 +87,7 @@ async def upload_resume(
     db: AsyncSession,
     file: UploadFile,
     background_tasks: BackgroundTasks | None = None,
+    user_id: str = "default_user",
 ) -> ResumeUploadResponse:
     """Upload, parse, and store a resume file.
 
@@ -96,43 +98,57 @@ async def upload_resume(
         db: Async database session.
         file: Uploaded resume file.
         background_tasks: FasterAPI background task runner.
+        user_id: Authenticated user ID.
 
     Returns:
         Upload response with detected metadata.
     """
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
     file_ext = Path(file.filename or "resume.pdf").suffix.lower()
     file_id = uuid.uuid4().hex
-    dest = UPLOAD_DIR / f"{file_id}{file_ext}"
+    storage_path = f"{user_id}/{file_id}{file_ext}"
 
     content = await file.read()
-    dest.write_bytes(content)
+    content_type = file.content_type or "application/octet-stream"
+    await storage_client.upload_file(
+        bucket="resumes",
+        path=storage_path,
+        file_bytes=content,
+        content_type=content_type,
+    )
 
-    # Parse the document for real text extraction
-    parsed_text = ""
-    word_count = 0
-    skills_detected: list[str] = []
-
+    tmp_path = None
     try:
-        parsed: ParsedResume = await _parser.parse(dest)
-        parsed_text = parsed.raw_text
-        word_count = parsed.word_count
-        skills_detected = _extract_skills(parsed_text)
-        logger.info(
-            "resume_parsed_successfully",
-            file=file.filename,
-            word_count=word_count,
-            skills_count=len(skills_detected),
-        )
-    except (ParseError, Exception) as exc:
-        logger.warning(
-            "resume_parse_failed",
-            file=file.filename,
-            error=str(exc),
-        )
-        parsed_text = None
-        skills_detected = []
+        parsed_text = ""
+        word_count = 0
+        skills_detected: list[str] = []
+
+        with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+            tmp.write(content)
+            tmp.flush()
+            tmp_path = tmp.name
+
+        try:
+            parsed: ParsedResume = await _parser.parse(Path(tmp_path))
+            parsed_text = parsed.raw_text
+            word_count = parsed.word_count
+            skills_detected = _extract_skills(parsed_text)
+            logger.info(
+                "resume_parsed_successfully",
+                file=file.filename,
+                word_count=word_count,
+                skills_count=len(skills_detected),
+            )
+        except (ParseError, Exception) as exc:
+            logger.warning(
+                "resume_parse_failed",
+                file=file.filename,
+                error=str(exc),
+            )
+            parsed_text = None
+            skills_detected = []
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     if parsed_text:
         parsed_text = parsed_text.replace("\x00", "").strip()
@@ -142,9 +158,10 @@ async def upload_resume(
         name=file.filename or "Untitled Resume",
         type="base",
         template_id="modern",
-        file_path_pdf=str(dest) if file_ext == ".pdf" else None,
-        file_path_docx=str(dest) if file_ext == ".docx" else None,
+        file_path_pdf=storage_path if file_ext == ".pdf" else None,
+        file_path_docx=storage_path if file_ext == ".docx" else None,
         content_text=parsed_text[:5000] if parsed_text else None,
+        user_id=user_id,
     )
     db.add(resume)
     await db.commit()
@@ -158,6 +175,7 @@ async def upload_resume(
                 process_resume_upload,
                 resume_id=str(resume.id),
                 content_text=resume.content_text or "",
+                user_id=user_id,
             )
         except Exception as exc:
             logger.warning(
@@ -177,33 +195,38 @@ async def upload_resume(
     )
 
 
-async def list_resumes(db: AsyncSession) -> ResumeListResponse:
-    """List all resumes.
+async def list_resumes(db: AsyncSession, user_id: str = "default_user") -> ResumeListResponse:
+    """List all resumes for the requested user.
 
     Args:
         db: Async database session.
+        user_id: Authenticated user ID.
 
     Returns:
-        List of all resumes with total count.
+        List of resumes with total count.
     """
-    result = await db.execute(select(Resume).order_by(Resume.created_at.desc()))
+    result = await db.execute(
+        select(Resume).where(Resume.user_id == user_id).order_by(Resume.created_at.desc())
+    )
     resumes = list(result.scalars().all())
     items = [ResumeResponse.model_validate(r) for r in resumes]
     return ResumeListResponse(items=items, total=len(items))
 
 
-async def get_resume(db: AsyncSession, resume_id: str) -> Resume:
+async def get_resume(db: AsyncSession, resume_id: str, user_id: str = "default_user") -> Resume:
     """Get a resume by ID or raise RecordNotFoundError."""
-    result = await db.execute(select(Resume).where(Resume.id == resume_id))
+    result = await db.execute(
+        select(Resume).where(Resume.id == resume_id, Resume.user_id == user_id)
+    )
     resume = result.scalar_one_or_none()
     if resume is None:
         raise RecordNotFoundError("Resume", resume_id)
     return resume
 
 
-async def _get_job(db: AsyncSession, job_id: str) -> Job:
+async def _get_job(db: AsyncSession, job_id: str, user_id: str = "default_user") -> Job:
     """Get a job by ID or raise RecordNotFoundError."""
-    result = await db.execute(select(Job).where(Job.id == job_id))
+    result = await db.execute(select(Job).where(Job.id == job_id, Job.user_id == user_id))
     job = result.scalar_one_or_none()
     if job is None:
         raise RecordNotFoundError("Job", job_id)
@@ -211,33 +234,30 @@ async def _get_job(db: AsyncSession, job_id: str) -> Job:
 
 
 def _build_resume_data_from_text(content_text: str) -> dict:
-    """Convert raw resume text into structured data for templates.
-
-    Extracts contact info, sections, and skills from plain text using
-    the same regex patterns as DocumentParser.
-    """
     from app.core.documents.parser import (
-        _EMAIL_RE,
-        _GITHUB_RE,
-        _LINKEDIN_RE,
-        _PHONE_RE,
-        _SECTION_HEADERS,
+        EMAIL_RE,
+        GITHUB_RE,
+        LINKEDIN_RE,
+        PHONE_RE,
+        SECTION_HEADERS,
+        DocumentParser,
     )
+
+    parser = DocumentParser()
 
     lines = content_text.split("\n")
     name = lines[0].strip() if lines else ""
 
-    # Extract contact info
-    email_m = _EMAIL_RE.search(content_text)
-    phone_m = _PHONE_RE.search(content_text)
-    linkedin_m = _LINKEDIN_RE.search(content_text)
-    github_m = _GITHUB_RE.search(content_text)
+    email_m = EMAIL_RE.search(content_text)
+    phone_m = PHONE_RE.search(content_text)
+    linkedin_m = LINKEDIN_RE.search(content_text)
+    github_m = GITHUB_RE.search(content_text)
 
     # Extract sections by header
     sections: dict[str, str] = {}
     current_section = ""
     current_content: list[str] = []
-    lower_headers = {h.lower() for h in _SECTION_HEADERS}
+    lower_headers = {h.lower() for h in SECTION_HEADERS}
 
     for line in lines[1:]:
         stripped = line.strip()
@@ -262,11 +282,11 @@ def _build_resume_data_from_text(content_text: str) -> dict:
         or sections.get("work experience", "")
         or sections.get("professional experience", "")
     )
-    experience = _parse_experience_section(exp_text) if exp_text else []
+    experience = parser.parse_experience_section(exp_text) if exp_text else []
 
     # Build education entries
     edu_text = sections.get("education", "") or sections.get("academic background", "")
-    education = _parse_education_section(edu_text) if edu_text else []
+    education = parser.parse_education_section(edu_text) if edu_text else []
 
     # Certifications
     cert_text = sections.get("certifications", "") or sections.get("certificates", "")
@@ -297,50 +317,21 @@ def _build_resume_data_from_text(content_text: str) -> dict:
 
 
 def _parse_experience_section(text: str) -> list[dict]:
-    """Parse experience section text into structured entries."""
-    entries: list[dict] = []
-    current: dict | None = None
+    from app.core.documents.parser import DocumentParser
 
-    for line in text.split("\n"):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        # Heuristic: lines that look like titles (short, no bullet)
-        if not stripped.startswith(("•", "-", "*", "·")) and len(stripped) < 80:
-            if current:
-                entries.append(current)
-            current = {
-                "title": stripped,
-                "company": "",
-                "duration": "",
-                "description": "",
-            }
-        elif current:
-            current["description"] += stripped.lstrip("•-*· ") + "\n"
-
-    if current:
-        entries.append(current)
-    return entries
+    return DocumentParser.parse_experience_section(text)
 
 
 def _parse_education_section(text: str) -> list[dict]:
-    """Parse education section text into structured entries."""
-    entries: list[dict] = []
-    for line in text.split("\n"):
-        stripped = line.strip()
-        if not stripped or stripped.startswith(("•", "-", "*")):
-            continue
-        entries.append({
-            "degree": stripped,
-            "institution": "",
-            "year": "",
-        })
-    return entries
+    from app.core.documents.parser import DocumentParser
+
+    return DocumentParser.parse_education_section(text)
 
 
 async def generate_tailored_resume(
     db: AsyncSession,
     request: ResumeGenerateRequest,
+    user_id: str = "default_user",
 ) -> ResumeResponse:
     """Generate a tailored resume for a specific job using LLM.
 
@@ -350,19 +341,24 @@ async def generate_tailored_resume(
     Args:
         db: Async database session.
         request: Generation parameters (base_resume_id, job_id, template, formats).
+        user_id: Authenticated user ID.
 
     Returns:
         The generated tailored resume response.
     """
-    base = await get_resume(db, request.base_resume_id)
-    job = await _get_job(db, request.job_id)
+    base = await get_resume(db, request.base_resume_id, user_id)
+    job = await _get_job(db, request.job_id, user_id)
 
-    # Build structured data from base resume text
     resume_data = _build_resume_data_from_text(base.content_text or "")
+    resume_data["user_id"] = user_id
 
-    # Generate via DocumentGenerator (LLM tailoring + rendering)
     llm = LLMClient()
-    generator = DocumentGenerator(llm_client=llm)
+    generator = DocumentGenerator(
+        llm_client=llm,
+        upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
+            bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
+        ),
+    )
     doc = await generator.generate_resume(
         resume_data=resume_data,
         job_description=job.description or "",
@@ -380,6 +376,7 @@ async def generate_tailored_resume(
         file_path_pdf=doc.pdf_path,
         file_path_docx=doc.docx_path,
         content_text=base.content_text,
+        user_id=user_id,
     )
     db.add(tailored)
     await db.commit()
@@ -400,6 +397,7 @@ async def score_resume(
     db: AsyncSession,
     resume_id: str,
     request: ResumeScoreRequest,
+    user_id: str = "default_user",
 ) -> ResumeScoreResponse:
     """Score a resume against a job listing using multi-factor ATS analysis.
 
@@ -415,8 +413,8 @@ async def score_resume(
     Returns:
         Detailed ATS score breakdown.
     """
-    resume = await get_resume(db, resume_id)
-    job = await _get_job(db, request.job_id)
+    resume = await get_resume(db, resume_id, user_id)
+    job = await _get_job(db, request.job_id, user_id)
 
     resume_text = resume.content_text or ""
     job_description = job.description or ""
@@ -561,6 +559,7 @@ async def optimize_resume(
     db: AsyncSession,
     resume_id: str,
     job_id: str | None = None,
+    user_id: str = "default_user",
 ) -> ResumeResponse:
     """Optimize a resume for ATS compatibility using LLM rewriting.
 
@@ -572,22 +571,23 @@ async def optimize_resume(
         db: Async database session.
         resume_id: ID of the resume to optimize.
         job_id: Target job ID. Falls back to resume.job_id if absent.
+        user_id: Authenticated user ID.
 
     Returns:
         The newly created optimized resume.
     """
-    resume = await get_resume(db, resume_id)
+    resume = await get_resume(db, resume_id, user_id)
     target_job_id = job_id or resume.job_id
     if not target_job_id:
         raise RecordNotFoundError("Job", "none (no job_id provided)")
 
-    job = await _get_job(db, target_job_id)
+    job = await _get_job(db, target_job_id, user_id)
     resume_text = resume.content_text or ""
     job_description = job.description or ""
 
     # Score the resume to get detailed breakdown
     score_result = await score_resume(
-        db, resume_id, ResumeScoreRequest(job_id=target_job_id),
+        db, resume_id, ResumeScoreRequest(job_id=target_job_id), user_id,
     )
 
     # Get optimizer suggestions
@@ -641,9 +641,14 @@ async def optimize_resume(
     )
 
     # Render optimized resume to PDF/DOCX
-    generator = DocumentGenerator(llm_client=None)
+    generator = DocumentGenerator(
+        llm_client=None,
+        upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
+            bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
+        ),
+    )
     doc = await generator.generate_resume(
-        resume_data=optimized_data.model_dump(),
+        resume_data=optimized_data.model_dump() | {"user_id": user_id},
         job_description="",
         template_name=resume.template_id,
         formats=["pdf", "docx"],
@@ -659,6 +664,7 @@ async def optimize_resume(
         file_path_pdf=doc.pdf_path,
         file_path_docx=doc.docx_path,
         content_text=resume_text,
+        user_id=user_id,
     )
     db.add(optimized)
     await db.commit()
@@ -667,7 +673,7 @@ async def optimize_resume(
     # Re-score the optimized resume
     try:
         new_score = await score_resume(
-            db, optimized.id, ResumeScoreRequest(job_id=target_job_id),
+            db, optimized.id, ResumeScoreRequest(job_id=target_job_id), user_id,
         )
         optimized.ats_score = new_score.overall_score
         await db.commit()

@@ -11,7 +11,7 @@ from app.core.exceptions import ParseError
 
 logger = structlog.get_logger(__name__)
 
-_SECTION_HEADERS: list[str] = [
+SECTION_HEADERS: list[str] = [
     "summary", "objective", "professional summary", "profile",
     "experience", "work experience", "professional experience", "employment",
     "education", "academic background",
@@ -23,19 +23,58 @@ _SECTION_HEADERS: list[str] = [
     "languages", "interests", "references",
 ]
 
-_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-_PHONE_RE = re.compile(
+_SECTION_HEADERS = SECTION_HEADERS
+
+EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+_EMAIL_RE = EMAIL_RE
+
+PHONE_RE = re.compile(
     r"(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}"
 )
-_LINKEDIN_RE = re.compile(
+_PHONE_RE = PHONE_RE
+
+LINKEDIN_RE = re.compile(
     r"(?:https?://)?(?:www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+"
 )
-_GITHUB_RE = re.compile(
+_LINKEDIN_RE = LINKEDIN_RE
+
+GITHUB_RE = re.compile(
     r"(?:https?://)?(?:www\.)?github\.com/[a-zA-Z0-9_-]+"
 )
+_GITHUB_RE = GITHUB_RE
 
 _SAFE_TEXT_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 _WEAK_EXTRACT_MIN_CHARS = 100
+
+_NON_SKILL_INDICATORS: tuple[str, ...] = (
+    "bachelor", "master", "degree", "diploma", "certificate",
+    "university", "college", "institute", "school", "board",
+    "company", "corporation", "inc", "ltd", "corp",
+    "built", "developed", "designed", "implemented", "created",
+    "using", "worked", "responsible", "managed", "led",
+    "project", "experience", "education", "contact", "references",
+    "summary", "objective", "profile",
+)
+
+NON_SKILL_INDICATORS = _NON_SKILL_INDICATORS
+
+_TECH_HINTS: tuple[str, ...] = (
+    "python", "java", "javascript", "typescript", "react", "angular",
+    "vue", "node", "spring", "django", "flask", "fastapi",
+    "aws", "azure", "gcp", "docker", "kubernetes", "k8s",
+    "sql", "nosql", "postgres", "mysql", "mongodb", "redis",
+    "git", "ci/cd", "agile", "scrum", "rest", "graphql",
+    "tensorflow", "pytorch", "machine learning", "deep learning",
+    "nlp", "cv", "computer vision", "data", "cloud", "devops",
+    "html", "css", "sass", "tailwind", "bootstrap",
+    "laravel", "codeigniter", "php", "ruby", "rails",
+    "c++", "c#", ".net", "go", "golang", "rust", "scala",
+    "kafka", "rabbitmq", "jenkins", "terraform", "ansible",
+    "excel", "tableau", "power bi", "looker",
+    "figma", "sketch", "adobe", "photoshop",
+)
+
+TECH_HINTS = _TECH_HINTS
 
 
 def _sanitize_extracted_text(text: str) -> str:
@@ -307,58 +346,59 @@ class DocumentParser:
 
         return unique
 
+    @staticmethod
+    def validate_skills_against_source(skills: list[str], source_text: str) -> list[str]:
+        """Lightweight cleanup for LLM-extracted skills.
+
+        Only removes obvious non-skills: URLs, paths, dates, entries with
+        parentheses/brackets, strings with mixed-language quote/separator
+        characters, or masses of parenthesized noise. Does not depend on
+        a dedicated skills section or keyword lists.
+        """
+        url_re = re.compile(r"(https?://|ftp://|www\.)|github\.com/|linkedin\.com/|bitbucket\.org")
+        ects_re = re.compile(r"[\u202a-\u202e\u2060-\u206f]")
+        numbers_re = re.compile(r"\d{3,}")
+        parens_re = re.compile(r"\([^)]{0,80}\)")
+        valid: list[str] = []
+        seen: set[str] = set()
+        for skill in skills:
+            text = skill.strip()
+            lower = text.lower()
+            if not lower:
+                continue
+            if lower in seen:
+                continue
+            seen.add(lower)
+            if "(" in lower or ")" in lower or "[" in lower or "]" in lower:
+                continue
+            if url_re.search(lower):
+                continue
+            if ects_re.search(text):
+                continue
+            if numbers_re.search(lower) and not re.search(r"[a-z]{3,}", lower):
+                continue
+            if len(lower) > 50:
+                continue
+            valid.append(text)
+        return valid
+
     def _parse_skill_lines(self, text: str) -> list[str]:
-        _NON_SKILL_INDICATORS = (
-            "bachelor", "master", "degree", "diploma", "certificate",
-            "university", "college", "institute", "school", "board",
-            "company", "corporation", "inc", "ltd", "corp",
-            "built", "developed", "designed", "implemented", "created",
-            "using", "worked", "responsible", "managed", "led",
-            "project", "experience", "education", "contact", "references",
-            "summary", "objective", "profile",
-        )
-
-        _TECH_HINTS = (
-            "python", "java", "javascript", "typescript", "react", "angular",
-            "vue", "node", "spring", "django", "flask", "fastapi",
-            "aws", "azure", "gcp", "docker", "kubernetes", "k8s",
-            "sql", "nosql", "postgres", "mysql", "mongodb", "redis",
-            "git", "ci/cd", "agile", "scrum", "rest", "graphql",
-            "tensorflow", "pytorch", "machine learning", "deep learning",
-            "nlp", "cv", "computer vision", "data", "cloud", "devops",
-            "html", "css", "sass", "tailwind", "bootstrap",
-            "laravel", "codeigniter", "php", "ruby", "rails",
-            "c++", "c#", ".net", "go", "golang", "rust", "scala",
-            "kafka", "rabbitmq", "jenkins", "terraform", "ansible",
-            "excel", "tableau", "power bi", "looker",
-            "figma", "sketch", "adobe", "photoshop",
-        )
-
         raw_skills: list[str] = []
         for line in text.split("\n"):
             line = line.strip()
             if not line:
                 continue
-
             lower_line = line.lower()
-
-            # Skip education, work history, date lines
             if any(ind in lower_line for ind in _NON_SKILL_INDICATORS):
                 continue
-
             if len(line) > 100:
                 continue
-
-            if re.search(r"\d{4}", line) and ("/" in line or "-" in line or "–" in line):
+            if re.search(r"\d{4}", line) and any(d in line for d in ("/", "-")):
                 continue
-
-            # Must be either comma/pipe/semicolon separated OR contain a known tech hint
             is_tech_hint = any(hint in lower_line for hint in _TECH_HINTS)
             is_list = any(d in line for d in [",", "|", ";", "\u2022", "\u2023"])
-
             if not is_tech_hint and not is_list:
                 continue
-
             for delimiter in [",", "|", ";", "\u2022", "\u2023", "\u25e6"]:
                 if delimiter in line:
                     for part in line.split(delimiter):
@@ -370,5 +410,42 @@ class DocumentParser:
                 cleaned = line.lstrip("-*\u2022\u2023 ").strip().rstrip(".")
                 if cleaned and len(cleaned) < 60:
                     raw_skills.append(cleaned)
-
         return raw_skills
+
+    def parse_experience_section(self, text: str) -> list[dict]:
+        entries: list[dict] = []
+        current: dict | None = None
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if not stripped.startswith(("•", "-", "*", "·")) and len(stripped) < 80:
+                if current:
+                    entries.append(current)
+                current = {
+                    "title": stripped,
+                    "company": "",
+                    "duration": "",
+                    "description": "",
+                }
+            elif current:
+                current["description"] += stripped.lstrip("•-*· ") + "\n"
+        if current:
+            entries.append(current)
+        return entries
+
+    def parse_education_section(self, text: str) -> list[dict]:
+        entries: list[dict] = []
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("•", "-", "*")):
+                continue
+            entries.append({
+                "degree": stripped,
+                "institution": "",
+                "year": "",
+            })
+        return entries
+
+
+ParseResume = ParsedResume

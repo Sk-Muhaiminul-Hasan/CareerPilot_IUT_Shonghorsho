@@ -16,6 +16,7 @@ async def record_usage(
     response: LLMResponse,
     purpose: str = "general",
     trace_id: str | None = None,
+    user_id: str = "",
 ) -> None:
     """Save an LLM call record to the database.
 
@@ -35,6 +36,7 @@ async def record_usage(
         latency_ms=int(response.latency_ms),
         purpose=purpose,
         trace_id=trace_id,
+        user_id=user_id,
     )
     db.add(record)
     await db.commit()

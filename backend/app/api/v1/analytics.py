@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.schemas.analytics import (
     ApplicationFunnelData,
     ATSScoreDistribution,
@@ -25,9 +25,10 @@ router = APIRouter()
 )
 async def dashboard(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> DashboardStats:
     """Get aggregated dashboard statistics."""
-    return await analytics_service.get_dashboard_stats(db)
+    return await analytics_service.get_dashboard_stats(db, user_id)
 
 
 @router.get(
@@ -37,9 +38,10 @@ async def dashboard(
 )
 async def funnel(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> list[ApplicationFunnelData]:
     """Get application funnel stage counts."""
-    return await analytics_service.get_funnel(db)
+    return await analytics_service.get_funnel(db, user_id)
 
 
 @router.get(
@@ -49,9 +51,10 @@ async def funnel(
 )
 async def ats_scores(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> list[ATSScoreDistribution]:
     """Get ATS score distribution histogram."""
-    return await analytics_service.get_ats_distribution(db)
+    return await analytics_service.get_ats_distribution(db, user_id)
 
 
 @router.get(
@@ -61,9 +64,10 @@ async def ats_scores(
 )
 async def llm_usage(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> list[LLMUsageStats]:
     """Get LLM provider usage statistics."""
-    return await analytics_service.get_llm_usage(db)
+    return await analytics_service.get_llm_usage(db, user_id)
 
 
 @router.get(
@@ -73,6 +77,7 @@ async def llm_usage(
 )
 async def timeline(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> list[TimelineEntry]:
     """Get daily activity timeline entries."""
-    return await analytics_service.get_timeline(db)
+    return await analytics_service.get_timeline(db, user_id)

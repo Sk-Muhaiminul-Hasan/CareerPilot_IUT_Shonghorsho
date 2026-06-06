@@ -2,13 +2,14 @@
 
 Coordinates resume and cover letter generation through the full
 pipeline: base data -> optional LLM tailoring -> parallel render
-to PDF + DOCX formats.
+to PDF + DOCX formats, with optional upload to Supabase Storage.
 """
 
 from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -29,17 +30,11 @@ logger = structlog.get_logger(__name__)
 
 OUTPUT_DIR = Path("data/generated")
 
+UploadFn = Callable[[str, str, bytes, str], Awaitable[str]]
+
 
 class GeneratedDocument(BaseModel):
-    """Result of a document generation operation.
-
-    Attributes:
-        document_id: Unique identifier for this generation run.
-        type: Document type (``"resume"`` or ``"cover_letter"``).
-        template: Template name that was used.
-        pdf_path: Filesystem path to the generated PDF, if produced.
-        docx_path: Filesystem path to the generated DOCX, if produced.
-    """
+    """Result of a document generation operation."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -53,12 +48,12 @@ class GeneratedDocument(BaseModel):
 class DocumentGenerator:
     """Orchestrates resume and cover letter generation.
 
-    Pipeline: base data -> LLM tailoring -> parallel render (PDF + DOCX).
-
     Args:
         llm_client: Optional LLM client for content tailoring.
         output_dir: Root directory for generated documents.
         templates_dir: Root directory containing HTML/CSS templates.
+        upload_file: Optional async callable that uploads a rendered file
+            to remote storage and returns the storage path.
     """
 
     def __init__(
@@ -66,12 +61,14 @@ class DocumentGenerator:
         llm_client: LLMClient | None = None,
         output_dir: Path = OUTPUT_DIR,
         templates_dir: Path = Path("templates"),
+        upload_file: UploadFn | None = None,
     ) -> None:
         self._pdf = PDFRenderer(templates_dir=templates_dir)
         self._docx = DOCXRenderer()
         self._llm = llm_client
         self._output_dir = output_dir
         self._templates_dir = templates_dir
+        self._upload_file = upload_file
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
     async def generate_resume(
@@ -81,35 +78,25 @@ class DocumentGenerator:
         template_name: str = "modern",
         formats: list[str] | None = None,
     ) -> GeneratedDocument:
-        """Generate a tailored resume in specified formats.
-
-        Args:
-            resume_data: Structured resume data (name, experience,
-                skills, education, etc.).
-            job_description: Target job description for LLM tailoring.
-            template_name: Resume template to use.
-            formats: Output formats (default: ``["pdf", "docx"]``).
-
-        Returns:
-            ``GeneratedDocument`` with paths to rendered files.
-
-        Raises:
-            GenerationError: If all requested formats fail to render.
-        """
+        """Generate a tailored resume in specified formats."""
         formats = formats or ["pdf", "docx"]
         doc_id = uuid.uuid4().hex[:12]
 
-        # Optionally tailor content via LLM
         context = resume_data
         if self._llm and job_description:
             context = await self._tailor_resume(resume_data, job_description)
 
-        # Render requested formats in parallel
+        user_id = "default_user"
+        if isinstance(resume_data, dict):
+            user_id = resume_data.get("user_id", user_id)
+
         tasks: list[asyncio.Task[Path]] = []
         task_formats: list[str] = []
+        task_paths: dict[str, Path] = {}
 
         if "pdf" in formats:
             pdf_out = self._output_dir / "resumes" / f"{doc_id}.pdf"
+            task_paths["pdf"] = pdf_out
             tasks.append(
                 asyncio.ensure_future(
                     self._pdf.render(template_name, context, pdf_out),
@@ -119,6 +106,7 @@ class DocumentGenerator:
 
         if "docx" in formats:
             docx_out = self._output_dir / "resumes" / f"{doc_id}.docx"
+            task_paths["docx"] = docx_out
             tasks.append(
                 asyncio.ensure_future(
                     self._docx.render(template_name, context, docx_out),
@@ -150,6 +138,15 @@ class DocumentGenerator:
                 f"All formats failed for resume generation (doc_id={doc_id})",
             )
 
+        if self._upload_file:
+            pdf_path, docx_path = await self._upload_generated(
+                doc_id=doc_id,
+                doc_type="resumes",
+                user_id=user_id,
+                pdf_path=pdf_path,
+                docx_path=docx_path,
+            )
+
         logger.info(
             "resume_generated",
             document_id=doc_id,
@@ -172,38 +169,22 @@ class DocumentGenerator:
         company_info: str = "",
         template: CoverLetterTemplate | None = None,
         formats: list[str] | None = None,
+        user_id: str = "default_user",
     ) -> GeneratedDocument:
-        """Generate a cover letter using LLM and render to PDF/DOCX.
-
-        Args:
-            resume_text: Candidate's resume as plain text.
-            job_description: Full job description text.
-            company_info: Optional company background information.
-            template: Cover letter style; auto-selected if ``None``.
-            formats: Output formats (default: ``["pdf", "docx"]``).
-
-        Returns:
-            ``GeneratedDocument`` with paths to rendered files.
-
-        Raises:
-            GenerationError: If LLM generation or all renders fail.
-        """
+        """Generate a cover letter using LLM and render to PDF/DOCX."""
         formats = formats or ["pdf", "docx"]
         doc_id = uuid.uuid4().hex[:12]
 
-        # Select template
         if template is None:
             template = select_best_template(
                 job_title="",
                 job_description=job_description,
             )
 
-        # Generate content via LLM
         content = await self._generate_letter_content(
             template, job_description, resume_text, company_info,
         )
 
-        # Render in parallel
         tasks: list[asyncio.Task[Path]] = []
         task_formats: list[str] = []
 
@@ -237,6 +218,7 @@ class DocumentGenerator:
                 logger.error(
                     "cover_letter_render_error",
                     format=fmt,
+                    template=template.value,
                     error=str(result),
                 )
             elif isinstance(result, Path):
@@ -248,6 +230,15 @@ class DocumentGenerator:
         if not pdf_path and not docx_path:
             raise GenerationError(
                 f"All formats failed for cover letter (doc_id={doc_id})",
+            )
+
+        if self._upload_file:
+            pdf_path, docx_path = await self._upload_generated(
+                doc_id=doc_id,
+                doc_type="cover_letters",
+                user_id=user_id,
+                pdf_path=pdf_path,
+                docx_path=docx_path,
             )
 
         logger.info(
@@ -265,23 +256,51 @@ class DocumentGenerator:
             docx_path=docx_path,
         )
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
+    async def _upload_generated(
+        self,
+        doc_id: str,
+        doc_type: str,
+        user_id: str,
+        pdf_path: str | None,
+        docx_path: str | None,
+    ) -> tuple[str | None, str | None]:
+        """Upload rendered files to Supabase Storage and return storage paths."""
+        uploaded_pdf = None
+        uploaded_docx = None
+        if pdf_path and self._upload_file:
+            try:
+                with open(pdf_path, "rb") as fh:
+                    data = fh.read()
+                uploaded_pdf = await self._upload_file(
+                    bucket="generated",
+                    path=f"{user_id}/{doc_type}/{doc_id}.pdf",
+                    file_bytes=data,
+                    content_type="application/pdf",
+                )
+                Path(pdf_path).unlink(missing_ok=True)
+            except Exception as exc:
+                logger.error("generated.upload_pdf_failed", error=str(exc))
+        if docx_path and self._upload_file:
+            try:
+                with open(docx_path, "rb") as fh:
+                    data = fh.read()
+                uploaded_docx = await self._upload_file(
+                    bucket="generated",
+                    path=f"{user_id}/{doc_type}/{doc_id}.docx",
+                    file_bytes=data,
+                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+                Path(docx_path).unlink(missing_ok=True)
+            except Exception as exc:
+                logger.error("generated.upload_docx_failed", error=str(exc))
+        return uploaded_pdf, uploaded_docx
 
     async def _tailor_resume(
         self,
         resume_data: dict[str, Any],
         job_description: str,
     ) -> dict[str, Any]:
-        """Use LLM to tailor resume data for the target job.
-
-        Sends the resume data and job description to the LLM with
-        structured output enforcement, returning the tailored version
-        in template-compatible format.
-        """
         if not self._llm:
-            logger.warning("resume_tailoring_skipped", reason="no_llm_client")
             return resume_data
 
         from app.core.llm.prompts.resume_tailor import (
@@ -312,7 +331,6 @@ class DocumentGenerator:
         resume_text: str,
         company_info: str,
     ) -> str:
-        """Generate cover letter content via LLM."""
         if not self._llm:
             return self._fallback_cover_letter(job_description)
 
@@ -326,7 +344,6 @@ class DocumentGenerator:
 
     @staticmethod
     def _fallback_cover_letter(job_description: str) -> str:
-        """Minimal fallback when no LLM client is available."""
         return (
             "Dear Hiring Manager,\n\n"
             "I am writing to express my strong interest in this position. "
@@ -343,12 +360,8 @@ class DocumentGenerator:
         template: CoverLetterTemplate,
         output_path: Path,
     ) -> Path:
-        """Render cover letter text to PDF using a template."""
-        template_dir = (
-            self._templates_dir / "cover_letter" / template.value
-        )
+        template_dir = self._templates_dir / "cover_letter" / template.value
 
-        # Use template if available, otherwise fall back to inline HTML
         if (template_dir / "template.html").exists():
             from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -368,7 +381,6 @@ class DocumentGenerator:
                 html_content, output_path, css_string,
             )
 
-        # Inline fallback
         html = (
             "<html><body style='font-family:Georgia,serif;"
             "font-size:12pt;margin:1in;line-height:1.6;'>"
@@ -380,6 +392,5 @@ class DocumentGenerator:
 
 
 def _text_to_html(text: str) -> str:
-    """Convert plain text with double-newline paragraphs to HTML."""
     paragraphs = text.split("\n\n")
     return "".join(f"<p>{p.strip()}</p>" for p in paragraphs if p.strip())

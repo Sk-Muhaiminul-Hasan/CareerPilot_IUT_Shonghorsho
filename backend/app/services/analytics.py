@@ -35,24 +35,24 @@ _FUNNEL_STAGES = [
 ]
 
 
-async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
-    """Compute top-level dashboard statistics.
+async def get_dashboard_stats(db: AsyncSession, user_id: str = "default_user") -> DashboardStats:
+    """Compute top-level dashboard statistics."""
+    total_jobs = (
+        await db.execute(
+            select(func.count(Job.id)).where(Job.user_id == user_id),
+        )
+    ).scalar() or 0
 
-    Args:
-        db: Async database session.
-
-    Returns:
-        Aggregated dashboard stats.
-    """
-    total_jobs_result = await db.execute(select(func.count(Job.id)))
-    total_jobs = total_jobs_result.scalar() or 0
-
-    total_apps_result = await db.execute(select(func.count(Application.id)))
-    total_apps = total_apps_result.scalar() or 0
+    total_apps = (
+        await db.execute(
+            select(func.count(Application.id)).where(Application.user_id == user_id),
+        )
+    ).scalar() or 0
 
     def _count_status(status: str):  # noqa: ANN202
         return select(func.count(Application.id)).where(
             Application.status == status,
+            Application.user_id == user_id,
         )
 
     pending = (await db.execute(_count_status(ApplicationStatus.PENDING_REVIEW))).scalar() or 0
@@ -61,18 +61,23 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
     rejected = (await db.execute(_count_status(ApplicationStatus.REJECTED))).scalar() or 0
     offer = (await db.execute(_count_status(ApplicationStatus.OFFER))).scalar() or 0
 
-    avg_ats_result = await db.execute(
-        select(func.avg(Application.ats_score)).where(
-            Application.ats_score.isnot(None),
-            Application.status == ApplicationStatus.APPLIED,
-        ),
-    )
-    avg_ats = avg_ats_result.scalar() or 0.0
+    avg_ats = (
+        await db.execute(
+            select(func.avg(Application.ats_score)).where(
+                Application.ats_score.isnot(None),
+                Application.status == ApplicationStatus.APPLIED,
+                Application.user_id == user_id,
+            ),
+        )
+    ).scalar() or 0.0
 
-    llm_cost_result = await db.execute(
-        select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0)),
-    )
-    total_llm_cost = llm_cost_result.scalar() or 0.0
+    total_llm_cost = (
+        await db.execute(
+            select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0)).where(
+                LLMUsage.user_id == user_id,
+            ),
+        )
+    ).scalar() or 0.0
 
     return DashboardStats(
         total_jobs_found=total_jobs,
@@ -87,17 +92,11 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStats:
     )
 
 
-async def get_funnel(db: AsyncSession) -> list[ApplicationFunnelData]:
-    """Get application funnel stage counts.
-
-    Args:
-        db: Async database session.
-
-    Returns:
-        List of funnel stage data.
-    """
+async def get_funnel(db: AsyncSession, user_id: str = "default_user") -> list[ApplicationFunnelData]:
+    """Get application funnel stage counts."""
     result = await db.execute(
         select(Application.status, func.count(Application.id))
+        .where(Application.user_id == user_id)
         .group_by(Application.status),
     )
     counts = {row[0]: row[1] for row in result.all()}
@@ -108,15 +107,8 @@ async def get_funnel(db: AsyncSession) -> list[ApplicationFunnelData]:
     ]
 
 
-async def get_ats_distribution(db: AsyncSession) -> list[ATSScoreDistribution]:
-    """Get ATS score distribution histogram.
-
-    Args:
-        db: Async database session.
-
-    Returns:
-        List of score range buckets.
-    """
+async def get_ats_distribution(db: AsyncSession, user_id: str = "default_user") -> list[ATSScoreDistribution]:
+    """Get ATS score distribution histogram."""
     ranges = [
         ("0-20", 0.0, 0.2),
         ("20-40", 0.2, 0.4),
@@ -127,27 +119,22 @@ async def get_ats_distribution(db: AsyncSession) -> list[ATSScoreDistribution]:
 
     distribution: list[ATSScoreDistribution] = []
     for label, low, high in ranges:
-        result = await db.execute(
-            select(func.count(Application.id)).where(
-                Application.ats_score >= low,
-                Application.ats_score < high,
-            ),
-        )
-        count = result.scalar() or 0
+        count = (
+            await db.execute(
+                select(func.count(Application.id)).where(
+                    Application.ats_score >= low,
+                    Application.ats_score < high,
+                    Application.user_id == user_id,
+                ),
+            )
+        ).scalar() or 0
         distribution.append(ATSScoreDistribution(range_label=label, count=count))
 
     return distribution
 
 
-async def get_llm_usage(db: AsyncSession) -> list[LLMUsageStats]:
-    """Get LLM usage statistics grouped by provider + model.
-
-    Args:
-        db: Async database session.
-
-    Returns:
-        List of per-provider/model usage stats.
-    """
+async def get_llm_usage(db: AsyncSession, user_id: str = "default_user") -> list[LLMUsageStats]:
+    """Get LLM usage statistics grouped by provider + model."""
     result = await db.execute(
         select(
             LLMUsage.provider,
@@ -157,6 +144,7 @@ async def get_llm_usage(db: AsyncSession) -> list[LLMUsageStats]:
             func.coalesce(func.sum(LLMUsage.cost_usd), 0.0).label("total_cost"),
             func.coalesce(func.avg(LLMUsage.latency_ms), 0.0).label("avg_latency"),
         )
+        .where(LLMUsage.user_id == user_id)
         .group_by(LLMUsage.provider, LLMUsage.model)
         .order_by(func.sum(LLMUsage.cost_usd).desc()),
     )
@@ -174,57 +162,43 @@ async def get_llm_usage(db: AsyncSession) -> list[LLMUsageStats]:
     ]
 
 
-async def get_timeline(db: AsyncSession) -> list[TimelineEntry]:
-    """Get daily activity timeline for the last 30 days.
-
-    Args:
-        db: Async database session.
-
-    Returns:
-        Daily timeline entries.
-    """
-    # Applications created per day
+async def get_timeline(db: AsyncSession, user_id: str = "default_user") -> list[TimelineEntry]:
+    """Get daily activity timeline for the last 30 days."""
     created_q = await db.execute(
         select(
             cast(Application.created_at, SAString).label("date"),
             func.count(Application.id).label("cnt"),
         )
+        .where(Application.user_id == user_id)
         .group_by(cast(Application.created_at, SAString))
         .order_by(cast(Application.created_at, SAString).desc())
         .limit(30),
     )
-    created_by_date = {
-        str(r.date)[:10]: r.cnt for r in created_q.all()
-    }
+    created_by_date = {str(r.date)[:10]: r.cnt for r in created_q.all()}
 
-    # Applications applied per day
     applied_q = await db.execute(
         select(
             cast(Application.applied_at, SAString).label("date"),
             func.count(Application.id).label("cnt"),
         )
-        .where(Application.applied_at.isnot(None))
+        .where(Application.applied_at.isnot(None), Application.user_id == user_id)
         .group_by(cast(Application.applied_at, SAString))
         .order_by(cast(Application.applied_at, SAString).desc())
         .limit(30),
     )
-    applied_by_date = {
-        str(r.date)[:10]: r.cnt for r in applied_q.all()
-    }
+    applied_by_date = {str(r.date)[:10]: r.cnt for r in applied_q.all()}
 
-    # Jobs found per day
     jobs_q = await db.execute(
         select(
             cast(Job.created_at, SAString).label("date"),
             func.count(Job.id).label("cnt"),
         )
+        .where(Job.user_id == user_id)
         .group_by(cast(Job.created_at, SAString))
         .order_by(cast(Job.created_at, SAString).desc())
         .limit(30),
     )
-    jobs_by_date = {
-        str(r.date)[:10]: r.cnt for r in jobs_q.all()
-    }
+    jobs_by_date = {str(r.date)[:10]: r.cnt for r in jobs_q.all()}
 
     all_dates = sorted(
         set(created_by_date) | set(applied_by_date) | set(jobs_by_date),

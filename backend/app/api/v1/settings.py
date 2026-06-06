@@ -2,31 +2,15 @@
 
 import structlog
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.config.settings import get_settings as get_app_settings
-from app.models.user_settings import UserSettings
 from app.schemas.settings import LLMProviderStatus, SettingsResponse, SettingsUpdate
+from app.services.settings_helper import get_or_create_settings
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
-
-
-async def _get_or_create_settings(db: AsyncSession) -> UserSettings:
-    """Return the singleton UserSettings row, creating it if absent."""
-    result = await db.execute(
-        select(UserSettings).where(UserSettings.id == "singleton")
-    )
-    settings = result.scalar_one_or_none()
-    if settings is None:
-        settings = UserSettings(id="singleton")
-        db.add(settings)
-        await db.commit()
-        await db.refresh(settings)
-        logger.info("settings_created_defaults")
-    return settings
 
 
 @router.get(
@@ -36,9 +20,10 @@ async def _get_or_create_settings(db: AsyncSession) -> UserSettings:
 )
 async def get_settings(
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> SettingsResponse:
     """Get the current user settings from the database."""
-    settings = await _get_or_create_settings(db)
+    settings = await get_or_create_settings(db, user_id)
     return SettingsResponse.model_validate(settings)
 
 
@@ -50,9 +35,10 @@ async def get_settings(
 async def update_settings(
     update: SettingsUpdate,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> SettingsResponse:
     """Update user settings. Only provided fields are changed."""
-    settings = await _get_or_create_settings(db)
+    settings = await get_or_create_settings(db, user_id)
 
     update_data = update.model_dump(exclude_unset=True)
     for field, value in update_data.items():

@@ -12,6 +12,13 @@ class Resume(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "resumes"
     __table_args__ = (Index("ix_resume_type", "type"),)
 
+    user_id: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="default_user",
+        index=True,
+    )
+
     # Identity
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     type: Mapped[str] = mapped_column(String(20), nullable=False, default="base")

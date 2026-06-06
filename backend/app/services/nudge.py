@@ -11,13 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.llm.client import LLMClient
 from app.models.application import Application
 from app.models.job import Job
-from app.models.user_settings import UserSettings
 from app.schemas.job import JobListingResponse
 from app.schemas.nudge import NudgeResponse
 
 logger = structlog.get_logger(__name__)
 
-_REDIS_KEY = "nudge:default_user"
 _REDIS_TTL = 3600
 
 _GENERIC_BULLETS = [
@@ -64,7 +62,7 @@ def _build_prompt(
 async def get_nudge(
     db: AsyncSession,
     redis: Redis | None,
-    user_id: str = "default_user",
+    user_id: str,
 ) -> NudgeResponse:
     """Compute or retrieve a cached AI nudge for the authenticated user."""
 
@@ -81,15 +79,15 @@ async def get_nudge(
 
     apps_result = await db.execute(
         select(func.count(Application.id)).where(
-            Application.created_at >= datetime.utcnow() - timedelta(days=7)
+            Application.created_at >= datetime.utcnow() - timedelta(days=7),
+            Application.user_id == user_id,
         )
     )
     applications_this_week = apps_result.scalar() or 0
 
-    settings_row = await db.execute(
-        select(UserSettings).where(UserSettings.id == "singleton")
-    )
-    settings = settings_row.scalar_one_or_none()
+    from app.services.settings_helper import get_or_create_settings
+
+    settings = await get_or_create_settings(db, user_id)
 
     profile = (settings.candidate_profile or {}) if settings else {}
     full_name = (profile.get("full_name") or "").strip()
@@ -110,7 +108,10 @@ async def get_nudge(
 
     jobs_result = await db.execute(
         select(Job)
-        .where(~Job.id.in_(select(Application.job_id)))
+        .where(
+            Job.user_id == user_id,
+            ~Job.id.in_(select(Application.job_id).where(Application.user_id == user_id)),
+        )
         .order_by(Job.created_at.desc())
         .limit(3)
     )

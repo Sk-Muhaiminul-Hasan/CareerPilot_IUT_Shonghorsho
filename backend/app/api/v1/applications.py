@@ -1,16 +1,15 @@
 """Application tracking API routes."""
 
-from pathlib import Path
-
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, get_redis
 from app.config.constants import DEFAULT_PAGE_SIZE
 from app.core.scoring_pipeline import run_scoring_pipeline
+from app.core.storage import storage as storage_client
 from app.schemas.application import (
     ApplicationBatchCreate,
     ApplicationCreate,
@@ -38,7 +37,7 @@ async def create_application(
     user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
     """Create a single job application."""
-    app = await app_service.create_application(db, data, redis)
+    app = await app_service.create_application(db, data, redis, user_id=user_id)
     response = ApplicationResponse.model_validate(app)
     background_tasks.add_task(run_scoring_pipeline, app.id, user_id)
     logger.info("scoring_pipeline.enqueued", app_id=app.id)
@@ -55,9 +54,10 @@ async def batch_create(
     data: ApplicationBatchCreate,
     db: AsyncSession = Depends(get_db),
     redis: Redis | None = Depends(get_redis),
+    user_id: str = Depends(get_current_user),
 ) -> list[ApplicationResponse]:
     """Create multiple job applications at once."""
-    apps = await app_service.create_batch(db, data, redis)
+    apps = await app_service.create_batch(db, data, redis, user_id=user_id)
     return [ApplicationResponse.model_validate(a) for a in apps]
 
 
@@ -71,9 +71,10 @@ async def list_applications(
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=100),
     status: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationListResponse:
     """List applications with pagination and optional status filter."""
-    return await app_service.list_applications(db, page, page_size, status)
+    return await app_service.list_applications(db, page, page_size, status, user_id)
 
 
 @router.get(
@@ -84,9 +85,10 @@ async def list_applications(
 async def get_application(
     app_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
     """Get a single application by ID. Returns 404 if not found."""
-    app = await app_service.get_application(db, app_id)
+    app = await app_service.get_application(db, app_id, user_id)
     return ApplicationResponse.model_validate(app)
 
 
@@ -99,9 +101,10 @@ async def approve_application(
     app_id: str,
     db: AsyncSession = Depends(get_db),
     redis: Redis | None = Depends(get_redis),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
     """Approve a pending application for automated submission."""
-    app = await app_service.approve_application(db, app_id, redis)
+    app = await app_service.approve_application(db, app_id, redis, user_id)
     return ApplicationResponse.model_validate(app)
 
 
@@ -114,8 +117,9 @@ async def update_status(
     app_id: str,
     update: ApplicationStatusUpdate,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
-    app = await app_service.update_status(db, app_id, update)
+    app = await app_service.update_status(db, app_id, update, user_id)
     return ApplicationResponse.model_validate(app)
 
 
@@ -127,8 +131,9 @@ async def update_status(
 async def generate_cover_letter(
     app_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
-    app = await app_service.generate_cover_letter(db, app_id)
+    app = await app_service.generate_cover_letter(db, app_id, user_id)
     return ApplicationResponse.model_validate(app)
 
 
@@ -139,20 +144,15 @@ async def generate_cover_letter(
 async def download_cover_letter(
     app_id: str,
     db: AsyncSession = Depends(get_db),
-) -> FileResponse:
-    app = await app_service.get_application(db, app_id)
-    if not app.cover_letter_path or not Path(app.cover_letter_path).exists():
+    user_id: str = Depends(get_current_user),
+) -> RedirectResponse:
+    app = await app_service.get_application(db, app_id, user_id)
+    if not app.cover_letter_path:
         raise HTTPException(
             status_code=404,
             detail="Cover letter not found. Generate one first.",
         )
-    media_type = (
-        "application/pdf"
-        if app.cover_letter_path.endswith(".pdf")
-        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
-    return FileResponse(
-        path=app.cover_letter_path,
-        media_type=media_type,
-        filename=f"cover_letter_{app.id[-8:]}.{Path(app.cover_letter_path).suffix.lstrip('.')}",
-    )
+
+    bucket = "generated"
+    signed_url = await storage_client.get_signed_url(bucket, app.cover_letter_path)
+    return RedirectResponse(url=signed_url)

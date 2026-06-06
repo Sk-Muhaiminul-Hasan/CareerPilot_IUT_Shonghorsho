@@ -8,8 +8,6 @@ over WebSockets.
 from __future__ import annotations
 
 import asyncio
-import json
-from typing import Any
 
 import structlog
 from pydantic import BaseModel
@@ -20,7 +18,6 @@ from app.config.constants import (
     ApplicationStatus,
     LLMPurpose,
 )
-from app.config.settings import get_settings
 from app.core.ats.experience_analyzer import ExperienceAnalyzer
 from app.core.ats.keyword_analyzer import KeywordAnalyzer
 from app.core.ats.scorer import ResumeScorer, ScoreDetails
@@ -28,7 +25,6 @@ from app.core.ats.skill_matcher import SkillMatcher
 from app.core.llm.client import LLMClient
 from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT
 from app.db.session import async_session_factory
-from app.models.application import Application
 from app.models.job import Job
 from app.models.resume import Resume
 from app.services.application import get_application
@@ -41,13 +37,17 @@ class ATSReasoningOutput(BaseModel):
     gaps: list[str]
 
 
-async def _run_ats_scoring(job: Job, resume_id: str) -> ScoreDetails | None:
+async def _run_ats_scoring(job: Job, resume_id: str, user_id: str) -> ScoreDetails | None:
     if not resume_id:
         return None
 
     try:
         async with async_session_factory() as db:
-            result = await db.execute(select(Resume).where(Resume.id == resume_id))
+            resume_query = select(Resume).where(
+                Resume.id == resume_id,
+                Resume.user_id == user_id,
+            )
+            result = await db.execute(resume_query)
             resume = result.scalar_one_or_none()
 
         if resume is None:
@@ -57,7 +57,11 @@ async def _run_ats_scoring(job: Job, resume_id: str) -> ScoreDetails | None:
         resume_text = resume.content_text or ""
         if not resume_text.strip() or len(resume_text.strip()) < 50:
             logger.warning("scoring_pipeline.resume_text_empty", resume_id=resume_id)
-            fallback_text = f"Resume: {resume.name}" if resume.name else "No resume content available"
+            fallback_text = (
+                f"Resume: {resume.name}"
+                if resume.name
+                else "No resume content available"
+            )
             resume_text = fallback_text
 
         try:
@@ -123,12 +127,19 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
         )
         async with async_session_factory() as db:
             try:
-                application = await get_application(db, application_id)
+                application = await get_application(db, application_id, user_id)
             except Exception:
-                logger.error("scoring_pipeline.app_not_found", application_id=application_id)
+                logger.error(
+                    "scoring_pipeline.app_not_found",
+                    application_id=application_id,
+                )
                 return
 
-            job_result = await db.execute(select(Job).where(Job.id == application.job_id))
+            job_query = select(Job).where(
+                Job.id == application.job_id,
+                Job.user_id == user_id,
+            )
+            job_result = await db.execute(job_query)
             job = job_result.scalar_one_or_none()
             if job is None:
                 logger.error(
@@ -139,8 +150,19 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                 return
 
             score_details, reasoning = await asyncio.gather(
-                _run_ats_scoring(job, application.resume_id or ""),
-                _generate_reasoning(job, ScoreDetails(overall_score=0, skill_score=0, experience_score=0, education_score=0, keyword_score=0)),
+                _run_ats_scoring(
+                    job, application.resume_id or "", user_id,
+                ),
+                _generate_reasoning(
+                    job,
+                    ScoreDetails(
+                        overall_score=0,
+                        skill_score=0,
+                        experience_score=0,
+                        education_score=0,
+                        keyword_score=0,
+                    ),
+                ),
             )
 
             # Re-run reasoning with actual scores if available

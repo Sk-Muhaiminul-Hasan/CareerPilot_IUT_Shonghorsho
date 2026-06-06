@@ -58,17 +58,15 @@ class TestCoverLetterGeneration:
         body = response.json()
         assert body["cover_letter_path"] == docx_path
 
-    async def test_download_cover_letter_returns_file(self, client, sample_application_with_docs):
-        pdf_path = str(Path("data/generated/cover_letters/cov123.pdf"))
-        Path(Path(pdf_path).parent).mkdir(parents=True, exist_ok=True)
-        Path(pdf_path).write_text("fake pdf")
+    async def test_download_cover_letter_returns_redirect(self, client, sample_application_with_docs):
+        with patch("app.api.v1.applications.storage_client") as mock_storage:
+            mock_storage.get_signed_url = AsyncMock(return_value="https://example.com/signed-url")
+            response = await client.get(
+                f"{API_PREFIX}/{sample_application_with_docs.id}/cover-letter/download",
+            )
 
-        response = await client.get(
-            f"{API_PREFIX}/{sample_application_with_docs.id}/cover-letter/download",
-        )
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/pdf"
+        assert response.status_code == 307
+        assert response.headers["location"] == "https://example.com/signed-url"
 
     async def test_download_cover_letter_missing_returns_404(self, client, sample_application):
         response = await client.get(

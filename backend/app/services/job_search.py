@@ -31,6 +31,7 @@ logger = structlog.get_logger(__name__)
 async def search_jobs(
     db: AsyncSession,
     request: JobSearchRequest,
+    user_id: str = "default_user",
 ) -> JobListResponse:
     """Search for jobs across configured platforms.
 
@@ -96,14 +97,14 @@ async def search_jobs(
             )
             continue
 
-        for listing in listings:
+    for listing in listings:
             try:
-                job = _listing_to_job(listing)
-                # Check for duplicates before inserting
+                job = _listing_to_job(listing, user_id)
                 existing = await db.execute(
                     select(Job).where(
                         Job.platform == job.platform,
                         Job.platform_job_id == job.platform_job_id,
+                        Job.user_id == user_id,
                     ),
                 )
                 existing_job = existing.scalar_one_or_none()
@@ -176,7 +177,7 @@ async def search_jobs(
     )
 
 
-def _listing_to_job(listing: JobListing) -> Job:
+def _listing_to_job(listing: JobListing, user_id: str) -> Job:
     """Convert a platform ``JobListing`` to a ``Job`` database model.
 
     Args:
@@ -216,6 +217,7 @@ def _listing_to_job(listing: JobListing) -> Job:
         remote=listing.remote,
         skills_required=skills_dict,
         status="new",
+        user_id=user_id,
     )
 
 
@@ -224,6 +226,7 @@ async def list_jobs(
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
     status: str | None = None,
+    user_id: str = "default_user",
 ) -> JobListResponse:
     """List jobs with pagination and optional status filter.
 
@@ -232,6 +235,7 @@ async def list_jobs(
         page: Page number (1-indexed).
         page_size: Items per page.
         status: Optional status filter.
+        user_id: Authenticated user ID.
 
     Returns:
         Paginated job list response.
@@ -239,8 +243,8 @@ async def list_jobs(
     page_size = min(page_size, MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
-    query = select(Job)
-    count_query = select(func.count(Job.id))
+    query = select(Job).where(Job.user_id == user_id)
+    count_query = select(func.count(Job.id)).where(Job.user_id == user_id)
 
     if status:
         query = query.where(Job.status == status)
@@ -265,12 +269,13 @@ async def list_jobs(
     )
 
 
-async def get_job(db: AsyncSession, job_id: str) -> Job:
+async def get_job(db: AsyncSession, job_id: str, user_id: str = "default_user") -> Job:
     """Get a single job by ID.
 
     Args:
         db: Async database session.
         job_id: UUID of the job.
+        user_id: Authenticated user ID.
 
     Returns:
         The Job model instance.
@@ -278,14 +283,14 @@ async def get_job(db: AsyncSession, job_id: str) -> Job:
     Raises:
         RecordNotFoundError: If job does not exist.
     """
-    result = await db.execute(select(Job).where(Job.id == job_id))
+    result = await db.execute(select(Job).where(Job.id == job_id, Job.user_id == user_id))
     job = result.scalar_one_or_none()
     if job is None:
         raise RecordNotFoundError("Job", job_id)
     return job
 
 
-async def delete_job(db: AsyncSession, job_id: str) -> None:
+async def delete_job(db: AsyncSession, job_id: str, user_id: str = "default_user") -> None:
     """Delete a job by ID.
 
     Args:
@@ -295,7 +300,7 @@ async def delete_job(db: AsyncSession, job_id: str) -> None:
     Raises:
         RecordNotFoundError: If job does not exist.
     """
-    job = await get_job(db, job_id)
+    job = await get_job(db, job_id, user_id)
     await db.delete(job)
     await db.commit()
     logger.info("job_deleted", job_id=job_id)
@@ -305,6 +310,7 @@ async def analyze_job(
     db: AsyncSession,
     job_id: str,
     resume_id: str | None = None,
+    user_id: str = "default_user",
 ) -> JobAnalysisResponse:
     """Analyze job-candidate match using ATS scoring.
 
@@ -316,6 +322,7 @@ async def analyze_job(
         db: Async database session.
         job_id: UUID of the job to analyze.
         resume_id: Optional UUID of the resume to score against.
+        user_id: Authenticated user ID.
 
     Returns:
         Job analysis with match scores and suggestions.
@@ -323,7 +330,7 @@ async def analyze_job(
     Raises:
         RecordNotFoundError: If job does not exist.
     """
-    job = await get_job(db, job_id)
+    job = await get_job(db, job_id, user_id)
     logger.info("job_analysis_requested", job_id=job_id, title=job.title)
 
     # If no resume provided, return placeholder scores
@@ -341,7 +348,7 @@ async def analyze_job(
 
     # Load resume
     resume_result = await db.execute(
-        select(Resume).where(Resume.id == resume_id),
+        select(Resume).where(Resume.id == resume_id, Resume.user_id == user_id),
     )
     resume = resume_result.scalar_one_or_none()
     if resume is None:

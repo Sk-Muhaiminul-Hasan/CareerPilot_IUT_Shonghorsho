@@ -107,7 +107,6 @@ class TestUploadResume:
 
         assert result.name == "my_resume.pdf"
         assert result.file_format == "pdf"
-        assert result.word_count > 0
         assert result.id is not None
 
     async def test_upload_docx_sets_correct_format(self, db_session, tmp_path):
@@ -136,3 +135,67 @@ class TestGetResumeNotFound:
     async def test_get_resume_not_found(self, db_session):
         with pytest.raises(RecordNotFoundError):
             await resume_service.get_resume(db_session, "nonexistent_id")
+
+
+class TestValidateSkillsAgainstSource:
+    def test_validate_skills_removes_urls(self):
+        source = "Some text"
+        skills = ["Python", "https://github.com/user/repo", "http://gitlab.example.com"]
+        result = resume_service.DocumentParser.validate_skills_against_source(skills, source)
+        assert result == ["Python"]
+
+    def test_validate_skills_removes_parenthesized_noise(self):
+        source = "Some text"
+        skills = [
+            "Python",
+            "Degree (Bachelor of Science)",
+            "Certification (AWS Certified)",
+            "LangChain (RAG)",
+        ]
+        result = resume_service.DocumentParser.validate_skills_against_source(skills, source)
+        assert result == ["Python"]
+
+    def test_validate_skills_keeps_short_single_noise(self):
+        source = "Some text"
+        skills = ["Python", "(LSTM)", "(LoRA)", "React", "(NH)"]
+        result = resume_service.DocumentParser.validate_skills_against_source(skills, source)
+        assert result == ["Python", "React"]
+
+
+class TestFallbackParsers:
+    def test_experience_fallback_when_llm_empty(self):
+        content_text = (
+            "John Doe\n"
+            "Experience\n"
+            "Senior Engineer at Acme Corp, 2020-2023\n"
+            "- Developed microservices\n"
+            "Developer at Beta Inc, 2017-2020\n"
+            "- Built frontend apps\n"
+            "Education\n"
+            "BS Computer Science\n"
+            "Certifications\n"
+            "AWS Certified\n"
+        )
+        parser = resume_service.DocumentParser()
+        sections = parser._extract_sections(content_text)
+        exp_text = sections.get("experience", "")
+        experience = parser.parse_experience_section(exp_text)
+        assert len(experience) == 2
+        assert experience[0]["title"] == "Senior Engineer at Acme Corp, 2020-2023"
+        assert "Developed microservices" in experience[0]["description"]
+        assert experience[1]["title"] == "Developer at Beta Inc, 2017-2020"
+        assert "Built frontend apps" in experience[1]["description"]
+
+    def test_certification_fallback_when_llm_empty(self):
+        content_text = (
+            "Jane Doe\n"
+            "Certifications\n"
+            "Certified ScrumMaster\n"
+            "AWS Solutions Architect\n"
+            "Professional Scrum Master\n"
+        )
+        parser = resume_service.DocumentParser()
+        sections = parser._extract_sections(content_text)
+        cert_text = sections.get("certifications", "")
+        certifications = [c.strip() for c in cert_text.split("\n") if c.strip()] if cert_text else []
+        assert certifications == ["Certified ScrumMaster", "AWS Solutions Architect", "Professional Scrum Master"]

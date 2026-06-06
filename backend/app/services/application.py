@@ -19,6 +19,7 @@ from app.config.constants import (
 from app.core.documents.generator import DocumentGenerator
 from app.core.exceptions import RecordNotFoundError
 from app.core.llm.client import LLMClient
+from app.core.storage import storage as storage_client
 from app.models.application import Application
 from app.models.job import Job
 from app.models.resume import Resume
@@ -38,6 +39,7 @@ async def create_application(
     db: AsyncSession,
     data: ApplicationCreate,
     redis: Redis | None = None,
+    user_id: str = "default_user",
 ) -> Application:
     """Create a single job application.
 
@@ -63,6 +65,7 @@ async def create_application(
         applied_at=datetime.utcnow()
         if data.apply_mode == ApplyModeEnum.MANUAL
         else None,
+        user_id=user_id,
     )
     db.add(application)
     await db.commit()
@@ -71,7 +74,7 @@ async def create_application(
 
     if data.apply_mode == ApplyModeEnum.AUTONOMOUS and redis is not None:
         result = await db.execute(
-            select(Job).where(Job.id == data.job_id),
+            select(Job).where(Job.id == data.job_id, Job.user_id == user_id),
         )
         job = result.scalar_one_or_none()
         if job is not None:
@@ -98,6 +101,7 @@ async def create_batch(
     db: AsyncSession,
     data: ApplicationBatchCreate,
     redis: Redis | None = None,
+    user_id: str = "default_user",
 ) -> list[Application]:
     """Create multiple applications at once.
 
@@ -123,6 +127,7 @@ async def create_batch(
             applied_at=datetime.utcnow()
             if data.apply_mode == ApplyModeEnum.MANUAL
             else None,
+            user_id=user_id,
         )
         db.add(app)
         applications.append(app)
@@ -140,6 +145,7 @@ async def list_applications(
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
     status: str | None = None,
+    user_id: str = "default_user",
 ) -> ApplicationListResponse:
     """List applications with pagination and optional status filter.
 
@@ -148,6 +154,7 @@ async def list_applications(
         page: Page number (1-indexed).
         page_size: Items per page.
         status: Optional status filter.
+        user_id: Authenticated user ID.
 
     Returns:
         Paginated application list response.
@@ -155,8 +162,8 @@ async def list_applications(
     page_size = min(page_size, MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
-    query = select(Application)
-    count_query = select(func.count(Application.id))
+    query = select(Application).where(Application.user_id == user_id)
+    count_query = select(func.count(Application.id)).where(Application.user_id == user_id)
 
     if status:
         query = query.where(Application.status == status)
@@ -181,12 +188,17 @@ async def list_applications(
     )
 
 
-async def get_application(db: AsyncSession, app_id: str) -> Application:
+async def get_application(
+    db: AsyncSession,
+    app_id: str,
+    user_id: str = "default_user",
+) -> Application:
     """Get a single application by ID.
 
     Args:
         db: Async database session.
         app_id: UUID of the application.
+        user_id: Authenticated user ID.
 
     Returns:
         The Application model instance.
@@ -195,7 +207,7 @@ async def get_application(db: AsyncSession, app_id: str) -> Application:
         RecordNotFoundError: If application does not exist.
     """
     result = await db.execute(
-        select(Application).where(Application.id == app_id),
+        select(Application).where(Application.id == app_id, Application.user_id == user_id),
     )
     app = result.scalar_one_or_none()
     if app is None:
@@ -207,6 +219,7 @@ async def approve_application(
     db: AsyncSession,
     app_id: str,
     redis: Redis | None = None,
+    user_id: str = "default_user",
 ) -> Application:
     """Approve a pending application for submission.
 
@@ -224,7 +237,7 @@ async def approve_application(
     from app.models.job import Job
     from app.services.queue import enqueue
 
-    app = await get_application(db, app_id)
+    app = await get_application(db, app_id, user_id)
     if app.status not in (ApplicationStatus.PENDING_REVIEW, ApplicationStatus.QUEUED):
         raise ValueError(
             f"Cannot approve application in '{app.status}' state. "
@@ -235,7 +248,7 @@ async def approve_application(
     if app.resume_id is None:
         result = await db.execute(
             select(Resume)
-            .where(Resume.type == "base")
+            .where(Resume.type == "base", Resume.user_id == user_id)
             .order_by(Resume.created_at.desc())
             .limit(1),
         )
@@ -252,7 +265,7 @@ async def approve_application(
 
     if redis is not None:
         result = await db.execute(
-            select(Job).where(Job.id == app.job_id),
+            select(Job).where(Job.id == app.job_id, Job.user_id == user_id),
         )
         job = result.scalar_one_or_none()
         if job is not None:
@@ -277,8 +290,9 @@ async def update_status(
     db: AsyncSession,
     app_id: str,
     update: ApplicationStatusUpdate,
+    user_id: str = "default_user",
 ) -> Application:
-    app = await get_application(db, app_id)
+    app = await get_application(db, app_id, user_id)
     app.status = update.status
     if update.notes is not None:
         app.notes = update.notes
@@ -293,27 +307,39 @@ async def update_status(
 async def generate_cover_letter(
     db: AsyncSession,
     app_id: str,
+    user_id: str = "default_user",
 ) -> Application:
-    app = await get_application(db, app_id)
+    app = await get_application(db, app_id, user_id)
     if app.job_id is None or app.resume_id is None:
         raise RecordNotFoundError("Required job or resume for application", app_id)
 
-    job_result = await db.execute(select(Job).where(Job.id == app.job_id))
+    job_result = await db.execute(select(Job).where(Job.id == app.job_id, Job.user_id == user_id))
     job = job_result.scalar_one_or_none()
     if job is None:
         raise RecordNotFoundError("Job", app.job_id)
 
-    resume_result = await db.execute(select(Resume).where(Resume.id == app.resume_id))
+    resume_result = await db.execute(
+        select(Resume).where(
+            Resume.id == app.resume_id,
+            Resume.user_id == user_id,
+        ),
+    )
     resume = resume_result.scalar_one_or_none()
     if resume is None:
         raise RecordNotFoundError("Resume", app.resume_id)
 
     llm = LLMClient()
-    generator = DocumentGenerator(llm_client=llm)
+    generator = DocumentGenerator(
+        llm_client=llm,
+        upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
+            bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
+        ),
+    )
     doc = await generator.generate_cover_letter(
         resume_text=resume.content_text or "",
         job_description=job.description or "",
         template=None,
+        user_id=user_id,
     )
 
     app.cover_letter_path = doc.pdf_path or doc.docx_path
