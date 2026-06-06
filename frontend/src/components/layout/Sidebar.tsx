@@ -15,7 +15,6 @@ import SendIcon from '@mui/icons-material/Send';
 import DescriptionIcon from '@mui/icons-material/Description';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import SettingsIcon from '@mui/icons-material/Settings';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 import { useAppStore } from '@/store/useAppStore';
@@ -48,9 +47,29 @@ function Sidebar() {
   const drawerContent = (
     <Box>
       <Toolbar sx={{ px: 2 }}>
-        <SmartToyIcon color="primary" sx={{ mr: 1.5 }} />
-        <Typography variant="h6" noWrap color="primary">
-          AutoApply AI
+        <Box
+          component="img"
+          src="/auto-logo.png"
+          alt="Auto"
+          sx={{
+            width: 32,
+            height: 32,
+            objectFit: 'contain',
+            mr: 1.25,
+            flexShrink: 0,
+          }}
+        />
+        <Typography
+          variant="h6"
+          noWrap
+          sx={{
+            color: '#003d9b',
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            fontFamily: '"Hanken Grotesk", sans-serif',
+          }}
+        >
+          CareerPilot
         </Typography>
       </Toolbar>
       <Divider />

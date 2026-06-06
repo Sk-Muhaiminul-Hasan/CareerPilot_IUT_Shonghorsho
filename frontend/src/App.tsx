@@ -6,6 +6,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import LoginPage from '@/pages/LoginPage';
+import HomePage from '@/pages/HomePage';
 import DashboardPage from '@/pages/DashboardPage';
 import JobSearchPage from '@/pages/JobSearchPage';
 import ApplicationDetailPage from '@/pages/ApplicationDetailPage';
@@ -28,27 +29,62 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        {/* ── Public routes (always accessible) ── */}
         <Route
           path="/"
-          element={
-            user ? (
-              <AppLayout />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
+          element={user ? <Navigate to="/dashboard" replace /> : <HomePage />}
+        />
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* ── Protected routes under /app layout ── */}
+        <Route
+          path="/app"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="jobs" element={<JobSearchPage />} />
-          <Route path="applications/:appId" element={<ApplicationDetailPage />} />
-          <Route path="applications" element={<ApplicationsPage />} />
-          <Route path="resumes" element={<ResumesPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
+
+        {/* ── Individual protected routes (flat, no '/*' wildcard) ── */}
+        <Route
+          path="/dashboard"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<DashboardPage />} />
+        </Route>
+        <Route
+          path="/jobs"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<JobSearchPage />} />
+        </Route>
+        <Route
+          path="/applications"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<ApplicationsPage />} />
+          <Route path=":appId" element={<ApplicationDetailPage />} />
+        </Route>
+        <Route
+          path="/resumes"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<ResumesPage />} />
+        </Route>
+        <Route
+          path="/settings"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<SettingsPage />} />
+        </Route>
+        <Route
+          path="/analytics"
+          element={user ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<AnalyticsPage />} />
+        </Route>
+
+        {/* ── Fallback: unknown paths go to home ── */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <Snackbar

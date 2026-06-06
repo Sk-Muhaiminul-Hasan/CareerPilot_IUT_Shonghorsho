@@ -3,30 +3,74 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
+      main: '#003d9b',
+      light: '#0052cc',
+      dark: '#001848',
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#00897b',
-      light: '#4db6ac',
-      dark: '#00695c',
+      main: '#585f6c',
+      light: '#dce2f3',
+      dark: '#404754',
+      contrastText: '#ffffff',
     },
     background: {
-      default: '#f5f5f5',
+      default: '#f9f9ff',
       paper: '#ffffff',
+    },
+    text: {
+      primary: '#141b2b',
+      secondary: '#434654',
+    },
+    divider: '#c3c6d6',
+    error: {
+      main: '#ba1a1a',
+      contrastText: '#ffffff',
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Hanken Grotesk", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: {
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
+    },
+    h2: {
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
+    },
+    h3: {
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
+    },
     h4: {
-      fontWeight: 600,
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
     },
     h5: {
       fontWeight: 600,
     },
     h6: {
       fontWeight: 600,
+    },
+    subtitle1: {
+      fontWeight: 500,
+    },
+    body1: {
+      fontWeight: 400,
+      lineHeight: 1.5,
+    },
+    body2: {
+      fontWeight: 400,
+      lineHeight: 1.43,
+    },
+    button: {
+      fontWeight: 600,
+      textTransform: 'none',
+      letterSpacing: '0.01em',
+    },
+    overline: {
+      fontWeight: 700,
+      letterSpacing: '0.05em',
     },
   },
   shape: {
@@ -40,7 +84,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           border: '1px solid',
-          borderColor: '#e0e0e0',
+          borderColor: '#e1e8fd',
+          borderRadius: 16,
           transition: 'box-shadow 0.2s ease-in-out',
           '&:hover': {
             boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -55,7 +100,15 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 500,
+          fontWeight: 600,
+          borderRadius: 8,
+          padding: '10px 20px',
+        },
+        containedPrimary: {
+          background: 'linear-gradient(135deg, #003d9b 0%, #0052cc 100%)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #001848 0%, #003d9b 100%)',
+          },
         },
       },
     },
@@ -63,13 +116,38 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           fontWeight: 500,
+          borderRadius: 6,
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          borderRight: '1px solid #e0e0e0',
+          borderRight: '1px solid #e1e8fd',
+          background: '#ffffff',
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#003d9b',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#003d9b',
+              borderWidth: '2px',
+            },
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
         },
       },
     },
