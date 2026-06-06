@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.core.exceptions import RecordNotFoundError
+from app.core.llm.client import LLMNotConfiguredError
 from app.core.storage import storage as storage_client
 from app.schemas.resume import (
     ResumeGenerateRequest,
@@ -100,7 +101,13 @@ async def generate_resume(
     user_id: str = Depends(get_current_user),
 ) -> ResumeResponse:
     """Generate a job-tailored resume from a base resume."""
-    return await resume_service.generate_tailored_resume(db, request, user_id)
+    try:
+        return await resume_service.generate_tailored_resume(db, request, user_id)
+    except LLMNotConfiguredError:
+        raise HTTPException(
+            status_code=428,
+            detail={"message": "AI not configured", "code": "ai_not_configured"},
+        ) from None
 
 
 @router.post(
@@ -130,7 +137,13 @@ async def optimize_resume(
     user_id: str = Depends(get_current_user),
 ) -> ResumeResponse:
     """Optimize a resume for ATS keyword matching using LLM rewriting."""
-    return await resume_service.optimize_resume(db, resume_id, request.job_id, user_id)
+    try:
+        return await resume_service.optimize_resume(db, resume_id, request.job_id, user_id)
+    except LLMNotConfiguredError:
+        raise HTTPException(
+            status_code=428,
+            detail={"message": "AI not configured", "code": "ai_not_configured"},
+        ) from None
 
 
 @router.get(

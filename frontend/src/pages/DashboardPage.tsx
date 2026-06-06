@@ -12,15 +12,18 @@ import StatsCards from '@/components/dashboard/StatsCards';
 import ApplicationFunnel from '@/components/dashboard/ApplicationFunnel';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import NudgeCard from '@/components/dashboard/NudgeCard';
+import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
+import type { ApiError } from '@/types/api';
 import { useDashboardStats, useApplicationFunnel } from '@/hooks/useAnalytics';
 import { useApplications } from '@/hooks/useApplications';
-import { useNudge } from '@/hooks/useNudge';
+import { useNudge, useNudgeAIError } from '@/hooks/useNudge';
 
 function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: funnel, isLoading: funnelLoading } = useApplicationFunnel();
   const { data: recentApps } = useApplications(1, 5);
-  const { data: nudge, isLoading: nudgeLoading } = useNudge();
+  const { data: nudge, isLoading: nudgeLoading, error: nudgeError } = useNudge();
+  const aiNotConfigured = useNudgeAIError(nudgeError as ApiError | null | undefined);
 
   return (
     <ErrorBoundary>
@@ -32,7 +35,11 @@ function DashboardPage() {
           Overview of your job application pipeline
         </Typography>
 
-        <NudgeCard nudge={nudge} loading={nudgeLoading} />
+        {aiNotConfigured ? (
+          <AINotConfiguredBanner message="Configure your AI model to unlock personalized nudges." />
+        ) : (
+          <NudgeCard nudge={nudge} loading={nudgeLoading} />
+        )}
 
         <StatsCards stats={stats} loading={statsLoading} />
 

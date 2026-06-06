@@ -34,7 +34,20 @@ api.interceptors.response.use(
           typeof data['trace_id'] === 'string' ? data['trace_id'] : undefined,
       };
 
+      if (error.response.status === 428 && typeof data['detail'] === 'object') {
+        const detailObj = data['detail'] as Record<string, unknown>;
+        if (detailObj['code'] === 'ai_not_configured') {
+          apiError.detail = JSON.stringify(detailObj);
+          apiError.status_code = 428;
+        }
+      }
+
       if (error.response.status === 401) {
+        void useAuthStore.getState().logout();
+        window.location.href = '/login';
+      }
+
+      if (error.response.status === 404 && error.config.url?.startsWith('/api/v1/')) {
         void useAuthStore.getState().logout();
         window.location.href = '/login';
       }

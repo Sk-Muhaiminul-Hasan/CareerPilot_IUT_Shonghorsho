@@ -21,6 +21,7 @@ from app.config.settings import get_settings
 from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
 from app.core.exceptions import AuthenticationError, AutoApplyError
+from app.core.llm.client import LLMNotConfiguredError
 from app.core.storage import storage as storage_client
 from app.db.redis import get_redis, init_redis_pool
 from app.db.session import async_session_factory
@@ -197,6 +198,7 @@ async def process_application(payload: dict[str, Any]) -> None:
     app_id: str = payload.get("application_id", "")
     resume_id: str = payload.get("resume_id", "")
     platform_name: str = payload.get("platform", "")
+    user_id: str = payload.get("user_id", "")
 
     logger.info(
         "worker.processing",
@@ -411,25 +413,48 @@ async def process_application(payload: dict[str, Any]) -> None:
                 return
 
         try:
-            platform = platform_registry.create(platform_name)
+            async with async_session_factory() as db, \
+                    platform_registry.create_async(platform_name, db=db, user_id=user_id) as platform:
 
-            job_listing = JobListing(
-                platform=job.platform,
-                platform_job_id=job.platform_job_id,
-                title=job.title,
-                company=job.company,
-                location=job.location or "",
-                url=job.url,
-                description=job.description or "",
-                job_type=job.job_type or "",
-                remote=job.remote or False,
-            )
+                    job_listing = JobListing(
+                        platform=job.platform,
+                        platform_job_id=job.platform_job_id,
+                        title=job.title,
+                        company=job.company,
+                        location=job.location or "",
+                        url=job.url,
+                        description=job.description or "",
+                        job_type=job.job_type or "",
+                        remote=job.remote or False,
+                    )
 
-            applied = await platform.apply(
-                job=job_listing,
-                resume_path=local_resume_path,
-                cover_letter_path=None,
-            )
+                    try:
+                        applied = await platform.apply(
+                            job=job_listing,
+                            resume_path=local_resume_path,
+                            cover_letter_path=None,
+                        )
+                    except LLMNotConfiguredError:
+                        error_msg = (
+                            "AI not configured. Please configure your AI model in Settings."
+                        )
+                        logger.error(
+                            "worker.llm_not_configured",
+                            app_id=app_id,
+                            platform=platform_name,
+                        )
+                        await _update_application_status(
+                            app_id,
+                            ApplicationStatus.FAILED,
+                            notes=error_msg,
+                        )
+                        await _broadcast_progress(
+                            app_id,
+                            ApplicationStatus.FAILED,
+                            detail=error_msg,
+                        )
+                        await _broadcast_complete(app_id, ApplicationStatus.FAILED)
+                        return
 
             if not applied:
                 raise AutoApplyError(

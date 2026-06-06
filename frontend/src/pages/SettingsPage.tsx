@@ -18,7 +18,7 @@ import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LLMProvidersCard from '@/components/settings/LLMProvidersCard';
 import CandidateProfileEditor from '@/components/settings/CandidateProfileEditor';
-import AIConfigCard from '@/components/settings/AIConfigCard';
+import AISlotConfigCard from '@/components/settings/AISlotConfigCard';
 import { useSettings, useUpdateSettings, useLLMProviders } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import type { CandidateProfile } from '@/types/settings';
@@ -220,24 +220,66 @@ function SettingsPage() {
             </Card>
           </Grid>
 
-          {/* AI Configuration */}
+          {/* Two separate AI config slots */}
           <Grid item xs={12}>
-            <AIConfigCard
-              settings={settings ? {
-                preferred_provider: settings.preferred_provider,
-                preferred_model: settings.preferred_model ?? null,
-                user_api_key: settings.user_api_key ?? null,
-              } : null}
-              onSave={(field: string, value: unknown) =>
-                updateMutation.mutate(
-                  { [field]: value },
-                  {
-                    onSuccess: () => showNotification('Settings saved.', 'success'),
-                    onError: () => showNotification('Failed to save settings.', 'error'),
-                  },
-                )
-              }
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <AISlotConfigCard
+                title="General AI"
+                subtitle="Powers your job search, nudges, cover letters, and resume tailoring."
+                config={
+                  settings
+                    ? {
+                        provider: settings.general_provider,
+                        model: settings.general_model,
+                        apiKey: settings.general_api_key,
+                      }
+                    : null
+                }
+                onSave={(values) =>
+                  updateMutation.mutate(
+                    {
+                      general_provider: values.provider,
+                      general_model: values.model || null,
+                      general_api_key: values.apiKey || null,
+                    },
+                    {
+                      onSuccess: () => showNotification('General AI settings saved.', 'success'),
+                      onError: () => showNotification('Failed to save settings.', 'error'),
+                    },
+                  )
+                }
+              />
+
+              <AISlotConfigCard
+                title="Extraction AI"
+                subtitle="Reads and understands your CV when uploading a resume."
+                config={
+                  settings
+                    ? {
+                        provider: settings.extraction_provider,
+                        model: settings.extraction_model,
+                        apiKey: settings.extraction_api_key,
+                      }
+                    : null
+                }
+                onSave={(values) =>
+                  updateMutation.mutate(
+                    {
+                      extraction_provider: values.provider,
+                      extraction_model: values.model || null,
+                      extraction_api_key: values.apiKey || null,
+                    },
+                    {
+                      onSuccess: () => showNotification('Extraction AI settings saved.', 'success'),
+                      onError: () => showNotification('Failed to save settings.', 'error'),
+                    },
+                  )
+                }
+                recommendedBadge
+                helperText="We recommend OpenAI gpt-4o-mini for best CV parsing accuracy."
+                buttonLabel="Save Extraction AI"
+              />
+            </Box>
           </Grid>
 
           {/* LLM Providers */}

@@ -207,6 +207,15 @@ class ExaJobSearch:
                 for kw in ["remote", "work from home", "distributed"]
             )
 
+            # Classify work arrangement (remote / hybrid / onsite)
+            work_type = self._classify_work_type(text_lower, remote)
+
+            # Extract salary range hint from the text
+            salary_range = self._extract_salary(text)
+
+            # Extract deadline hint from the text
+            deadline = self._extract_deadline(text)
+
             # Extract location hints
             location = self._extract_location(text)
 
@@ -220,10 +229,134 @@ class ExaJobSearch:
                     url=url,
                     description=text[:3000],
                     remote=remote,
+                    work_type=work_type,
+                    salary_range=salary_range,
+                    deadline=deadline,
                 )
             )
 
         return listings
+
+    @staticmethod
+    def _classify_work_type(text_lower: str, remote_hint: bool) -> str:
+        """Map free-form text to a constrained work_type label.
+
+        Returns one of: "remote", "hybrid", "onsite", or "" when not detected.
+        """
+        if not text_lower:
+            return "remote" if remote_hint else ""
+
+        # Hybrid takes precedence if both are mentioned
+        if "hybrid" in text_lower:
+            return "hybrid"
+
+        # Remote: strong indicators (avoid false positives like "no remote")
+        remote_indicators = (
+            "fully remote",
+            "100% remote",
+            "remote-first",
+            "work from home",
+            "work from anywhere",
+            "anywhere in",
+            "distributed team",
+        )
+        if any(ind in text_lower for ind in remote_indicators):
+            return "remote"
+        if remote_hint and "remote" in text_lower:
+            return "remote"
+
+        # Onsite indicators
+        onsite_indicators = (
+            "on-site",
+            "on site",
+            "onsite",
+            "in-office",
+            "in office",
+            "office-based",
+        )
+        if any(ind in text_lower for ind in onsite_indicators):
+            return "onsite"
+
+        return ""
+
+    @staticmethod
+    def _extract_salary(text: str) -> str:
+        """Best-effort salary range extraction from job text.
+
+        Returns a short human-readable string (e.g. "$120k - $150k") or "".
+        """
+        import re
+
+        if not text:
+            return ""
+
+        # Pattern: $120,000 - $150,000  /  $120k-$150k  /  120,000 USD
+        patterns = [
+            r"\$\s?\d{2,3}(?:[,.]\d{3})?(?:\s?k)?\s?(?:-|to|–)\s?\$\s?\d{2,3}(?:[,.]\d{3})?(?:\s?k)?",
+            r"\d{2,3}\s?k\s?(?:-|to|–)\s?\d{2,3}\s?k",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                snippet = match.group(0).replace(" ", "")
+                return snippet[:64]
+        return ""
+
+    @staticmethod
+    def _extract_deadline(text: str) -> str:
+        """Best-effort deadline extraction from job text.
+
+        Returns an ISO date string (YYYY-MM-DD) or "".
+        """
+        import re
+        from datetime import datetime
+
+        if not text:
+            return ""
+
+        # Look for an explicit "Apply by" / "Deadline" phrase first
+        context_patterns = [
+            r"(?:apply by|deadline|closing date|closing on|applications? close)[^\n:]{0,40}",
+        ]
+        for pattern in context_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                iso = ExaJobSearch._try_parse_date(match.group(0))
+                if iso:
+                    return iso
+
+        # Fall back to any full date in the text
+        date_patterns = [
+            r"\b(20\d{2})-(\d{2})-(\d{2})\b",
+            r"\b(20\d{2})/(\d{2})/(\d{2})\b",
+            r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+20\d{2}\b",
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                iso = ExaJobSearch._try_parse_date(match.group(0))
+                if iso:
+                    return iso
+        return ""
+
+    @staticmethod
+    def _try_parse_date(snippet: str) -> str:
+        """Parse a date snippet to ISO format (YYYY-MM-DD), else ""."""
+        from datetime import datetime
+
+        for fmt in (
+            "%Y-%m-%d",
+            "%Y/%m/%d",
+            "%B %d, %Y",
+            "%B %d %Y",
+            "%b %d, %Y",
+            "%b %d %Y",
+        ):
+            try:
+                return datetime.strptime(snippet.strip(), fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        return ""
 
     @staticmethod
     def _extract_company(title: str, url: str) -> str:

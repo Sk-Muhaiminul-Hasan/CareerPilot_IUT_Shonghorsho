@@ -59,6 +59,7 @@ class IndeedPlatform(JobPlatform):
         """
         if await self._session_manager.has_session("indeed"):
             logger.info("indeed.session_exists, verifying")
+            llm = self._resolve_user_llm()
             agent = BrowserAgent(
                 task=(
                     "Navigate to https://www.indeed.com/. "
@@ -66,6 +67,7 @@ class IndeedPlatform(JobPlatform):
                     "If the page shows a sign-in prompt, report 'NOT_LOGGED_IN'. "
                     "If the account is active, report 'LOGGED_IN'."
                 ),
+                llm=llm,
             )
             try:
                 result = await agent.run()
@@ -84,6 +86,7 @@ class IndeedPlatform(JobPlatform):
                 "No active session and no credentials provided.",
             )
 
+        llm = self._resolve_user_llm()
         agent = BrowserAgent(
             task=(
                 f"Go to {INDEED_LOGIN_URL} and log in with the provided "
@@ -91,6 +94,7 @@ class IndeedPlatform(JobPlatform):
                 "then enter the password and sign in. "
                 "After login, verify you're on the Indeed home or jobs page."
             ),
+            llm=llm,
             sensitive_data={
                 "x_username": credentials["email"],
                 "x_password": credentials["password"],
@@ -138,12 +142,17 @@ class IndeedPlatform(JobPlatform):
             f"{filter_instructions}"
             "Extract the first 20 job listings visible on the page. "
             "For each job, extract: the job title, company name, location, "
-            "the direct job URL, salary if shown, and whether it mentions "
-            "remote work. Return the results as a JSON array of objects "
-            "with keys: id, title, company, location, url, salary, remote."
+            "the direct job URL, the visible description snippet shown on the "
+            "card, salary range if shown (verbatim text), application deadline "
+            "if shown, and work-type (\"remote\" | \"hybrid\" | \"onsite\") "
+            "derived from any badge, location text, or snippet. "
+            "Return the results as a JSON array of objects with keys: "
+            "id, title, company, location, url, description, salary_range, "
+            "deadline, work_type, remote."
         )
 
-        agent = BrowserAgent(task=task)
+        llm = self._resolve_user_llm()
+        agent = BrowserAgent(task=task, llm=llm)
         try:
             result = await agent.run()
             listings = self._parse_search_results(result, query)
@@ -152,12 +161,52 @@ class IndeedPlatform(JobPlatform):
                 query=query,
                 count=len(listings),
             )
-            return listings
         except Exception as exc:
             logger.error("indeed.search_failed", query=query, error=str(exc))
             raise SearchError("indeed", str(exc)) from exc
         finally:
             await agent.close()
+
+        # Enrich with full description per job for better ATS scoring.
+        enriched: list[JobListing] = []
+        for listing in listings:
+            if not listing.url:
+                enriched.append(listing)
+                continue
+            try:
+                details = await self.scrape_details(listing.url)
+                if details is not None and details.description:
+                    enriched.append(
+                        listing.model_copy(
+                            update={
+                                "description": details.description,
+                                "skills_required": details.skills_required
+                                or listing.skills_required,
+                                "salary_min": details.salary_min or listing.salary_min,
+                                "salary_max": details.salary_max or listing.salary_max,
+                                "salary_range": listing.salary_range
+                                or details.salary_range,
+                                "job_type": listing.job_type or details.job_type,
+                                "remote": listing.remote or details.remote,
+                            },
+                        )
+                    )
+                else:
+                    enriched.append(listing)
+            except Exception as exc:
+                logger.warning(
+                    "indeed.enrich_failed",
+                    url=listing.url,
+                    error=str(exc),
+                )
+                enriched.append(listing)
+
+        logger.info(
+            "indeed.enrichment_complete",
+            query=query,
+            enriched=sum(1 for l in enriched if len(l.description) > 200),
+        )
+        return enriched
 
     async def scrape_details(self, job_url: str) -> JobListing | None:
         """Scrape full job details from an Indeed job page.
@@ -177,7 +226,8 @@ class IndeedPlatform(JobPlatform):
             "id, title, company, location, description, skills, "
             "salary_min, salary_max, job_type, remote."
         )
-        agent = BrowserAgent(task=task)
+        llm = self._resolve_user_llm()
+        agent = BrowserAgent(task=task, llm=llm)
         try:
             result = await agent.run()
             return self._parse_job_details(result, job_url)
@@ -242,7 +292,8 @@ class IndeedPlatform(JobPlatform):
             "Confirm the submission was successful."
         )
 
-        agent = BrowserAgent(task=task)
+        llm = self._resolve_user_llm()
+        agent = BrowserAgent(task=task, llm=llm)
         try:
             await agent.run()
             logger.info(
@@ -316,6 +367,14 @@ class IndeedPlatform(JobPlatform):
                             company=item.get("company", ""),
                             location=item.get("location", ""),
                             url=item.get("url", ""),
+                            description=item.get("description", "") or "",
+                            salary_range=item.get("salary_range", "")
+                            or item.get("salary", "")
+                            or "",
+                            deadline=item.get("deadline", "") or "",
+                            work_type=_normalize_work_type(
+                                item.get("work_type", ""),
+                            ),
                             remote=item.get("remote", False),
                         )
                     )
@@ -347,7 +406,47 @@ class IndeedPlatform(JobPlatform):
                 skills_required=raw_result.get("skills", []),
                 salary_min=raw_result.get("salary_min"),
                 salary_max=raw_result.get("salary_max"),
+                salary_range=raw_result.get("salary_range", ""),
                 job_type=raw_result.get("job_type", ""),
                 remote=raw_result.get("remote", False),
+                work_type=_normalize_work_type(
+                    raw_result.get("work_type", ""),
+                ),
+                deadline=raw_result.get("deadline", ""),
             )
         return None
+
+
+_VALID_WORK_TYPES = {"", "remote", "hybrid", "onsite"}
+
+
+def _normalize_work_type(value: Any) -> str:
+    """Coerce a work-type hint into one of the allowed values."""
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    if not text:
+        return ""
+    aliases = {
+        "remote": "remote",
+        "work from home": "remote",
+        "wfh": "remote",
+        "distributed": "remote",
+        "anywhere": "remote",
+        "hybrid": "hybrid",
+        "onsite": "onsite",
+        "on-site": "onsite",
+        "on site": "onsite",
+        "in-office": "onsite",
+        "in office": "onsite",
+        "office": "onsite",
+    }
+    if text in aliases:
+        return aliases[text]
+    if "remote" in text and "hybrid" not in text:
+        return "remote"
+    if "hybrid" in text:
+        return "hybrid"
+    if "on-site" in text or "on site" in text or "onsite" in text or "office" in text:
+        return "onsite"
+    return "" if text not in _VALID_WORK_TYPES else text

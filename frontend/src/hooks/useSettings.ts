@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as settingsService from '@/services/settingsService';
-import type { SettingsUpdate } from '@/types/settings';
 
 const SETTINGS_KEY = ['settings'] as const;
 
@@ -16,9 +15,11 @@ export function useSettings() {
 export function useUpdateSettings() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (update: SettingsUpdate) => settingsService.updateSettings(update),
+    mutationFn: (update: Parameters<typeof settingsService.updateSettings>[0]) =>
+      settingsService.updateSettings(update),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+      void queryClient.invalidateQueries({ queryKey: [...SETTINGS_KEY, 'onboarding'] });
     },
   });
 }
@@ -28,5 +29,24 @@ export function useLLMProviders() {
   return useQuery({
     queryKey: [...SETTINGS_KEY, 'llm-providers'],
     queryFn: () => settingsService.getLLMProviders(),
+  });
+}
+
+/** Fetch onboarding status. */
+export function useOnboardingStatus() {
+  return useQuery({
+    queryKey: [...SETTINGS_KEY, 'onboarding'],
+    queryFn: () => settingsService.getOnboardingStatus(),
+  });
+}
+
+/** Mark onboarding as complete. */
+export function useCompleteOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => settingsService.completeOnboarding(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+    },
   });
 }

@@ -18,6 +18,13 @@ export interface Job {
   remote: boolean;
   posted_date: string | null;
   experience_level: string | null;
+  /** ISO-8601 date string. */
+  deadline: string | null;
+  /**
+   * Constrained work arrangement label.
+   * One of: "" (unknown) | "remote" | "hybrid" | "onsite".
+   */
+  work_type: string;
   match_score: number | null;
   skills_required: Record<string, unknown> | null;
   status: string;
