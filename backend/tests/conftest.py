@@ -7,6 +7,14 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
+from unittest.mock import MagicMock
+import sys
+
+try:
+    sys.modules.setdefault("supabase", MagicMock())
+    sys.modules.setdefault("supabase.client", MagicMock())
+except Exception:
+    pass  # if already present, leave it
 
 from app.api.deps import get_db
 from app.models.base import Base

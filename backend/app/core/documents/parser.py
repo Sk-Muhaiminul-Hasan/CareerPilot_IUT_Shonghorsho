@@ -358,7 +358,7 @@ class DocumentParser:
         url_re = re.compile(r"(https?://|ftp://|www\.)|github\.com/|linkedin\.com/|bitbucket\.org")
         ects_re = re.compile(r"[\u202a-\u202e\u2060-\u206f]")
         numbers_re = re.compile(r"\d{3,}")
-        parens_re = re.compile(r"\([^)]{0,80}\)")
+        url_re = re.compile(r"(https?://|ftp://|www\.)|github\.com/|linkedin\.com/|bitbucket\.org")
         valid: list[str] = []
         seen: set[str] = set()
         for skill in skills:

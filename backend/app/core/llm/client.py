@@ -62,7 +62,7 @@ class LLMClient:
             logger.info("portkey_gateway_configured")
 
     def _configure_api_keys(self) -> None:
-        """Push provider API keys into litellm's key registry."""
+        """Push provider API keys into litellm's key registry and os environment."""
         key_map: dict[str, str] = {
             "openai_api_key": self._llm.openai_api_key.get_secret_value(),
             "groq_api_key": self._llm.groq_api_key.get_secret_value(),
@@ -72,6 +72,10 @@ class LLMClient:
         for attr, value in key_map.items():
             if value:
                 setattr(litellm, attr, value)
+        openai_key = self._llm.openai_api_key.get_secret_value()
+        if openai_key:
+            import os
+            os.environ["OPENAI_API_KEY"] = openai_key
 
     def _build_messages(
         self, prompt: str, system_prompt: str
