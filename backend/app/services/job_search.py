@@ -5,6 +5,7 @@ scrapers, and ATS-based job analysis.
 """
 
 from typing import Any
+from datetime import datetime
 
 import structlog
 from sqlalchemy import func, select
@@ -78,12 +79,12 @@ async def search_jobs(
             continue
 
         try:
-            platform = platform_registry.create(platform_name)
-            listings: list[JobListing] = await platform.search(
-                query=request.query,
-                location=request.location,
-                filters=request.filters or None,
-            )
+            async with platform_registry.create_async(platform_name, db=db, user_id=user_id) as platform:
+                listings: list[JobListing] = await platform.search(
+                    query=request.query,
+                    location=request.location,
+                    filters=request.filters or None,
+                )
             logger.info(
                 "job_search.platform_results",
                 platform=platform_name,
@@ -197,6 +198,19 @@ def _listing_to_job(listing: JobListing, user_id: str) -> Job:
         salary_range = f"{listing.salary_currency} {listing.salary_min:,.0f}+"
     elif listing.salary_max is not None:
         salary_range = f"Up to {listing.salary_currency} {listing.salary_max:,.0f}"
+    # Prefer an explicit salary_range string captured by the scraper
+    # (e.g. "$120k - $150k"). It is more descriptive than the min/max
+    # reconstruction above.
+    if listing.salary_range:
+        salary_range = listing.salary_range
+
+    # Parse deadline ISO string from scrapers (YYYY-MM-DD)
+    deadline_dt: datetime | None = None
+    if listing.deadline:
+        deadline_dt = _parse_iso_date(listing.deadline)
+
+    # Normalize work_type to the constrained DB set
+    work_type = _normalize_work_type_for_db(listing.work_type, listing.remote)
 
     skills_dict: dict[str, Any] | None = None
     if listing.skills_required or listing.skills_preferred:
@@ -216,10 +230,54 @@ def _listing_to_job(listing: JobListing, user_id: str) -> Job:
         salary_range=salary_range,
         job_type=listing.job_type or None,
         remote=listing.remote,
+        work_type=work_type,
+        deadline=deadline_dt,
         skills_required=skills_dict,
         status="new",
         user_id=user_id,
     )
+
+
+def _parse_iso_date(value: str) -> datetime | None:
+    """Parse a date string (YYYY-MM-DD) to ``datetime``, else ``None``."""
+    if not value:
+        return None
+    text = value.strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _normalize_work_type_for_db(value: str, remote: bool) -> str:
+    """Constrain work_type to: '', 'remote', 'hybrid', 'onsite'."""
+    valid = {"", "remote", "hybrid", "onsite"}
+    if not value:
+        return "remote" if remote else ""
+    cleaned = str(value).strip().lower()
+    if cleaned in valid:
+        return cleaned
+    aliases = {
+        "work from home": "remote",
+        "wfh": "remote",
+        "distributed": "remote",
+        "on-site": "onsite",
+        "on site": "onsite",
+        "in-office": "onsite",
+        "in office": "onsite",
+        "office": "onsite",
+    }
+    if cleaned in aliases:
+        return aliases[cleaned]
+    if "hybrid" in cleaned:
+        return "hybrid"
+    if "remote" in cleaned:
+        return "remote"
+    if "on-site" in cleaned or "onsite" in cleaned or "office" in cleaned:
+        return "onsite"
+    return ""
 
 
 async def list_jobs(

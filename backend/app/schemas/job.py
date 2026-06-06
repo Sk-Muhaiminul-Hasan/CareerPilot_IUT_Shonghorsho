@@ -34,6 +34,8 @@ class JobListingResponse(BaseModel):
     remote: bool = False
     posted_date: datetime | None = None
     experience_level: str | None = None
+    deadline: datetime | None = None
+    work_type: str = ""
     match_score: float | None = None
     skills_required: dict | None = None
     status: str

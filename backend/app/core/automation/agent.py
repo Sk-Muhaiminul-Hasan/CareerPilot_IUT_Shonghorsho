@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.config.settings import get_settings
 from app.core.exceptions import BrowserError
+from app.core.llm.client import LLMNotConfiguredError, UserLLMConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -51,6 +52,7 @@ class BrowserAgent:
         self._llm = llm
         self._sensitive_data = sensitive_data or {}
         self._output_model = output_model
+        self._user_llm_config: UserLLMConfig | None = None
         self._agent: Any | None = None
         self._browser: Any | None = None
 
@@ -62,9 +64,14 @@ class BrowserAgent:
             traceback.print_exc()
             raise
 
-        self._browser = Browser(config=BrowserConfig(
-            headless=self._settings.headless,
-        ))
+        # Support both old (0.1.x) and new (>=0.10) browser-use APIs.
+        try:
+            from browser_use import BrowserProfile  # noqa: F401
+            self._browser = Browser(headless=self._settings.headless)
+        except ImportError:
+            self._browser = Browser(config=BrowserConfig(
+                headless=self._settings.headless,
+            ))
 
         llm = self._llm or self._get_default_llm()
 
@@ -99,12 +106,25 @@ class BrowserAgent:
                 await self._browser.close()
 
     def _get_default_llm(self) -> Any:
-        """Create a default LLM instance for browser-use Agent."""
-        settings = get_settings()
-        model = settings.llm.default_model
-        temperature = settings.llm.temperature
+        """Create a default LLM instance for browser-use Agent from user config."""
+        user_cfg = getattr(self, "_user_llm_config", None)
+        if user_cfg is None:
+            raise LLMNotConfiguredError(
+                "AI not configured. Please configure your AI model in Settings."
+            )
+        return self._build_langchain_llm(user_cfg)
 
-    # OpenRouter model (format: provider/model)
+    @staticmethod
+    def _build_langchain_llm(user_cfg: UserLLMConfig) -> Any:
+        """Build a langchain LLM from a per-user UserLLMConfig."""
+        model = user_cfg.model_for("general")
+        api_key = user_cfg.api_key_for("general")
+        if not model or not api_key:
+            raise LLMNotConfiguredError(
+                "AI not configured. Please configure your AI model in Settings."
+            )
+        temperature = get_settings().llm.temperature
+
         if "/" in model and not model.startswith("gpt-") and not model.startswith("o1"):
             try:
                 from langchain_openai import ChatOpenAI as ChatOpenRouter
@@ -113,15 +133,13 @@ class BrowserAgent:
                     "langchain-openai not installed. "
                     "Install with: pip install langchain-openai"
                 ) from exc
-
             return ChatOpenRouter(
                 model=model,
-                openai_api_key=settings.llm.openrouter_api_key.get_secret_value(),
+                openai_api_key=api_key,
                 openai_api_base="https://openrouter.ai/api/v1",
                 temperature=temperature,
             )
 
-    # Default: OpenAI models
         try:
             from langchain_openai import ChatOpenAI
         except ImportError as exc:
@@ -132,7 +150,7 @@ class BrowserAgent:
 
         return ChatOpenAI(
             model=model,
-            api_key=settings.llm.openai_api_key.get_secret_value(),
+            api_key=api_key,
             temperature=temperature,
         )
 

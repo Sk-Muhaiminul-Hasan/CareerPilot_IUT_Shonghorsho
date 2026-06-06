@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, Index, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, Float, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -16,6 +16,10 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("platform", "platform_job_id", name="uq_job_platform_id"),
         Index("ix_job_status", "status"),
         Index("ix_job_match_score", "match_score"),
+        CheckConstraint(
+            "work_type IN ('', 'remote', 'hybrid', 'onsite')",
+            name="ck_job_work_type",
+        ),
     )
 
     user_id: Mapped[str] = mapped_column(
@@ -42,6 +46,13 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     remote: Mapped[bool] = mapped_column(Boolean, default=False)
     posted_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     experience_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    work_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="",
+        server_default="",
+    )
 
     # Analysis
     match_score: Mapped[float | None] = mapped_column(Float, nullable=True)
