@@ -283,7 +283,6 @@ class LLMClient:
             prompt=prompt,
             system_prompt=augmented_system,
             model=model,
-            response_format={"type": "json_object"},
             purpose=purpose,
         )
 

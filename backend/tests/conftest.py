@@ -1,14 +1,14 @@
 """Shared test fixtures for the backend test suite."""
 
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
-from unittest.mock import MagicMock
-import sys
 
 try:
     sys.modules.setdefault("supabase", MagicMock())
@@ -107,21 +107,29 @@ def sample_candidate_profile() -> dict:
         "full_name": "Jane Doe",
         "email": "jane@example.com",
         "phone": "+1-555-0100",
+        "location": "San Francisco, CA",
+        "linkedin_url": "https://linkedin.com/in/janedoe",
+        "github_url": "https://github.com/janedoe",
         "summary": "Experienced Python developer with 5+ years...",
         "skills": ["python", "fastapi", "react", "postgresql", "docker"],
         "experience": [
             {
                 "title": "Senior Developer",
                 "company": "TechCo",
-                "dates": "Jan 2020 - Present",
+                "start_date": "",
+                "end_date": "",
                 "description": "Led backend development...",
+                "responsibilities": [],
             },
         ],
         "education": [
             {
                 "degree": "BS Computer Science",
-                "university": "MIT",
-                "year": "2019",
+                "institution": "MIT",
+                "graduation_year": "2019",
+                "gpa": None,
             },
         ],
+        "certifications": [],
+        "projects": ["CareerPilot", "OpenSource CLI"],
     }

@@ -39,6 +39,7 @@ class CandidateProfileSchema(BaseModel):
     experience: list[WorkExperienceSchema] = Field(default_factory=list)
     education: list[EducationSchema] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
+    projects: list[str] = Field(default_factory=list)
 
 
 class SettingsResponse(BaseModel):

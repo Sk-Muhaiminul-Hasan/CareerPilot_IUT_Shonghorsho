@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import json
 
 import structlog
 from langchain_openai import OpenAIEmbeddings
@@ -9,6 +8,7 @@ from langchain_postgres.vectorstores import PGVector as PGVectorStore
 from app.config.settings import get_settings
 from app.core.llm.client import LLMClient
 from app.db.session import async_session_factory
+from app.schemas.settings import CandidateProfileSchema
 
 logger = structlog.get_logger(__name__)
 
@@ -42,42 +42,21 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
     if not content_text or len(content_text.strip()) < 200:
         return
 
-    raw = ""
+    profile = {}
     try:
         llm = LLMClient()
-        response = await llm.complete(
+        result = await llm.complete_with_structured_output(
             prompt=(
-                "Extract a structured candidate profile from the following resume text.\n"
-                "Return ONLY valid JSON with keys: full_name, email, phone, "
-                "location, linkedin_url, github_url, title, summary, "
-                "skills (list), experience (list), education (list), "
-                "certifications (list), projects (list).\n\n"
+                "Extract a structured candidate profile from the following resume text.\n\n"
                 f"Resume:\n{content_text[:6000]}"
             ),
+            output_schema=CandidateProfileSchema,
             purpose="cv_extraction",
-            response_format={"type": "json_object"},
         )
-        raw = response.content
+        profile = result.model_dump()
     except Exception as exc:
         logger.warning("cv_extraction_failed", resume_id=resume_id, error=str(exc))
-
-    profile: dict = {}
-    if raw:
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:].lstrip()
-            if cleaned.lower().startswith("json"):
-                cleaned = cleaned[4:].lstrip()
-        try:
-            profile = json.loads(cleaned)
-        except Exception as exc:
-            logger.warning(
-                "cv_pipeline.profile_json_parse_failed",
-                resume_id=resume_id,
-                raw_preview=raw[:500],
-                error=str(exc),
-            )
-            profile = {}
+        profile = {}
 
     if not profile:
         try:
