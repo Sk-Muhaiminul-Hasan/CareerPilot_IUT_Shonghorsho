@@ -413,8 +413,8 @@ async def process_application(payload: dict[str, Any]) -> None:
                 return
 
         try:
-            async with async_session_factory() as db:
-                async with platform_registry.create_async(platform_name, db=db, user_id=user_id) as platform:
+            async with async_session_factory() as db, \
+                    platform_registry.create_async(platform_name, db=db, user_id=user_id) as platform:
 
                     job_listing = JobListing(
                         platform=job.platform,
