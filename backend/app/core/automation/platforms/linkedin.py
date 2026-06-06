@@ -347,69 +347,269 @@ class LinkedInPlatform(JobPlatform):
             parts.append(f"Filter by job type: {filters['job_type']}. ")
         return "".join(parts)
 
+    @staticmethod
+    def _decode_json_candidate(text: str) -> dict | list | None:
+        """Return the first valid JSON object/array found in *text*, or ``None``.
+
+        Handles the three common shapes returned by browser-use
+        ``ActionResult.extracted_content``:
+
+        1. Browser-use wrapper: ``{"done": {"text": "<actual JSON>"}, "success": true}``
+        2. Bare JSON with trailing garbage after the closing ``]`` or ``}``
+        3. Multiple JSON values concatenated — returns the first complete value
+        """
+        import json
+
+        # Fast path: direct parse
+        try:
+            value = json.loads(text)
+            if isinstance(value, (dict, list)):
+                return value
+        except Exception:
+            pass
+
+        # Unwrap {"done": {"text": "<json>"}}
+        try:
+            wrapper = json.loads(text)
+            if isinstance(wrapper, dict):
+                done = wrapper.get("done")
+                if isinstance(done, dict) and isinstance(done.get("text"), str):
+                    inner = done["text"]
+                    value = json.loads(inner)
+                    if isinstance(value, (dict, list)):
+                        return value
+        except Exception:
+            pass
+
+        # Walk from each '[' or '{' until we decode a real dict/list
+        decoder = json.JSONDecoder()
+        start = 0
+        while True:
+            bracket = -1
+            for marker in ("[", "{"):
+                idx = text.find(marker, start)
+                if idx != -1:
+                    if bracket == -1 or idx < bracket:
+                        bracket = idx
+            if bracket == -1:
+                break
+            try:
+                value, end = decoder.raw_decode(text, bracket)
+                if isinstance(value, (dict, list)):
+                    return value
+            except json.JSONDecodeError:
+                pass
+            start = bracket + 1
+            if start >= len(text):
+                break
+
+        return None
+
     def _parse_search_results(self, raw_result: Any, query: str) -> list[JobListing]:
         import json
 
         listings = []
         text = ""
 
-        # Walk all_results looking for the done action with JSON
-        if hasattr(raw_result, 'all_results'):
-            for action in raw_result.all_results:
-                content = getattr(action, 'extracted_content', None) or ""
-                if '[' in content and 'title' in content:
-                    text = content
-                    break
+        logger.info(
+            "linkedin.parse_search_results.input",
+            query=query,
+            result_type=type(raw_result).__name__,
+            has_history=hasattr(raw_result, 'history'),
+            has_final_result=hasattr(raw_result, 'final_result'),
+            result_type_full=str(type(raw_result)),
+        )
 
+        # Primary: walk AgentHistoryList.history[i].result[j].extracted_content
+        history_list = getattr(raw_result, 'history', None)
+        if hasattr(history_list, 'history'):
+            history_list = getattr(history_list, 'history', history_list)
+
+        items: list[Any] = []
+        if isinstance(history_list, list):
+            items = history_list
+        elif hasattr(raw_result, 'history') and isinstance(getattr(raw_result, 'history'), list):
+            items = getattr(raw_result, 'history')
+
+        for h_idx, hist in enumerate(items):
+            results: list[Any] = []
+            if hasattr(hist, 'result'):
+                results = hist.result  # type: ignore[attr-defined]
+            elif isinstance(hist, dict):
+                results = hist.get('result', [])
+
+            for r_idx, result in enumerate(results):
+                content = ""
+                if hasattr(result, 'extracted_content'):
+                    content = result.extracted_content or ""
+                elif isinstance(result, dict):
+                    content = result.get('extracted_content') or result.get('text') or ""
+
+                logger.info(
+                    "linkedin.parse_search_results.history_item",
+                    h_idx=h_idx,
+                    r_idx=r_idx,
+                    result_type=type(result).__name__,
+                    content_len=len(content),
+                    content_preview=content[:500],
+                )
+
+                if content.startswith('{') or content.startswith('['):
+                    if 'title' in content or 'company' in content or 'jobs' in content:
+                        text = content
+                        logger.info(
+                            "linkedin.parse_search_results.json_found",
+                            source=f"history[{h_idx}].result[{r_idx}].extracted_content",
+                            content_len=len(text),
+                        )
+                        break
+            if text:
+                break
+
+        # Fallback: final_result text (usually a summary, rarely the JSON)
         if not text and hasattr(raw_result, 'final_result'):
             text = str(raw_result.final_result() or "")
+            logger.info(
+                "linkedin.parse_search_results.final_result_fallback",
+                text_len=len(text),
+                text_preview=text[:500],
+            )
 
         if not text:
             text = str(raw_result)
+            logger.info(
+                "linkedin.parse_search_results.str_fallback",
+                text_len=len(text),
+                text_preview=text[:500],
+            )
+
+        sources: list[Any] = []
+
+        # Source 1: all_results (newer browser-use versions)
+        if hasattr(raw_result, 'all_results'):
+            sources.extend(getattr(raw_result, 'all_results', []) or [])
+
+        # Source 2: history (browser-use 0.1.x AgentHistoryList)
+        if hasattr(raw_result, 'history'):
+            history = getattr(raw_result, 'history', None)
+            if isinstance(history, list):
+                sources.extend(history)
+
+        # Source 3: raw_result itself might be iterable
+        if isinstance(raw_result, (list, tuple)):
+            sources.extend(raw_result)
+
+        logger.info(
+            "linkedin.parse_search_results.sources",
+            source_count=len(sources),
+        )
+
+        for idx, item in enumerate(sources):
+            logger.info(
+                "linkedin.parse_search_results.item",
+                idx=idx,
+                item_type=type(item).__name__,
+                item_attrs=sorted([a for a in dir(item) if not a.startswith('_')])[:20],
+                extracted_content_len=len(getattr(item, 'extracted_content', '') or ''),
+                extracted_content_preview=str(getattr(item, 'extracted_content', '') or '')[:200],
+            )
+
+            for attr in ('extracted_content', 'content', 'text', 'result'):
+                if hasattr(item, attr):
+                    content = getattr(item, attr) or ""
+                    if '[' in content and ('title' in content or 'id' in content):
+                        text = content
+                        logger.info(
+                            "linkedin.parse_search_results.json_found",
+                            source=f"item[{idx}].{attr}",
+                            content_len=len(text),
+                        )
+                        break
+                elif isinstance(item, dict):
+                    content = item.get(attr) or ""
+                    if '[' in content and ('title' in content or 'id' in content):
+                        text = content
+                        logger.info(
+                            "linkedin.parse_search_results.json_found",
+                            source=f"item[{idx}] dict.{attr}",
+                            content_len=len(text),
+                        )
+                        break
+            if text:
+                break
+
+        if not text:
+            if hasattr(raw_result, 'final_result'):
+                text = str(raw_result.final_result() or "")
+                logger.info(
+                    "linkedin.parse_search_results.final_result",
+                    text_len=len(text),
+                    text_preview=text[:500],
+                )
+
+        if not text:
+            text = str(raw_result)
+            logger.info(
+                "linkedin.parse_search_results.str_fallback",
+                text_len=len(text),
+                text_preview=text[:500],
+            )
 
         try:
-            start = text.find('[')
-            end = text.rfind(']') + 1
-            if start != -1 and end > start:
-                candidate = text[start:end]
-                decoder = json.JSONDecoder()
-                offset = 0
-                parsed = False
-                while offset < len(candidate):
-                    try:
-                        items, offset = decoder.raw_decode(candidate, offset)
-                        for item in items:
-                            if isinstance(item, dict):
-                                listings.append(
-                                    JobListing(
-                                        platform="linkedin",
-                                        platform_job_id=str(item.get("id", "")),
-                                        title=item.get("title", ""),
-                                        company=item.get("company", ""),
-                                        location=item.get("location", ""),
-                                        url=item.get("url") or "",
-                                        description=item.get("description", "") or "",
-                                        salary_range=item.get("salary_range", "") or "",
-                                        deadline=item.get("deadline", "") or "",
-                                        work_type=_normalize_work_type(
-                                            item.get("work_type", ""),
-                                        ),
-                                        remote=item.get("remote") in (True, "Remote", "remote", "true", "True", "Yes"),
-                                    )
-                                )
-                        parsed = True
+            parsed_obj = self._decode_json_candidate(text)
+            if parsed_obj is None:
+                logger.error(
+                    "linkedin.parse_error",
+                    error="No valid JSON found in extracted text",
+                    text_preview=text[:500],
+                )
+                return listings
+
+            raw_items: list[dict[str, Any]] = []
+            if isinstance(parsed_obj, dict):
+                for key in ("jobs", "listings", "results"):
+                    val = parsed_obj.get(key)
+                    if isinstance(val, list):
+                        raw_items = val
                         break
-                    except json.JSONDecodeError:
-                        new_start = candidate.find('[', start + 1)
-                        if new_start == -1 or new_start >= end or new_start == start:
-                            raise
-                        start = new_start
-                        candidate = text[start:end]
-                        offset = 0
-                if not parsed:
-                    raise json.JSONDecodeError("No valid JSON array found", text[start:end], start or 0)
+                if not raw_items:
+                    raw_items = [parsed_obj]
+            elif isinstance(parsed_obj, list):
+                raw_items = parsed_obj
+
+            logger.info(
+                "linkedin.parse_search_results.parsed",
+                total_items=len(raw_items),
+                sample_keys=sorted(raw_items[0].keys()) if raw_items else [],
+            )
+
+            for item in raw_items:
+                if not isinstance(item, dict):
+                    continue
+                remote_val = item.get("remote")
+                if remote_val is None:
+                    remote_val = False
+                listings.append(
+                    JobListing(
+                        platform="linkedin",
+                        platform_job_id=str(item.get("id", item.get("platform_job_id", ""))),
+                        title=item.get("title", ""),
+                        company=item.get("company", ""),
+                        location=item.get("location", ""),
+                        url=item.get("url") or "",
+                        description=item.get("description") or "",
+                        salary_range=item.get("salary_range") or "",
+                        deadline=item.get("deadline") or "",
+                        work_type=_normalize_work_type(item.get("work_type")),
+                        remote=bool(remote_val) if not isinstance(remote_val, bool) else remote_val,
+                    )
+                )
         except Exception as e:
-            logger.error("linkedin.parse_error", error=str(e))
+            logger.error(
+                "linkedin.parse_error",
+                error=str(e),
+                text_preview=text[:500],
+            )
 
         return listings
 
