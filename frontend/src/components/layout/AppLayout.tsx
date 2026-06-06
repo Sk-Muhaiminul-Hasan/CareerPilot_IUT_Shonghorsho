@@ -41,7 +41,7 @@ function AppLayout() {
         }}
       >
         <Toolbar />
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ px: 3.5, py: 3 }}>
           <Outlet />
         </Box>
       </Box>

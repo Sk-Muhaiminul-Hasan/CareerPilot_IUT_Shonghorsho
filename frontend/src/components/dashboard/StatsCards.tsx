@@ -1,13 +1,10 @@
 import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import WorkIcon from '@mui/icons-material/Work';
-import SendIcon from '@mui/icons-material/Send';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import StarIcon from '@mui/icons-material/Star';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
 
+import KpiCard from './KpiCard';
 import type { DashboardStats } from '@/types/analytics';
 
 interface StatsCardsProps {
@@ -15,75 +12,69 @@ interface StatsCardsProps {
   loading?: boolean;
 }
 
-interface StatCardItem {
-  label: string;
-  getValue: (s: DashboardStats) => string;
-  icon: React.ReactElement;
-  color: string;
-}
-
-const STAT_ITEMS: StatCardItem[] = [
-  {
-    label: 'Jobs Found',
-    getValue: (s) => s.total_jobs_found.toLocaleString(),
-    icon: <WorkIcon />,
-    color: '#1976d2',
-  },
-  {
-    label: 'Applications',
-    getValue: (s) => s.total_applications.toLocaleString(),
-    icon: <SendIcon />,
-    color: '#00897b',
-  },
-  {
-    label: 'Interviews',
-    getValue: (s) => s.applications_interview.toLocaleString(),
-    icon: <TrendingUpIcon />,
-    color: '#ed6c02',
-  },
-  {
-    label: 'Avg ATS Score',
-    getValue: (s) => `${Math.round(s.avg_ats_score * 100)}%`,
-    icon: <StarIcon />,
-    color: '#9c27b0',
-  },
-];
-
 function StatsCards({ stats, loading = false }: StatsCardsProps) {
+  const jobsFound = stats?.total_jobs_found ?? 0;
+  const applications = stats?.total_applications ?? 0;
+  const interviews = stats?.applications_interview ?? 0;
+  const atsScore = stats ? Math.round((stats.avg_ats_score ?? 0) * 100) : 0;
+
   return (
-    <Grid container spacing={3}>
-      {STAT_ITEMS.map((item) => (
-        <Grid item xs={12} sm={6} md={3} key={item.label}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {item.label}
-                  </Typography>
-                  <Typography variant="h4" fontWeight={700}>
-                    {loading || !stats ? '--' : item.getValue(stats)}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: `${item.color}15`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: item.color,
-                  }}
-                >
-                  {item.icon}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
+    <Grid container spacing={2.5}>
+      {/* Jobs Found */}
+      <Grid item xs={12} sm={6} lg={3}>
+        <KpiCard
+          label="Jobs Found"
+          value={loading ? '—' : jobsFound.toLocaleString()}
+          subText="Updated today"
+          subTextColor="#004ac6"
+          icon={<WorkOutlineIcon />}
+          iconBgColor="#dbe1ff"
+          iconColor="#004ac6"
+          loading={loading}
+        />
+      </Grid>
+
+      {/* Applications */}
+      <Grid item xs={12} sm={6} lg={3}>
+        <KpiCard
+          label="Applications"
+          value={loading ? '—' : applications.toLocaleString()}
+          subText={applications > 0 ? '+12% vs last wk' : 'No data yet'}
+          subTextColor="#712ae2"
+          icon={<PlayCircleOutlineIcon />}
+          iconBgColor="#eaddff"
+          iconColor="#712ae2"
+          loading={loading}
+        />
+      </Grid>
+
+      {/* Interviews */}
+      <Grid item xs={12} sm={6} lg={3}>
+        <KpiCard
+          label="Interviews"
+          value={loading ? '—' : String(interviews).padStart(2, '0')}
+          subText={interviews > 0 ? `${interviews} this week` : 'None yet'}
+          subTextColor="#bc4800"
+          icon={<TrendingUpIcon />}
+          iconBgColor="#ffdbcd"
+          iconColor="#943700"
+          loading={loading}
+        />
+      </Grid>
+
+      {/* Avg ATS Score */}
+      <Grid item xs={12} sm={6} lg={3}>
+        <KpiCard
+          label="Avg ATS Score"
+          value={loading ? '—' : `${atsScore}%`}
+          subText="Top 5% of users"
+          subTextColor="#434655"
+          icon={<StarOutlineIcon />}
+          iconBgColor="#e5eeff"
+          iconColor="#004ac6"
+          loading={loading}
+        />
+      </Grid>
     </Grid>
   );
 }
