@@ -52,6 +52,7 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
             ),
             output_schema=CandidateProfileSchema,
             purpose="cv_extraction",
+            model="gpt-4o-mini",
         )
         profile = result.model_dump()
     except Exception as exc:

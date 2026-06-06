@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -287,7 +288,9 @@ class LLMClient:
         )
 
         try:
-            data = json.loads(response.content)
+            cleaned = re.sub(r'^```(?:json)?\s*', '', response.content.strip())
+            cleaned = re.sub(r'\s*```$', '', cleaned)
+            data = json.loads(cleaned)
             return output_schema.model_validate(data)
         except (json.JSONDecodeError, ValueError) as exc:
             logger.error(
