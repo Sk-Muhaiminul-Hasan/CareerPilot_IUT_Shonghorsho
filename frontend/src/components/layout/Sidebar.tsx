@@ -11,7 +11,10 @@ import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+<<<<<<< HEAD
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+=======
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -31,7 +34,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Job Search', path: '/jobs', icon: <WorkOutlineIcon /> },
   { label: 'Applications', path: '/applications', icon: <SendOutlinedIcon /> },
   { label: 'Resumes', path: '/resumes', icon: <DescriptionOutlinedIcon /> },
+<<<<<<< HEAD
   { label: 'Artifacts', path: '/artifacts', icon: <Inventory2OutlinedIcon /> },
+=======
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
   { label: 'Analytics', path: '/analytics', icon: <BarChartOutlinedIcon /> },
   { label: 'Settings', path: '/settings', icon: <SettingsOutlinedIcon /> },
 ];
@@ -43,6 +49,10 @@ function DrawerContent() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+<<<<<<< HEAD
+=======
+      {/* Logo area */}
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
       <Box
         sx={{
           px: 2.5,
@@ -68,15 +78,41 @@ function DrawerContent() {
           <BoltIcon sx={{ color: '#fff', fontSize: 20 }} />
         </Box>
         <Box>
+<<<<<<< HEAD
           <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: '#0b1c30', lineHeight: 1.2 }}>
             CareerPilot
           </Typography>
           <Typography sx={{ fontSize: '0.7rem', color: '#737686', fontWeight: 500 }}>
             Personal career agent
+=======
+          <Typography
+            sx={{
+              fontWeight: 800,
+              fontSize: '1rem',
+              color: '#0b1c30',
+              lineHeight: 1.2,
+            }}
+          >
+            CareerPilot AI
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.7rem',
+              color: '#737686',
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Career Accountable
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
           </Typography>
         </Box>
       </Box>
 
+<<<<<<< HEAD
+=======
+      {/* Nav items */}
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
       <List sx={{ px: 1.5, pt: 1.5, flex: 1 }}>
         {NAV_ITEMS.map((item) => {
           const selected = location.pathname === item.path;
@@ -105,7 +141,18 @@ function DrawerContent() {
                   },
                   '&.Mui-selected': {
                     backgroundColor: '#004ac6',
+<<<<<<< HEAD
                     '&:hover': { backgroundColor: '#003ea8' },
+                  },
+                  '&:not(.Mui-selected):hover': {
+                    backgroundColor: '#eff4ff',
+                    '& .MuiListItemIcon-root': { color: '#004ac6' },
+                    '& .MuiListItemText-primary': { color: '#004ac6' },
+=======
+                    '&:hover': {
+                      backgroundColor: '#003ea8',
+                    },
+>>>>>>> 224e9a4c128dfc5a8939478ea040379e1e02c92d
                   },
                   '&:not(.Mui-selected):hover': {
                     backgroundColor: '#eff4ff',

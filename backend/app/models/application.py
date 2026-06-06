@@ -50,6 +50,20 @@ class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Relationships
     job: Mapped["Job"] = relationship(back_populates="applications")  # noqa: F821
     resume: Mapped["Resume | None"] = relationship(back_populates="applications")  # noqa: F821
+    calendar_events: Mapped[list["CalendarEvent"]] = relationship(  # noqa: F821
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    tracker_notes: Mapped[list["TrackerNote"]] = relationship(  # noqa: F821
+        back_populates="application",
+        cascade="all, delete-orphan",
+        order_by="TrackerNote.created_at.desc()",
+    )
+    tracker_labels: Mapped[list["TrackerLabel"]] = relationship(  # noqa: F821
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Application(id={self.id}, job_id={self.job_id}, status='{self.status}')>"
+
