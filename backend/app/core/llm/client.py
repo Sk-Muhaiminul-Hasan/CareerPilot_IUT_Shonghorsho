@@ -86,6 +86,10 @@ class UserLLMConfig:
         )
 
 
+class LLMNotConfiguredError(Exception):
+    pass
+
+
 class LLMResponse(BaseModel):
     """Structured response from an LLM completion call."""
 
@@ -124,6 +128,8 @@ class LLMClient:
     def __init__(self) -> None:
         settings = get_settings()
         self._llm = settings.llm
+        self._cv_extraction_api_key = settings.cv_extraction_api_key.get_secret_value()
+        self._cv_extraction_model = settings.cv_extraction_model
         self._configure_portkey()
         self._configure_api_keys()
 
@@ -147,10 +153,9 @@ class LLMClient:
         for attr, value in key_map.items():
             if value:
                 setattr(litellm, attr, value)
-        openai_key = self._llm.openai_api_key.get_secret_value()
-        if openai_key:
+        if self._cv_extraction_api_key:
             import os as _os
-            _os.environ["OPENAI_API_KEY"] = openai_key
+            _os.environ["OPENAI_API_KEY"] = self._cv_extraction_api_key
 
     def _build_messages(
         self, prompt: str, system_prompt: str
@@ -263,9 +268,33 @@ class LLMClient:
         messages = self._build_messages(prompt, system_prompt)
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
-        model_chain = self._get_model_chain(model, user_settings, purpose)
+
+        if purpose == "general":
+            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
+            if not user_api_key:
+                raise LLMNotConfiguredError(
+                    "AI not configured. Please configure your AI model in Settings."
+                )
+        elif purpose == "extraction":
+            user_api_key = self._cv_extraction_api_key or (
+                user_settings.api_key_for(purpose) if user_settings else None
+            )
+            if not user_api_key:
+                raise LLMNotConfiguredError(
+                    "AI not configured. Please configure your AI model in Settings."
+                )
+        else:
+            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
+            if not user_api_key:
+                raise LLMNotConfiguredError(
+                    "AI not configured. Please configure your AI model in Settings."
+                )
+
+        if purpose == "extraction":
+            model_chain = [self._cv_extraction_model]
+        else:
+            model_chain = self._get_model_chain(model, user_settings, purpose)
         metadata = self._portkey_metadata()
-        user_api_key = user_settings.api_key_for(purpose) if user_settings else None
         last_error: Exception | None = None
 
         for attempt_model in model_chain:

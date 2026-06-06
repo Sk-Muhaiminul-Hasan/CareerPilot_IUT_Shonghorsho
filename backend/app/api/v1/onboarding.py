@@ -25,7 +25,7 @@ class OnboardingStatusResponse(BaseModel):
 
 
 @router.get(
-    "/onboarding/status",
+    "/status",
     response_model=OnboardingStatusResponse,
     summary="Get onboarding status",
 )
@@ -40,16 +40,21 @@ async def get_onboarding_status(
     result = await db.execute(resume_count_q)
     resume_count = result.scalar() or 0
 
+    onboarding_complete = bool(settings.onboarding_complete)
+    has_general_ai = bool(settings.general_api_key)
+    has_extraction_ai = bool(settings.extraction_api_key)
+    has_resume = resume_count > 0
+
     return OnboardingStatusResponse(
-        onboarding_complete=bool(settings.onboarding_complete),
-        has_general_ai=bool(settings.general_provider or settings.general_model),
-        has_extraction_ai=bool(settings.extraction_provider or settings.extraction_model),
-        has_resume=resume_count > 0,
+        onboarding_complete=onboarding_complete,
+        has_general_ai=has_general_ai,
+        has_extraction_ai=has_extraction_ai,
+        has_resume=has_resume,
     )
 
 
 @router.post(
-    "/onboarding/complete",
+    "/complete",
     response_model=SettingsResponse,
     summary="Mark onboarding as complete",
 )

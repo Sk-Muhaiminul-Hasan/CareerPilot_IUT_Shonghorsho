@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.documents.generator import DocumentGenerator
 from app.core.documents.parser import DocumentParser, ParsedResume
 from app.core.exceptions import ParseError, RecordNotFoundError
-from app.core.llm.client import LLMClient
+from app.core.llm.client import LLMClient, LLMNotConfiguredError
 from app.core.storage import storage as storage_client
 from app.models.job import Job
 from app.models.resume import Resume

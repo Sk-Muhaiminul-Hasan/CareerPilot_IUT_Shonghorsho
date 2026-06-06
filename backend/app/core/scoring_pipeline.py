@@ -22,7 +22,7 @@ from app.core.ats.experience_analyzer import ExperienceAnalyzer
 from app.core.ats.keyword_analyzer import KeywordAnalyzer
 from app.core.ats.scorer import ResumeScorer, ScoreDetails
 from app.core.ats.skill_matcher import SkillMatcher
-from app.core.llm.client import LLMClient, UserLLMConfig
+from app.core.llm.client import LLMClient, LLMNotConfiguredError, UserLLMConfig
 from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT
 from app.db.session import async_session_factory
 from app.models.job import Job
@@ -173,18 +173,34 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                     ),
                     user_cfg,
                 ),
+                return_exceptions=True,
             )
 
+            if isinstance(reasoning, Exception):
+                logger.warning(
+                    "scoring_pipeline.reasoning_failed",
+                    application_id=application_id,
+                    error=str(reasoning),
+                )
+                reasoning = None
+
             # Re-run reasoning with actual scores if available
-            if score_details is not None:
+            if score_details is not None and not isinstance(score_details, Exception):
                 try:
                     reasoning = await _generate_reasoning(job, score_details, user_cfg)
+                except LLMNotConfiguredError:
+                    logger.warning(
+                        "scoring_pipeline.llm_not_configured",
+                        application_id=application_id,
+                    )
+                    reasoning = None
                 except Exception as exc:
                     logger.error(
                         "scoring_pipeline.reasoning_failed",
                         application_id=application_id,
                         error=str(exc),
                     )
+                    reasoning = None
 
             ats_score = score_details.overall_score if score_details is not None else 0.0
             logger.info(

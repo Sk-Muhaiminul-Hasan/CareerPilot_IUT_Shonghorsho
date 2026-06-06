@@ -1,7 +1,7 @@
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import structlog
 from app.models.user_settings import UserSettings
 
 logger = structlog.get_logger(__name__)
@@ -13,7 +13,7 @@ async def get_or_create_settings(db: AsyncSession, user_id: str) -> UserSettings
     )
     settings = result.scalar_one_or_none()
     if settings is None:
-        settings = UserSettings(id=user_id)
+        settings = UserSettings(id=user_id, onboarding_complete=False)
         db.add(settings)
         await db.commit()
         await db.refresh(settings)

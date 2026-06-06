@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, get_redis
 from app.config.constants import DEFAULT_PAGE_SIZE
+from app.core.llm.client import LLMNotConfiguredError
 from app.core.scoring_pipeline import run_scoring_pipeline
 from app.core.storage import storage as storage_client
 from app.schemas.application import (
@@ -133,7 +134,13 @@ async def generate_cover_letter(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
-    app = await app_service.generate_cover_letter(db, app_id, user_id)
+    try:
+        app = await app_service.generate_cover_letter(db, app_id, user_id)
+    except LLMNotConfiguredError:
+        raise HTTPException(
+            status_code=428,
+            detail={"message": "AI not configured", "code": "ai_not_configured"},
+        ) from None
     return ApplicationResponse.model_validate(app)
 
 

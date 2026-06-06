@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     vector_store_type: str = "pgvector"  # pgvector (formerly faiss)
     pgvector_collection: str = "cv_embeddings"
 
+    # Extraction AI — server-side key for CV parsing only
+    cv_extraction_api_key: SecretStr = SecretStr("")
+    cv_extraction_model: str = "gpt-4o-mini"
+
     # Application behavior
     apply_mode: ApplyMode = ApplyMode.REVIEW
     min_ats_score: float = 0.75

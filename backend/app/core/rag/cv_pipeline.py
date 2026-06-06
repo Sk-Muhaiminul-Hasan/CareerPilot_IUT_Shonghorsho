@@ -19,6 +19,11 @@ def _get_sync_connection_string() -> str:
     return url.replace("+asyncpg", "").replace("+psycopg2", "")
 
 
+def _get_extraction_api_key() -> str | None:
+    settings = get_settings()
+    return settings.cv_extraction_api_key.get_secret_value() or None
+
+
 def _chunk_text(
     raw_text: str,
     chunk_size: int = 1000,
