@@ -1,7 +1,8 @@
 """API v1 router aggregating all sub-routers."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.deps import get_current_user
 from app.api.v1.analytics import router as analytics_router
 from app.api.v1.applications import router as applications_router
 from app.api.v1.jobs import router as jobs_router
@@ -10,7 +11,7 @@ from app.api.v1.rag import router as rag_router
 from app.api.v1.resumes import router as resumes_router
 from app.api.v1.settings import router as settings_router
 
-v1_router = APIRouter()
+v1_router = APIRouter(dependencies=[Depends(get_current_user)])
 
 v1_router.include_router(jobs_router, prefix="/jobs", tags=["Jobs"])
 v1_router.include_router(applications_router, prefix="/applications", tags=["Applications"])

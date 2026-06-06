@@ -61,14 +61,20 @@ def _build_prompt(
     )
 
 
-async def get_nudge(db: AsyncSession, redis: Redis | None) -> NudgeResponse:
-    """Compute or retrieve a cached AI nudge for the default user."""
+async def get_nudge(
+    db: AsyncSession,
+    redis: Redis | None,
+    user_id: str = "default_user",
+) -> NudgeResponse:
+    """Compute or retrieve a cached AI nudge for the authenticated user."""
+
+    redis_key = f"nudge:{user_id}"
 
     if redis is not None:
         try:
-            cached = await redis.get(_REDIS_KEY)
+            cached = await redis.get(redis_key)
             if cached:
-                logger.info("nudge_cache_hit")
+                logger.info("nudge_cache_hit", user_id=user_id)
                 return NudgeResponse.model_validate_json(cached)
         except Exception as exc:
             logger.warning("nudge_cache_read_failed", error=str(exc))
@@ -97,7 +103,7 @@ async def get_nudge(db: AsyncSession, redis: Redis | None) -> NudgeResponse:
         generic = _build_generic_response(applications_this_week)
         if redis is not None:
             try:
-                await redis.set(_REDIS_KEY, generic.model_dump_json(), ex=_REDIS_TTL)
+                await redis.set(redis_key, generic.model_dump_json(), ex=_REDIS_TTL)
             except Exception as exc:
                 logger.warning("nudge_cache_write_failed", error=str(exc))
         return generic
@@ -159,7 +165,7 @@ async def get_nudge(db: AsyncSession, redis: Redis | None) -> NudgeResponse:
 
     if redis is not None:
         try:
-            await redis.set(_REDIS_KEY, result.model_dump_json(), ex=_REDIS_TTL)
+            await redis.set(redis_key, result.model_dump_json(), ex=_REDIS_TTL)
         except Exception as exc:
             logger.warning("nudge_cache_write_failed", error=str(exc))
 

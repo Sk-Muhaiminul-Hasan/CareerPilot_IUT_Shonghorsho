@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { ApiError } from '@/types/api';
+import { useAuthStore } from '@/store/useAuthStore';
 
 /** Pre-configured Axios instance pointing at the backend API. */
 const api = axios.create({
@@ -10,9 +11,13 @@ const api = axios.create({
   timeout: 300_000,
 });
 
-/** Attach a unique trace-id header to every outgoing request. */
+/** Attach a unique trace-id header and bearer token to every outgoing request. */
 api.interceptors.request.use((config) => {
   config.headers['X-Trace-Id'] = crypto.randomUUID();
+  const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -28,6 +33,12 @@ api.interceptors.response.use(
         trace_id:
           typeof data['trace_id'] === 'string' ? data['trace_id'] : undefined,
       };
+
+      if (error.response.status === 401) {
+        void useAuthStore.getState().logout();
+        window.location.href = '/login';
+      }
+
       return Promise.reject(apiError);
     }
     const fallback: ApiError = {

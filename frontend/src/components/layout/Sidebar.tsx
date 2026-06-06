@@ -16,8 +16,10 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 import { useAppStore } from '@/store/useAppStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export const DRAWER_WIDTH = 260;
 
@@ -41,6 +43,7 @@ function Sidebar() {
   const navigate = useNavigate();
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+  const logout = useAuthStore((s) => s.logout);
 
   const drawerContent = (
     <Box>
@@ -82,6 +85,21 @@ function Sidebar() {
             </ListItem>
           );
         })}
+        <Divider sx={{ my: 1 }} />
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => {
+              logout();
+              navigate('/login', { replace: true });
+            }}
+            sx={{ borderRadius: 1 }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Logout" />
+          </ListItemButton>
+        </ListItem>
       </List>
     </Box>
   );

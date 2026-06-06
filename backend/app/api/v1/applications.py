@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_redis
+from app.api.deps import get_current_user, get_db, get_redis
 from app.config.constants import DEFAULT_PAGE_SIZE
 from app.core.scoring_pipeline import run_scoring_pipeline
 from app.schemas.application import (
@@ -35,11 +35,12 @@ async def create_application(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis: Redis | None = Depends(get_redis),
+    user_id: str = Depends(get_current_user),
 ) -> ApplicationResponse:
     """Create a single job application."""
     app = await app_service.create_application(db, data, redis)
     response = ApplicationResponse.model_validate(app)
-    background_tasks.add_task(run_scoring_pipeline, app.id, "default_user")
+    background_tasks.add_task(run_scoring_pipeline, app.id, user_id)
     logger.info("scoring_pipeline.enqueued", app_id=app.id)
     return response
 

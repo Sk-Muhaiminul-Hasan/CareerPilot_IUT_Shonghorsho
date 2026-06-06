@@ -7,9 +7,11 @@ import Sidebar, { DRAWER_WIDTH } from './Sidebar';
 import Header from './Header';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAppStore } from '@/store/useAppStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 function AppLayout() {
-  const { connected } = useWebSocket('/ws/default_user');
+  const token = useAuthStore((s) => s.token);
+  const { connected } = useWebSocket('/ws', {}, token);
   const setWsConnected = useAppStore((s) => s.setWsConnected);
 
   useEffect(() => {

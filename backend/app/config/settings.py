@@ -105,6 +105,11 @@ class Settings(BaseSettings):
     # Job discovery
     exa_api_key: SecretStr = SecretStr("")
 
+    # Supabase Auth
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_jwt_secret: str = ""
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

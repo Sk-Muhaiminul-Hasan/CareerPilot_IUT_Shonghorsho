@@ -1,17 +1,18 @@
 """WebSocket endpoint for real-time client communication."""
 
 import structlog
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from app.api.websocket.events import manager
 from app.config.settings import get_settings
+from app.core.auth import _decode_token
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-@router.websocket("/ws/{user_id}")
-async def websocket_endpoint(user_id: str, ws: WebSocket) -> None:
+@router.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket, token: str = Query(...)) -> None:
     """Main WebSocket endpoint for real-time updates.
 
     Clients connect here to receive live events such as:
@@ -23,8 +24,21 @@ async def websocket_endpoint(user_id: str, ws: WebSocket) -> None:
     """
     origin = ws.headers.get("origin", "")
     allowed = get_settings().cors_origins
-    if origin and origin not in allowed:
+    is_local_origin = (
+        not origin
+        or origin.startswith("http://localhost")
+        or origin.startswith("http://127.0.0.1")
+        or origin.startswith("https://localhost")
+        or origin.startswith("https://127.0.0.1")
+    )
+    if not is_local_origin and origin not in allowed:
         await ws.close(code=4003, reason="Origin not allowed")
+        return
+
+    try:
+        user_id = _decode_token(token)["sub"]
+    except Exception:
+        await ws.close(code=4001, reason="Unauthorized")
         return
 
     await manager.connect(user_id, ws)

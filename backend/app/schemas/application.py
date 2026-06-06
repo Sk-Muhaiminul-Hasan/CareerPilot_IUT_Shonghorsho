@@ -43,7 +43,7 @@ class ApplicationApply(BaseModel):
 
     job_id: str
     resume_id: str | None = None
-    user_id: str = "default_user"
+    user_id: str
 
 
 class ApplicationBatchCreate(BaseModel):

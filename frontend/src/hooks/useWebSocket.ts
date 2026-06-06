@@ -39,6 +39,7 @@ interface UseWebSocketReturn {
 export function useWebSocket(
   url = '/ws',
   options: UseWebSocketOptions = {},
+  token?: string,
 ): UseWebSocketReturn {
   const {
     autoConnect = true,
@@ -72,17 +73,23 @@ export function useWebSocket(
     setConnected(false);
   }, [clearReconnectTimer]);
 
+  const buildUrl = useCallback(() => {
+    const envWsUrl = import.meta.env.VITE_WS_URL;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base =
+      typeof envWsUrl === 'string'
+        ? envWsUrl
+        : url.startsWith('ws')
+          ? url
+          : `${protocol}//${window.location.host}${url}`;
+
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  }, [url, token]);
+
   const connect = useCallback(() => {
     disconnect();
 
-    const envWsUrl = import.meta.env.VITE_WS_URL as string | undefined;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = envWsUrl
-      ? envWsUrl
-      : url.startsWith('ws')
-        ? url
-        : `${protocol}//${window.location.host}${url}`;
-
+    const wsUrl = buildUrl();
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -123,7 +130,12 @@ export function useWebSocket(
 
     ws.onclose = (event) => {
       setConnected(false);
-      if (event.code !== 1000 && retriesRef.current < maxRetries) {
+      if (
+        event.code !== 1000 &&
+        event.code !== 4003 &&
+        event.code !== 4001 &&
+        retriesRef.current < maxRetries
+      ) {
         const delay = reconnectDelay * Math.pow(2, retriesRef.current);
         retriesRef.current += 1;
         reconnectTimerRef.current = setTimeout(connect, delay);
@@ -133,13 +145,7 @@ export function useWebSocket(
     ws.onerror = () => {
       ws.close();
     };
-  }, [url, reconnectDelay, maxRetries, disconnect]);
-
-  const send = useCallback((message: WSMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    }
-  }, []);
+  }, [buildUrl, reconnectDelay, maxRetries, disconnect, onProgress, onComplete, onScore]);
 
   useEffect(() => {
     if (autoConnect) {
@@ -150,5 +156,5 @@ export function useWebSocket(
     };
   }, [autoConnect, connect, disconnect]);
 
-  return { connected, lastMessage, send, connect, disconnect };
+  return { connected, lastMessage, send: () => {}, connect, disconnect };
 }
