@@ -62,7 +62,19 @@ export async function generateCoverLetter(appId: string): Promise<Application> {
   return data;
 }
 
-/** Trigger browser download of a generated cover letter. */
-export function downloadCoverLetter(appId: string): void {
-  window.open(`/applications/${appId}/cover-letter/download`, '_blank');
+/** Authenticated browser download of a cover letter for an application. */
+export async function downloadCoverLetter(appId: string): Promise<void> {
+  const response = await api.get(`/applications/${appId}/cover-letter/download`, { responseType: 'blob' });
+  triggerBrowserDownload(response.data, 'cover_letter.pdf');
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

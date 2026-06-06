@@ -36,9 +36,13 @@ export interface Settings {
   apply_mode: string;
   min_ats_score: number;
   max_parallel: number;
-  preferred_provider: string;
-  preferred_model: string | null;
-  user_api_key: string | null;
+  general_provider: string | null;
+  general_model: string | null;
+  general_api_key: string | null;
+  extraction_provider: string | null;
+  extraction_model: string | null;
+  extraction_api_key: string | null;
+  onboarding_complete: boolean;
   platforms_enabled: string[];
   candidate_profile: CandidateProfile;
 }
@@ -51,9 +55,13 @@ export interface SettingsUpdate {
   apply_mode?: string;
   min_ats_score?: number;
   max_parallel?: number;
-  preferred_provider?: string;
-  preferred_model?: string | null;
-  user_api_key?: string | null;
+  general_provider?: string | null;
+  general_model?: string | null;
+  general_api_key?: string | null;
+  extraction_provider?: string | null;
+  extraction_model?: string | null;
+  extraction_api_key?: string | null;
+  onboarding_complete?: boolean;
   platforms_enabled?: string[];
   candidate_profile?: CandidateProfile;
 }
@@ -64,4 +72,11 @@ export interface LLMProviderStatus {
   configured: boolean;
   model: string;
   is_primary: boolean;
+}
+
+export interface OnboardingStatus {
+  onboarding_complete: boolean;
+  has_general_ai: boolean;
+  has_extraction_ai: boolean;
+  has_resume: boolean;
 }

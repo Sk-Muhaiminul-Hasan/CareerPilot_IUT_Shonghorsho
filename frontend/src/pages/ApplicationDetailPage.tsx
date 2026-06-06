@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -13,11 +13,26 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import { useJob } from '@/hooks/useJobs';
 import { useApplication, useGenerateCoverLetter } from '@/hooks/useApplications';
+import { useSharedWebSocket } from '@/contexts/SharedWebSocketProvider';
 import { downloadCoverLetter } from '@/services/applicationService';
-import { generateResume, getDownloadUrl } from '@/services/resumeService';
+import { downloadResume, generateResume } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
+import type { ApiError } from '@/types/api';
 import TemplateSelector from '@/components/resumes/TemplateSelector';
+import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
 import type { Application } from '@/types/application';
+
+function isAINotConfigured(error: unknown): boolean {
+  if (!error) return false;
+  const apiError = error as Partial<ApiError>;
+  if (apiError.status_code !== 428) return false;
+  try {
+    const detail = typeof apiError.detail === 'string' ? JSON.parse(apiError.detail) : apiError.detail;
+    return (detail as Record<string, unknown>)?.code === 'ai_not_configured';
+  } catch {
+    return false;
+  }
+}
 
 const APPLY_MODE_LABELS: Record<string, string> = {
   review: 'Reviewed before applying',
@@ -44,32 +59,29 @@ const STATUS_CONFIG: Record<
 function ApplicationDetailPage() {
   const { appId } = useParams<{ appId: string }>();
   const queryClient = useQueryClient();
+  const { onScore } = useSharedWebSocket();
+
+  useEffect(() => {
+    if (!appId) return;
+    const unsubscribe = onScore((data: { application_id: string; ats_score: number | null; reasoning: unknown }) => {
+      if (data.application_id === appId) {
+        void queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
+      }
+    });
+    return unsubscribe;
+  }, [appId, queryClient, onScore]);
 
   const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
   const generateCoverLetterMutation = useGenerateCoverLetter();
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [aiNotConfigured, setAINotConfigured] = useState(false);
 
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [resumeGenerating, setResumeGenerating] = useState(false);
   const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!appId) return;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//localhost:8000/ws/default_user`);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'application_scored' && msg.application_id === appId) {
-          queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
-        }
-      } catch {}
-    };
-    return () => ws.close();
-  }, [appId, queryClient]);
 
   const application: Application | undefined = appData;
   const jobId = application?.job_id ?? '';
@@ -191,13 +203,7 @@ function ApplicationDetailPage() {
 
         {application.reasoning === null || application.reasoning === undefined ? (
           <Box sx={{ my: 2 }}>
-            <Skeleton width="40%" height={20} sx={{ mb: 1 }} />
-            <Skeleton width="90%" height={16} sx={{ mb: 0.5 }} />
-            <Skeleton width="75%" height={16} sx={{ mb: 0.5 }} />
-            <Skeleton width="85%" height={16} sx={{ mb: 2 }} />
-            <Skeleton width="40%" height={20} sx={{ mb: 1 }} />
-            <Skeleton width="80%" height={16} sx={{ mb: 0.5 }} />
-            <Skeleton width="70%" height={16} />
+            <AINotConfiguredBanner message="Configure your AI model to see ATS match reasoning." />
           </Box>
         ) : (
           <Box sx={{ my: 2 }}>
@@ -221,57 +227,71 @@ function ApplicationDetailPage() {
         )}
       </Box>
 
-      {generateError && (
+      {generateError && !aiNotConfigured && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {generateError}
         </Alert>
       )}
 
+      {aiNotConfigured && (
+        <AINotConfiguredBanner message="Configure your AI model to generate cover letters." />
+      )}
+
       <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-        {application.cover_letter_path ? (
-          <>
-            <Button variant="contained" onClick={() => downloadCoverLetter(application.id)}>
-              Download Cover Letter
-            </Button>
+          {application.cover_letter_path ? (
+            <>
+              <Button variant="contained" onClick={() => downloadCoverLetter(application.id)}>
+                Download Cover Letter
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={generating}
+                onClick={async () => {
+                  setGenerating(true);
+                  setGenerateError(null);
+                  setAINotConfigured(false);
+                  try {
+                    await generateCoverLetterMutation.mutateAsync(application.id);
+                  } catch (err) {
+                    if (isAINotConfigured(err)) {
+                      setAINotConfigured(true);
+                    } else {
+                      setGenerateError(err instanceof Error ? err.message : 'Failed to regenerate cover letter');
+                    }
+                  } finally {
+                    setGenerating(false);
+                  }
+                }}
+                startIcon={generating ? <CircularProgress size={16} /> : undefined}
+              >
+                {generating ? 'Generating...' : 'Regenerate'}
+              </Button>
+            </>
+          ) : (
             <Button
-              variant="outlined"
+              variant="contained"
               disabled={generating}
               onClick={async () => {
                 setGenerating(true);
                 setGenerateError(null);
+                setAINotConfigured(false);
                 try {
                   await generateCoverLetterMutation.mutateAsync(application.id);
                 } catch (err) {
-                  setGenerateError(err instanceof Error ? err.message : 'Failed to regenerate cover letter');
+                  if (isAINotConfigured(err)) {
+                    setAINotConfigured(true);
+                  } else {
+                    setGenerateError(err instanceof Error ? err.message : 'Failed to generate cover letter');
+                  }
                 } finally {
                   setGenerating(false);
                 }
               }}
               startIcon={generating ? <CircularProgress size={16} /> : undefined}
             >
-              {generating ? 'Generating...' : 'Regenerate'}
+              {generating ? 'Generating...' : 'Generate Cover Letter'}
             </Button>
-          </>
-        ) : (
-          <Button
-            variant="contained"
-            disabled={generating}
-            onClick={async () => {
-              setGenerating(true);
-              setGenerateError(null);
-              try {
-                await generateCoverLetterMutation.mutateAsync(application.id);
-              } catch (err) {
-                setGenerateError(err instanceof Error ? err.message : 'Failed to generate cover letter');
-              } finally {
-                setGenerating(false);
-              }
-            }}
-            startIcon={generating ? <CircularProgress size={16} /> : undefined}
-          >
-            {generating ? 'Generating...' : 'Generate Cover Letter'}
-          </Button>
-        )}
+          )}
 
         <Button
           variant="outlined"
@@ -321,14 +341,14 @@ function ApplicationDetailPage() {
             <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
               <Button
                 variant="contained"
-                href={getDownloadUrl(generatedResumeId, 'pdf')}
+                onClick={() => downloadResume(generatedResumeId, 'pdf')}
                 sx={{ flex: 1 }}
               >
                 Download PDF
               </Button>
               <Button
                 variant="outlined"
-                href={getDownloadUrl(generatedResumeId, 'docx')}
+                onClick={() => downloadResume(generatedResumeId, 'docx')}
                 sx={{ flex: 1 }}
               >
                 Download DOCX

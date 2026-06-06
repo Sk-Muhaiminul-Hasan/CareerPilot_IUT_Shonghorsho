@@ -1,19 +1,54 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
-import AppLayout from '@/components/layout/AppLayout';
-import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useAppStore } from '@/store/useAppStore';
 import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import JobSearchPage from '@/pages/JobSearchPage';
-import ApplicationDetailPage from '@/pages/ApplicationDetailPage';
-import ApplicationsPage from '@/pages/ApplicationsPage';
-import ResumesPage from '@/pages/ResumesPage';
-import SettingsPage from '@/pages/SettingsPage';
-import AnalyticsPage from '@/pages/AnalyticsPage';
 import LoadingState from '@/components/common/LoadingState';
+import { useOnboardingStatus } from '@/hooks/useSettings';
+import { SharedWebSocketProvider } from '@/contexts/SharedWebSocketProvider';
+
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const JobSearchPage = lazy(() => import('@/pages/JobSearchPage'));
+const ApplicationDetailPage = lazy(() => import('@/pages/ApplicationDetailPage'));
+const ApplicationsPage = lazy(() => import('@/pages/ApplicationsPage'));
+const ResumesPage = lazy(() => import('@/pages/ResumesPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
+const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+
+function ProtectedInner() {
+  const { data: onboardingStatus, isLoading, isError } = useOnboardingStatus();
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isError || !onboardingStatus) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!onboardingStatus.onboarding_complete) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return (
+    <Suspense fallback={<LoadingState message="Loading..." />}>
+      <SharedWebSocketProvider>
+        <AppLayout />
+      </SharedWebSocketProvider>
+    </Suspense>
+  );
+}
 
 function App() {
   const notification = useAppStore((s) => s.notification);
@@ -27,29 +62,28 @@ function App() {
 
   return (
     <>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/"
-          element={
-            user ? (
-              <AppLayout />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="jobs" element={<JobSearchPage />} />
-          <Route path="applications/:appId" element={<ApplicationDetailPage />} />
-          <Route path="applications" element={<ApplicationsPage />} />
-          <Route path="resumes" element={<ResumesPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route
+            path="/"
+            element={
+              user ? <ProtectedInner /> : <Navigate to="/login" replace />
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="jobs" element={<JobSearchPage />} />
+            <Route path="applications/:appId" element={<ApplicationDetailPage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="resumes" element={<ResumesPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
 
       <Snackbar
         open={!!notification}
@@ -73,4 +107,3 @@ function App() {
 }
 
 export default App;
-

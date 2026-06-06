@@ -18,7 +18,7 @@ import TemplateSelector from '@/components/resumes/TemplateSelector';
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useResumes } from '@/hooks/useResumes';
-import { getDownloadUrl } from '@/services/resumeService';
+import { downloadResume } from '@/services/resumeService';
 
 function ResumesPage() {
   const navigate = useNavigate();
@@ -28,6 +28,10 @@ function ResumesPage() {
   const handleTemplateSelect = useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
   }, []);
+
+  const handleDownload = async (resumeId: string, format: 'pdf' | 'docx') => {
+    await downloadResume(resumeId, format);
+  };
 
   return (
     <ErrorBoundary>
@@ -119,7 +123,7 @@ function ResumesPage() {
                       <Button
                         size="small"
                         startIcon={<DownloadIcon />}
-                        href={getDownloadUrl(resume.id, 'pdf')}
+                        onClick={() => handleDownload(resume.id, 'pdf')}
                       >
                         PDF
                       </Button>
@@ -128,7 +132,7 @@ function ResumesPage() {
                       <Button
                         size="small"
                         startIcon={<DownloadIcon />}
-                        href={getDownloadUrl(resume.id, 'docx')}
+                        onClick={() => handleDownload(resume.id, 'docx')}
                       >
                         DOCX
                       </Button>

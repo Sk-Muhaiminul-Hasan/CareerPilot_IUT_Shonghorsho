@@ -1,5 +1,5 @@
 import api from './api';
-import type { Settings, SettingsUpdate, LLMProviderStatus } from '@/types/settings';
+import type { Settings, SettingsUpdate, OnboardingStatus, LLMProviderStatus } from '@/types/settings';
 
 /** Get the current user settings. */
 export async function getSettings(): Promise<Settings> {
@@ -17,4 +17,15 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
 export async function getLLMProviders(): Promise<LLMProviderStatus[]> {
   const { data } = await api.get<LLMProviderStatus[]>('/settings/llm-providers');
   return data;
+}
+
+/** Get onboarding status for the current user. */
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  const { data } = await api.get<OnboardingStatus>('/onboarding/status');
+  return data;
+}
+
+/** Mark onboarding as complete. */
+export async function completeOnboarding(): Promise<void> {
+  await api.post('/onboarding/complete');
 }

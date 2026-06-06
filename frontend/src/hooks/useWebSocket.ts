@@ -9,7 +9,7 @@ export interface WSMessage {
   payload: Record<string, unknown>;
 }
 
-interface UseWebSocketOptions {
+export interface UseWebSocketOptions {
   /** Whether to automatically connect. Defaults to true. */
   autoConnect?: boolean;
   /** Reconnection delay in milliseconds. Defaults to 3000. */

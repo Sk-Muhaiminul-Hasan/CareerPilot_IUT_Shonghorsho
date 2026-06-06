@@ -17,6 +17,24 @@ export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
   return data;
 }
 
+
+/** Authenticated download of a resume as PDF or DOCX. */
+export async function downloadResume(resumeId: string, format: 'pdf' | 'docx'): Promise<void> {
+  const response = await api.get(getDownloadUrl(resumeId, format), { responseType: 'blob' });
+  triggerBrowserDownload(response.data, `resume.${format}`);
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 /** List all uploaded and generated resumes. */
 export async function listResumes(): Promise<ResumeListResponse> {
   const { data } = await api.get<ResumeListResponse>('/resumes/');
