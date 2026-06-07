@@ -23,7 +23,7 @@ export function ChatHistoryPanel({
   onDelete,
 }: ChatHistoryPanelProps) {
   return (
-    <Collapse in={open}>
+    <Collapse in={open} sx={{ flexShrink: 0 }}>
       <Box sx={{ borderBottom: '1px solid #d8dced', bgcolor: '#ffffff', px: 1.5, py: 1.25 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, px: 0.5 }}>
           Previous chats

@@ -16,6 +16,40 @@ from app.services.artifact_extractor import (
 )
 
 
+def split_markdown_roadmap(answer: str) -> tuple[str, str]:
+    """Split conversational intro/outro from a markdown roadmap."""
+    lines = answer.splitlines()
+    doc_start = -1
+    for i, line in enumerate(lines):
+        if line.strip().startswith('#'):
+            doc_start = i
+            break
+    if doc_start != -1:
+        prefix = "\n".join(lines[:doc_start]).strip()
+        document = "\n".join(lines[doc_start:]).strip()
+        return prefix, document
+    return "", answer
+
+
+def split_cover_letter(answer: str) -> tuple[str, str]:
+    """Split conversational intro from a cover letter block."""
+    lines = answer.splitlines()
+    doc_start = -1
+    for i, line in enumerate(lines):
+        cleaned = line.strip().lower()
+        if cleaned.startswith(("dear", "to whom", "subject:", "attention:", "hello")):
+            doc_start = i
+            break
+        if re.match(r"^(january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})", cleaned):
+            doc_start = i
+            break
+    if doc_start != -1:
+        prefix = "\n".join(lines[:doc_start]).strip()
+        document = "\n".join(lines[doc_start:]).strip()
+        return prefix, document
+    return "", answer
+
+
 def prepare_assistant_output(
     intent: AssistantIntent,
     answer: str,
@@ -25,7 +59,30 @@ def prepare_assistant_output(
     display_answer, artifacts = extract_generated_artifacts(answer, query)
 
     if not artifacts:
-        artifacts = _intent_artifacts(intent, display_answer, query)
+        if intent == AssistantIntent.ROADMAP:
+            prefix, doc = split_markdown_roadmap(answer)
+            if doc.strip():
+                artifact = make_artifact(
+                    "roadmap",
+                    f"{_roadmap_duration(query)} roadmap",
+                    doc,
+                    file_format="markdown",
+                )
+                display_answer = prefix or "I have created the learning roadmap for you."
+                artifacts = [artifact]
+        elif intent == AssistantIntent.COVER_LETTER:
+            prefix, doc = split_cover_letter(answer)
+            if doc.strip():
+                artifact = make_artifact(
+                    "cover_letter",
+                    "Cover letter draft",
+                    doc,
+                    file_format="text",
+                )
+                display_answer = prefix or "I have drafted the cover letter for you."
+                artifacts = [artifact]
+        else:
+            artifacts = _intent_artifacts(intent, display_answer, query)
 
     if not display_answer and artifacts:
         label = "artifact" if len(artifacts) == 1 else "artifacts"

@@ -19,7 +19,7 @@ export const AttachmentChips: React.FC<AttachmentChipsProps> = ({
   if (attachments.length === 0 && !userProfileId) return null;
 
   return (
-    <Box sx={{ px: 2, py: 1, display: 'flex', flexWrap: 'wrap', gap: 1, borderTop: '1px solid #e0e0e0' }}>
+    <Box sx={{ px: 2, py: 1, display: 'flex', flexWrap: 'wrap', gap: 1, borderTop: '1px solid #e0e0e0', flexShrink: 0 }}>
       {userProfileId && (
         <Chip
           icon={<DescriptionIcon />}

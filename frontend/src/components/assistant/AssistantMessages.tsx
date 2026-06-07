@@ -69,7 +69,7 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
   scrollRef,
   onOpenSource,
 }) => (
-  <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', backgroundColor: '#f8f9ff' }}>
+  <Box sx={{ flexGrow: 1, minHeight: 0, p: 2, overflowY: 'auto', backgroundColor: '#f8f9ff' }}>
     <Stack spacing={1.5}>
       {messages.map((msg, index) => {
         const isUser = msg.sender === 'user';

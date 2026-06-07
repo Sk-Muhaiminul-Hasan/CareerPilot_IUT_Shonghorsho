@@ -69,7 +69,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
   };
 
   return (
-    <Box sx={{ borderTop: '1px solid #e0e0e0', px: 2, py: 1.25, bgcolor: 'background.paper' }}>
+    <Box sx={{ borderTop: '1px solid #e0e0e0', px: 2, py: 1.25, bgcolor: 'background.paper', flexShrink: 0 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
         Artifacts
       </Typography>
@@ -117,21 +117,32 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({
       </Stack>
       <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} fullWidth maxWidth="md">
         <DialogTitle>{selected?.title}</DialogTitle>
-        <DialogContent dividers>
-          {selected && <ArtifactVisualizer artifact={selected} />}
+        <DialogContent dividers sx={{ p: 0, height: '60vh', display: 'flex', flexDirection: 'column' }}>
           {isEditing ? (
-            <TextField
-              fullWidth
-              multiline
-              minRows={14}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              sx={{ mt: 1 }}
-            />
+            <Box sx={{ p: 2, flex: 1, display: 'flex' }}>
+              <TextField
+                fullWidth
+                multiline
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                inputProps={{
+                  style: {
+                    fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+                    fontSize: '14px',
+                    height: '100%',
+                  }
+                }}
+                sx={{
+                  flex: 1,
+                  '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                  '& .MuiOutlinedInput-root': { height: '100%' },
+                }}
+              />
+            </Box>
           ) : (
-            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', m: 0 }}>
-              {selected?.content}
-            </Typography>
+            <Box sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
+              {selected && <ArtifactVisualizer artifact={selected} />}
+            </Box>
           )}
         </DialogContent>
         <DialogActions>

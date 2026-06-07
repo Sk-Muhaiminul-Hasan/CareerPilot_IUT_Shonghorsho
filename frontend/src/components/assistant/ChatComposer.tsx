@@ -56,6 +56,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       borderTop: '1px solid #c3c6d7',
       backgroundColor: '#ffffff',
       boxShadow: '0 -2px 12px rgba(11, 28, 48, 0.04)',
+      flexShrink: 0,
     }}
   >
     <Stack spacing={1}>
