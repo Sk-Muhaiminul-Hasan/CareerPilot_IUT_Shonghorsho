@@ -118,6 +118,42 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().notification).toBeNull();
   });
 
+  it('showNotification creates notification with default autoHideDuration when not specified', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-duration' });
+
+    useAppStore.getState().showNotification('Default duration');
+    expect(useAppStore.getState().notification?.autoHideDuration).toBe(5000);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('showNotification persists custom autoHideDuration from third argument', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-custom' });
+
+    useAppStore.getState().showNotification('Persistent toast', 'info', null);
+    expect(useAppStore.getState().notification?.autoHideDuration).toBeNull();
+
+    vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-custom2' });
+    useAppStore.getState().showNotification('Long toast', 'warning', 10000);
+    expect(useAppStore.getState().notification?.autoHideDuration).toBe(10000);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('showNotification maintains backward compatibility with only message argument', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-compat' });
+
+    useAppStore.getState().showNotification('Compat test');
+    const notification = useAppStore.getState().notification;
+
+    expect(notification).not.toBeNull();
+    expect(notification?.message).toBe('Compat test');
+    expect(notification?.severity).toBe('info');
+    expect(notification?.autoHideDuration).toBe(5000);
+
+    vi.unstubAllGlobals();
+  });
+
   // --- WebSocket ---
 
   it('setWsConnected sets wsConnected to true', () => {
