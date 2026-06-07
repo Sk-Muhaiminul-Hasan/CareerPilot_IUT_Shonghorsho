@@ -17,6 +17,9 @@ import type { ApiError } from '@/types/api';
 import { useDashboardStats, useApplicationFunnel } from '@/hooks/useAnalytics';
 import { useApplications } from '@/hooks/useApplications';
 import { useNudge, useNudgeAIError } from '@/hooks/useNudge';
+import { useJobStore } from '@/store/useJobStore';
+import ListItemButton from '@mui/material/ListItemButton';
+import { useNavigate } from 'react-router-dom';
 
 function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -24,6 +27,25 @@ function DashboardPage() {
   const { data: recentApps } = useApplications(1, 5);
   const { data: nudge, isLoading: nudgeLoading, error: nudgeError } = useNudge();
   const aiNotConfigured = useNudgeAIError(nudgeError as ApiError | null | undefined);
+  const { openDetail } = useJobStore();
+  const navigate = useNavigate();
+
+  const handleViewDetails = useCallback((jobId: string) => {
+    navigate('/jobs');
+    openDetail(jobId);
+  }, [navigate, openDetail]);
+
+  const handleNudgeApply = useCallback((jobId: string) => {
+    navigate('/jobs');
+    openDetail(jobId);
+  }, [navigate, openDetail]);
+
+  const handleAppClick = useCallback(
+    (appId: string) => {
+      navigate(`/applications/${appId}`);
+    },
+    [navigate],
+  );
 
   return (
     <ErrorBoundary>
@@ -38,7 +60,7 @@ function DashboardPage() {
         {aiNotConfigured ? (
           <AINotConfiguredBanner message="Configure your AI model to unlock personalized nudges." />
         ) : (
-          <NudgeCard nudge={nudge} loading={nudgeLoading} />
+          <NudgeCard nudge={nudge} loading={nudgeLoading} onViewDetails={handleViewDetails} onApply={handleNudgeApply} />
         )}
 
         <StatsCards stats={stats} loading={statsLoading} />
@@ -57,17 +79,23 @@ function DashboardPage() {
 
                 {recentApps && recentApps.items.length > 0 ? (
                   <List disablePadding>
-                    {recentApps.items.map((app) => (
-                      <ListItem key={app.id} disablePadding sx={{ mb: 1 }}>
-                        <ListItemText
-                          primary={`Application #${app.id.slice(0, 8)}`}
-                          secondary={new Date(app.created_at).toLocaleDateString()}
-                          primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
-                          secondaryTypographyProps={{ variant: 'caption' }}
-                        />
-                        <Chip label={app.status} size="small" variant="outlined" />
-                      </ListItem>
-                    ))}
+                    {recentApps.items.map((app) => {
+                      const name = app.job_title || app.job_id.slice(0, 8);
+                      const suffix = app.job_company ? ` @ ${app.job_company}` : '';
+                      return (
+                        <ListItem key={app.id} disablePadding sx={{ mb: 0.5 }}>
+                          <ListItemButton onClick={() => handleAppClick(app.id)}>
+                            <ListItemText
+                              primary={`${name}${suffix}`}
+                              secondary={new Date(app.created_at).toLocaleDateString()}
+                              primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                              secondaryTypographyProps={{ variant: 'caption' }}
+                            />
+                            <Chip label={app.status} size="small" variant="outlined" />
+                          </ListItemButton>
+                        </ListItem>
+                      );
+                    })}
                   </List>
                 ) : (
                   <Box

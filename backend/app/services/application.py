@@ -162,7 +162,11 @@ async def list_applications(
     page_size = min(page_size, MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
-    query = select(Application).where(Application.user_id == user_id)
+    query = (
+        select(Application, Job.title.label("job_title"), Job.company.label("job_company"))
+        .join(Job, Application.job_id == Job.id, isouter=True)
+        .where(Application.user_id == user_id)
+    )
     count_query = select(func.count(Application.id)).where(Application.user_id == user_id)
 
     if status:
@@ -172,12 +176,17 @@ async def list_applications(
     query = query.order_by(Application.created_at.desc()).offset(offset).limit(page_size)
 
     result = await db.execute(query)
-    apps = list(result.scalars().all())
+    rows = list(result.all())
 
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    items = [ApplicationResponse.model_validate(a) for a in apps]
+    items: list[ApplicationResponse] = []
+    for app, job_title, job_company in rows:
+        payload = ApplicationResponse.model_validate(app)
+        payload.job_title = job_title
+        payload.job_company = job_company
+        items.append(payload)
 
     return ApplicationListResponse(
         items=items,

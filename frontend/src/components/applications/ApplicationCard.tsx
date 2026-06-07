@@ -5,6 +5,10 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -18,12 +22,6 @@ const APPLY_MODE_LABELS: Record<string, string> = {
   autonomous: 'Auto Applied (Beta)',
   manual: 'Applied Manually',
 };
-
-interface ApplicationCardProps {
-  application: Application;
-  onApprove?: (appId: string) => void;
-  onUpdateStatus?: (appId: string) => void;
-}
 
 const STATUS_CONFIG: Record<
   string,
@@ -40,23 +38,59 @@ const STATUS_CONFIG: Record<
   failed: { color: 'error', icon: <CancelIcon fontSize="small" /> },
 };
 
-function ApplicationCard({ application, onApprove, onUpdateStatus }: ApplicationCardProps) {
+const USER_VISIBLE_STATUSES = ['applied', 'interview', 'offer', 'rejected'] as const;
+
+interface ApplicationCardProps {
+  application: Application;
+  onApprove?: (appId: string) => void;
+  onUpdateStatus?: (appId: string, status: string) => void;
+  onClick?: (appId: string) => void;
+}
+
+function formatCardDate(iso: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function ApplicationCard({
+  application,
+  onApprove,
+  onUpdateStatus,
+  onClick,
+}: ApplicationCardProps) {
   const statusConf = STATUS_CONFIG[application.status] ?? {
     color: 'default' as const,
     icon: <HourglassEmptyIcon fontSize="small" />,
   };
 
+  const displayTitle = application.job_title || application.job_id.slice(0, 8);
+  const displayLabel = application.job_company
+    ? `${displayTitle} @ ${application.job_company}`
+    : displayTitle;
+  const cardDate = formatCardDate(application.created_at);
+
+  const handleCardClick = () => {
+    if (onClick) onClick(application.id);
+  };
+
+  const handleStatusChange = (event: { target: { value: unknown } }) => {
+    const newStatus = event.target.value as string;
+    if (onUpdateStatus) onUpdateStatus(application.id, newStatus);
+  };
+
   return (
-    <Card>
+    <Card sx={onClick ? { cursor: 'pointer' } : undefined} onClick={handleCardClick}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle1" fontWeight={600} noWrap>
-              Application #{application.id.slice(0, 8)}
+              {displayLabel}
             </Typography>
             <Box sx={{ mb: 0.5 }}>
               <Typography variant="body2" color="text.secondary">
-                Job: {application.job_id.slice(0, 8)}...
+                Job ID: {application.job_id.slice(0, 8)}...
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -94,22 +128,34 @@ function ApplicationCard({ application, onApprove, onUpdateStatus }: Application
         )}
 
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-          Created: {new Date(application.created_at).toLocaleDateString()}
-          {application.applied_at &&
-            ` | Applied: ${new Date(application.applied_at).toLocaleDateString()}`}
+          Created: {formatCardDate(application.created_at)}
+          {application.applied_at && ` | Applied: ${formatCardDate(application.applied_at)}`}
         </Typography>
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2 }}>
         {application.status === 'pending_review' && onApprove && (
-          <Button size="small" variant="contained" onClick={() => onApprove(application.id)}>
+          <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); onApprove(application.id); }}>
             Approve
           </Button>
         )}
         {onUpdateStatus && (
-          <Button size="small" onClick={() => onUpdateStatus(application.id)}>
-            Update Status
-          </Button>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id={`status-select-${application.id}`} shrink>Status</InputLabel>
+            <Select
+              labelId={`status-select-${application.id}`}
+              label="Status"
+              value={application.status}
+              onChange={handleStatusChange}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {USER_VISIBLE_STATUSES.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         )}
       </CardActions>
     </Card>
