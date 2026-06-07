@@ -104,7 +104,6 @@ class ExaJobSearch:
                 lambda: self._get_client().search_and_contents(
                     search_query,
                     type="auto",
-                    use_autoprompt=True,
                     num_results=num_results,
                     start_published_date=self._date_filter(days_back),
                     text=True,
@@ -309,7 +308,6 @@ class ExaJobSearch:
         Returns an ISO date string (YYYY-MM-DD) or "".
         """
         import re
-        from datetime import datetime
 
         if not text:
             return ""

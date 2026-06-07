@@ -75,54 +75,61 @@ async def search_jobs(
 
     all_jobs: list[Job] = []
     collected_listings: list[tuple[str, JobListing]] = []
-
-    for platform_name in platforms_to_search:
-        if not platform_registry.has(platform_name):
-            logger.warning(
-                "job_search.platform_not_registered",
-                platform=platform_name,
-            )
-            continue
-
-        try:
-            async with platform_registry.create_async(
-                platform_name, db=db, user_id=user_id,
-            ) as platform:
-                listings: list[JobListing] = await platform.search(
-                    query=request.query,
-                    location=request.location,
-                    filters=request.filters or None,
-                )
-            logger.info(
-                "job_search.platform_results",
-                platform=platform_name,
-                count=len(listings),
-            )
-            for listing in listings:
-                collected_listings.append((platform_name, listing))
-        except Exception as exc:
-            logger.error(
-                "job_search.platform_search_failed",
-                platform=platform_name,
-                error=str(exc),
-            )
-            continue
+    exa_results_count = 0
 
     try:
+        exa_key = ""
         settings = get_settings()
-        exa_key = settings.exa_api_key.get_secret_value()
-        exa = ExaJobSearch(api_key=exa_key)
-        if exa.available:
-            exa_listings = await exa.search_jobs(
-                query=request.query,
-                location=request.location,
-                num_results=min(request.limit, 10),
-            )
-            for listing in exa_listings:
-                collected_listings.append((listing.platform, listing))
-            logger.info("job_search.exa_results", count=len(exa_listings))
+        if settings.exa_api_key:
+            exa_key = settings.exa_api_key.get_secret_value()
+        if exa_key:
+            exa = ExaJobSearch(api_key=exa_key)
+            if exa.available:
+                exa_listings = await exa.search_jobs(
+                    query=request.query,
+                    location=request.location,
+                    num_results=min(request.limit, 10),
+                )
+                exa_results_count = len(exa_listings)
+                for listing in exa_listings:
+                    collected_listings.append(("exa", listing))
+                logger.info("job_search.exa_results", count=exa_results_count)
     except Exception as exc:
         logger.debug("job_search.exa_skipped", reason=str(exc))
+        exa_results_count = 0
+
+    if exa_results_count == 0:
+        for platform_name in platforms_to_search:
+            if not platform_registry.has(platform_name):
+                logger.warning(
+                    "job_search.platform_not_registered",
+                    platform=platform_name,
+                )
+                continue
+
+            try:
+                async with platform_registry.create_async(
+                    platform_name, db=db, user_id=user_id,
+                ) as platform:
+                    listings: list[JobListing] = await platform.search(
+                        query=request.query,
+                        location=request.location,
+                        filters=request.filters or None,
+                    )
+                logger.info(
+                    "job_search.platform_results",
+                    platform=platform_name,
+                    count=len(listings),
+                )
+                for listing in listings:
+                    collected_listings.append((platform_name, listing))
+            except Exception as exc:
+                logger.error(
+                    "job_search.platform_search_failed",
+                    platform=platform_name,
+                    error=str(exc),
+                )
+                continue
 
     for platform_name, listing in collected_listings:
         try:
@@ -186,8 +193,6 @@ async def search_jobs(
     ]
     items = [JobListingResponse.model_validate(j) for j in limited]
 
-    # Fire enrichment in background - don't await it. The search response
-    # is returned to the user immediately; enrichment runs after.
     asyncio.create_task(  # noqa: RUF006
         _enrich_jobs_background(
             job_ids=[job.id for job in all_jobs],
@@ -238,14 +243,8 @@ async def _enrich_jobs_background(
         if not listing.url:
             continue
 
-        # Normalize LinkedIn tracking subdomain to canonical host.
         visit_url = listing.url.replace("bd.linkedin.com", "www.linkedin.com")
 
-        # The platform's search-time LLM extraction may not produce a usable
-        # ``platform_job_id`` (it can be empty, a hash, or a duplicate
-        # string), but the URL itself always carries the canonical numeric
-        # ID — e.g. ``/jobs/view/frontend-engineer-at-verneek-4375021807``.
-        # Extract that and use it as the authoritative lookup key.
         url_id = _extract_platform_job_id_from_url(visit_url)
         lookup_id = url_id or listing.platform_job_id
         if not lookup_id:
@@ -255,8 +254,6 @@ async def _enrich_jobs_background(
                 url=visit_url,
             )
             continue
-
-        print(f"ENRICH LOOKUP: platform_job_id={lookup_id}, user_id={user_id}")
 
         if not platform_registry.has(platform_name):
             logger.warning(
@@ -290,7 +287,6 @@ async def _enrich_jobs_background(
                             ),
                         )
                         job = result.scalar_one_or_none()
-                        print(f"ENRICH RESULT: job found={job is not None}")
                         if job is None:
                             url_q = select(Job).where(
                                 Job.user_id == user_id,
@@ -300,7 +296,6 @@ async def _enrich_jobs_background(
                                 url_q = url_q.where(Job.platform == platform_name)
                             url_result = await save_db.execute(url_q)
                             job = url_result.scalar_one_or_none()
-                        print(f"ENRICH RESULT AFTER URL FALLBACK: job found={job is not None}")
                         if job is None:
                             logger.warning(
                                 "job_search.enrich.job_not_found",
@@ -316,9 +311,13 @@ async def _enrich_jobs_background(
 
                         job.description = details.description or job.description
                         job.salary_range = details.salary_range or job.salary_range
-                        if (  # noqa: SIM102
-                            not job.salary_range or job.salary_range in ("None", "")
-                        ) and (details.salary_min is not None or details.salary_max is not None):
+                        if (
+                            not job.salary_range
+                            or job.salary_range in ("None", "")
+                        ) and (
+                            details.salary_min is not None
+                            or details.salary_max is not None
+                        ):
                             job.salary_range = _format_salary_range(details)
                         job.work_type = details.work_type or job.work_type
                         if details.skills_required or details.skills_preferred:
@@ -398,21 +397,15 @@ def _extract_platform_job_id_from_url(url: str) -> str | None:
     if not url:
         return None
 
-    # 1) Greenhouse / Indeed direct path-style ID, e.g.
-    #    https://boards.greenhouse.io/.../jobs/4375021807
-    #    https://www.linkedin.com/jobs/view/4375021807
     path = url.split("?", 1)[0].split("#", 1)[0]
     match = _PLATFORM_JOB_ID_TAIL_RE.search(path)
     if match:
         return match.group(1)
 
-    # 2) LinkedIn slugged style, e.g.
-    #    https://www.linkedin.com/jobs/view/...-at-verneek-4375021807
     match = _PLATFORM_JOB_ID_HYPHEN_TAIL_RE.search(path)
     if match:
         return match.group(1)
 
-    # 3) Indeed ``?jk=...`` style.
     match = _PLATFORM_JOB_ID_QUERY_RE.search(url)
     if match:
         return match.group(1)
