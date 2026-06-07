@@ -1,15 +1,10 @@
 import React from 'react';
-import { Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import type { ChatSource } from '@/types/chat';
-
-export interface AssistantMessage {
-  sender: 'user' | 'assistant';
-  text: string;
-  sources?: ChatSource[];
-}
+import { Box, Chip, Paper, Stack, Tooltip } from '@mui/material';
+import type { ChatSource, ChatUiMessage } from '@/types/chat';
+import { AssistantMarkdown } from './AssistantMarkdown';
 
 interface AssistantMessagesProps {
-  messages: AssistantMessage[];
+  messages: ChatUiMessage[];
   isTyping: boolean;
   scrollRef: React.RefObject<HTMLDivElement>;
   onOpenSource: (source: ChatSource) => void;
@@ -80,7 +75,7 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
         const isUser = msg.sender === 'user';
         return (
           <Box
-            key={index}
+            key={msg.id || index}
             sx={{
               alignSelf: isUser ? 'flex-end' : 'flex-start',
               maxWidth: '88%',
@@ -90,9 +85,7 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
             }}
           >
             <Paper elevation={0} sx={isUser ? userBubbleSx : assistantBubbleSx}>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-line', lineHeight: 1.5 }}>
-                {msg.text}
-              </Typography>
+              <AssistantMarkdown text={msg.text} invert={isUser} />
               {msg.sources && msg.sources.length > 0 && (
                 <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
                   {msg.sources.slice(0, 3).map((source) => (
