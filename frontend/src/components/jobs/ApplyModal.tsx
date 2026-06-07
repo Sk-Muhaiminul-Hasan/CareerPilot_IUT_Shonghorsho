@@ -73,7 +73,7 @@ function ApplyModal({ open, jobTitle, company, jobUrl, onClose, onConfirm }: App
     onClose();
   };
 
-  const canConfirm = selectedMode && selectedResumeId;
+  const canConfirm = selectedMode === 'manual' || (selectedMode && selectedResumeId);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth data-job-url={jobUrl}>
@@ -126,48 +126,51 @@ function ApplyModal({ open, jobTitle, company, jobUrl, onClose, onConfirm }: App
           })}
         </Box>
 
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Select Resume
-          </Typography>
-          {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-          {isError && (
-            <Alert severity="error" sx={{ mb: 1 }}>
-              Failed to load resumes.
-            </Alert>
-          )}
-          {!isLoading && !isError && resumes.length === 0 && (
-            <Alert severity="warning" sx={{ mb: 1 }}>
-              No resumes found. Please upload a resume first.
-            </Alert>
-          )}
-          {!isLoading && !isError && resumes.length > 0 && (
-            <RadioGroup
-              value={selectedResumeId}
-              onChange={(e) => setSelectedResumeId(e.target.value)}
-            >
-              {resumes.map((resume) => (
-                <FormControlLabel
-                  key={resume.id}
-                  value={resume.id}
-                  control={<Radio />}
-                  label={
-                    <Box>
-                      <Typography variant="body2">{resume.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {resume.type === 'base' ? 'Base Resume' : 'Tailored Resume'}
-                      </Typography>
-                    </Box>
-                  }
-                />
-              ))}
-            </RadioGroup>
-          )}
-        </Box>
+        {/* CV selection — hidden when Apply Manually is chosen */}
+        {selectedMode !== 'manual' && (
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Select Resume
+            </Typography>
+            {isLoading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+            {isError && (
+              <Alert severity="error" sx={{ mb: 1 }}>
+                Failed to load resumes.
+              </Alert>
+            )}
+            {!isLoading && !isError && resumes.length === 0 && (
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                No resumes found. Please upload a resume first.
+              </Alert>
+            )}
+            {!isLoading && !isError && resumes.length > 0 && (
+              <RadioGroup
+                value={selectedResumeId}
+                onChange={(e) => setSelectedResumeId(e.target.value)}
+              >
+                {resumes.map((resume) => (
+                  <FormControlLabel
+                    key={resume.id}
+                    value={resume.id}
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body2">{resume.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {resume.type === 'base' ? 'Base Resume' : 'Tailored Resume'}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                ))}
+              </RadioGroup>
+            )}
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>

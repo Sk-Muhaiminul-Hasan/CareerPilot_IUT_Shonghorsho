@@ -1,4 +1,5 @@
-import Drawer from '@mui/material/Drawer';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -12,7 +13,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-  import { useChatStore } from '@/store/useChatStore';
+import { useChatStore } from '@/store/useChatStore';
 import { useJob } from '@/hooks/useJobs';
 import LoadingState from '@/components/common/LoadingState';
 
@@ -44,22 +45,45 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
     (deadlineDate.getTime() - Date.now()) < 7 * 24 * 60 * 60 * 1000;
 
   return (
-    <Drawer
-      anchor="right"
+    <Dialog
       open={open}
       onClose={onClose}
-      sx={{
-        '& .MuiDrawer-paper': { width: { xs: '100%', sm: 480 } },
+      maxWidth="md"
+      fullWidth
+      scroll="paper"
+      PaperProps={{
+        sx: {
+          maxWidth: 720,
+          borderRadius: 3,
+          boxShadow: '0 24px 64px rgba(11, 28, 48, 0.18)',
+        },
+      }}
+      BackdropProps={{
+        sx: { backgroundColor: 'rgba(11, 28, 48, 0.55)', backdropFilter: 'blur(4px)' },
       }}
     >
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Job Details</Typography>
-          <IconButton onClick={onClose} aria-label="Close job details">
-            <CloseIcon />
-          </IconButton>
-        </Box>
+      {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          pt: 2.5,
+          pb: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0b1c30' }}>
+          Job Details
+        </Typography>
+        <IconButton onClick={onClose} aria-label="Close job details" size="small">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
 
+      <DialogContent sx={{ px: 3, py: 2.5 }}>
         {isLoading && <LoadingState message="Loading job details..." />}
 
         {isError && (
@@ -91,7 +115,7 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
               )}
             </Box>
 
-            <Typography variant="h5" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#0b1c30', mb: 0.5 }}>
               {job.title}
             </Typography>
 
@@ -190,13 +214,14 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
             </Typography>
             <Box
               sx={{
-                maxHeight: 240,
+                maxHeight: 260,
                 overflowY: 'auto',
-                borderRadius: 1,
+                borderRadius: 1.5,
                 border: '1px solid',
                 borderColor: 'divider',
                 p: 1.5,
                 mb: 3,
+                backgroundColor: '#f8f9ff',
               }}
             >
               <Typography
@@ -217,20 +242,17 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
               <Button
                 variant="outlined"
                 endIcon={<OpenInNewIcon />}
-                component="a" // or Link depending on base implementation
+                component="a"
                 href={job.url}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 View Original
               </Button>
-
-              {/* Linked Pillar 3 Context Button */}
               <Button
                 variant="contained"
                 color="secondary"
                 onClick={() => {
-                  // Close this detail view if needed, or keep it open and pop out the Copilot!
                   openChatWithJob(job.id);
                 }}
               >
@@ -239,8 +261,8 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
             </Box>
           </>
         )}
-      </Box>
-    </Drawer>
+      </DialogContent>
+    </Dialog>
   );
 }
 

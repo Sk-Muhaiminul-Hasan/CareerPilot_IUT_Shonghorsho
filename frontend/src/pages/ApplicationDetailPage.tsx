@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
-import CircularProgress from '@mui/material/CircularProgress';
+import AIAnalyzing from '@/components/common/AIAnalyzing';
 import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -229,9 +229,14 @@ function ApplicationDetailPage() {
 
   if (appLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-        <CircularProgress />
-      </Box>
+      <AIAnalyzing
+        messages={[
+          'Loading your application...',
+          'Fetching AI analysis...',
+          'Preparing review data...',
+        ]}
+        minHeight={300}
+      />
     );
   }
 
@@ -298,13 +303,15 @@ function ApplicationDetailPage() {
           ATS Score
         </Typography>
         {application.ats_score === null || application.ats_score === undefined ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
-            <Skeleton variant="circular" width={72} height={72} />
-            <Box>
-              <Skeleton width={120} height={20} />
-              <Skeleton width={80} height={16} sx={{ mt: 0.5 }} />
-            </Box>
-          </Box>
+          <AIAnalyzing
+            messages={[
+              'Reading your resume...',
+              'Matching with job requirements...',
+              'Generating insights...',
+              'Calculating ATS score...',
+            ]}
+            minHeight={120}
+          />
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
             <Box
@@ -392,7 +399,7 @@ function ApplicationDetailPage() {
                     setGenerating(false);
                   }
                 }}
-                startIcon={generating ? <CircularProgress size={16} /> : undefined}
+              startIcon={generating ? <AIAnalyzing inline messages={['Generating...', 'Writing cover letter...', 'Almost done...']} /> : undefined}
               >
                 {generating ? 'Generating...' : 'Regenerate'}
               </Button>
@@ -417,7 +424,7 @@ function ApplicationDetailPage() {
                   setGenerating(false);
                 }
               }}
-              startIcon={generating ? <CircularProgress size={16} /> : undefined}
+              startIcon={generating ? <AIAnalyzing inline messages={['Generating...', 'Writing cover letter...', 'Almost done...']} /> : undefined}
             >
               {generating ? 'Generating...' : 'Generate Cover Letter'}
             </Button>
@@ -461,12 +468,15 @@ function ApplicationDetailPage() {
         </DialogContent>
         <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
           {resumeGenerating ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', py: 1 }}>
-              <CircularProgress size={24} />
-              <Typography variant="body2" color="text.secondary">
-                Tailoring your resume for this role...
-              </Typography>
-            </Box>
+            <AIAnalyzing
+              messages={[
+                'Tailoring your resume...',
+                'Matching skills to the role...',
+                'Formatting document...',
+                'Almost ready...',
+              ]}
+              minHeight={100}
+            />
           ) : generatedResumeId ? (
             <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
               <Button

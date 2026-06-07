@@ -27,6 +27,8 @@ function AppLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const toggleCopilotChat = useChatStore((s) => s.toggleChat);
+  const isChatOpen = useChatStore((s) => s.isOpen);
+  const copilotWidth = useChatStore((s) => s.sidebarWidth);
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -37,6 +39,9 @@ function AppLayout() {
 
   const userInitial = (user?.email ?? 'U').charAt(0).toUpperCase();
 
+  // When copilot sidebar is open the appbar and main content shrink to avoid overlap
+  const rightOffset = isChatOpen ? copilotWidth : 0;
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
       <Sidebar />
@@ -46,10 +51,13 @@ function AppLayout() {
         position="fixed"
         elevation={0}
         sx={{
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          // Subtract left nav width + copilot sidebar width
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px - ${rightOffset}px)` },
           ml: { md: `${DRAWER_WIDTH}px` },
+          mr: { md: `${rightOffset}px` },
           backgroundColor: 'background.paper',
           borderBottom: '1px solid #e2e8f0',
+          transition: 'width 0.22s cubic-bezier(0.4, 0, 0.2, 1), margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         <Toolbar>
@@ -143,21 +151,24 @@ function AppLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Main content area */}
+      {/* Main content area — shrinks when copilot sidebar is open */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          // On md+, leave space for both sidebars
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px - ${rightOffset}px)` },
           mt: 8, // toolbar height
           px: { xs: 2, md: 4 },
           py: { xs: 2, md: 3 },
+          mr: { md: `${rightOffset}px` },
+          transition: 'margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         <Outlet />
       </Box>
 
-      {/* Global Career Copilot chat drawer (controlled by useChatStore) */}
+      {/* Global Career Copilot chat sidebar */}
       <CopilotChat />
     </Box>
   );
