@@ -749,7 +749,7 @@ async def optimize_resume(
         resume_data=optimized_data.model_dump() | {"user_id": user_id},
         job_description="",
         template_name=resume.template_id,
-        formats=["pdf", "docx"],
+        formats=["docx"],
     )
 
     # Create new optimized resume record

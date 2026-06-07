@@ -128,28 +128,8 @@ async def search_jobs(
         try:
             job = _listing_to_job(listing, user_id)
 
-            async with AsyncSessionLocal() as save_db, save_db.begin():
-                existing = await save_db.execute(
-                    select(Job).where(
-                        Job.platform == job.platform,
-                        Job.platform_job_id == job.platform_job_id,
-                        Job.user_id == user_id,
-                    ),
-                )
-                existing_job = existing.scalar_one_or_none()
-                if existing_job is not None:
-                    all_jobs.append(existing_job)
-                    continue
-
-                url_id = _extract_platform_job_id_from_url(listing.url or "")
-                if url_id:
-                    job.platform_job_id = url_id
-
-                try:
-                    save_db.add(job)
-                    await save_db.flush()
-                except IntegrityError:
-                    await save_db.rollback()
+            async with AsyncSessionLocal() as save_db:  # noqa: SIM117
+                async with save_db.begin():
                     existing = await save_db.execute(
                         select(Job).where(
                             Job.platform == job.platform,
@@ -160,16 +140,37 @@ async def search_jobs(
                     existing_job = existing.scalar_one_or_none()
                     if existing_job is not None:
                         all_jobs.append(existing_job)
-                    else:
-                        logger.warning(
-                            "job_search.duplicate_not_recovered",
-                            platform=platform_name,
-                            platform_job_id=job.platform_job_id,
-                            user_id=user_id,
-                        )
-                    continue
+                        continue
 
-                all_jobs.append(job)
+                    url_id = _extract_platform_job_id_from_url(listing.url or "")
+                    if url_id:
+                        job.platform_job_id = url_id
+
+                    try:
+                        save_db.add(job)
+                        await save_db.flush()
+                    except IntegrityError:
+                        await save_db.rollback()
+                        existing = await save_db.execute(
+                            select(Job).where(
+                                Job.platform == job.platform,
+                                Job.platform_job_id == job.platform_job_id,
+                                Job.user_id == user_id,
+                            ),
+                        )
+                        existing_job = existing.scalar_one_or_none()
+                        if existing_job is not None:
+                            all_jobs.append(existing_job)
+                        else:
+                            logger.warning(
+                                "job_search.duplicate_not_recovered",
+                                platform=platform_name,
+                                platform_job_id=job.platform_job_id,
+                                user_id=user_id,
+                            )
+                        continue
+
+                    all_jobs.append(job)
         except Exception as exc:
             logger.warning(
                 "job_search.listing_conversion_failed",
@@ -279,7 +280,7 @@ async def _enrich_jobs_background(
                     )
                     continue
 
-                async with AsyncSessionLocal() as save_db:
+                async with AsyncSessionLocal() as save_db:  # noqa: SIM117
                     async with save_db.begin():
                         result = await save_db.execute(
                             select(Job).where(
@@ -315,9 +316,10 @@ async def _enrich_jobs_background(
 
                         job.description = details.description or job.description
                         job.salary_range = details.salary_range or job.salary_range
-                        if not job.salary_range or job.salary_range in ('None', ''):
-                            if details.salary_min is not None or details.salary_max is not None:
-                                job.salary_range = _format_salary_range(details)
+                        if (  # noqa: SIM102
+                            not job.salary_range or job.salary_range in ("None", "")
+                        ) and (details.salary_min is not None or details.salary_max is not None):
+                            job.salary_range = _format_salary_range(details)
                         job.work_type = details.work_type or job.work_type
                         if details.skills_required or details.skills_preferred:
                             job.skills_required = {
