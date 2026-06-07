@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -14,12 +13,12 @@ interface NudgeCardProps {
   nudge: NudgeResponse | undefined;
   loading: boolean;
   onApply?: (jobId: string) => void;
+  onViewDetails?: (jobId: string) => void;
 }
 
 const BULLET_ICONS = ['✓', '→', '★'];
 
-function NudgeCard({ nudge, loading, onApply }: NudgeCardProps) {
-  const handleViewDetails = useCallback(() => {}, []);
+function NudgeCard({ nudge, loading, onApply, onViewDetails }: NudgeCardProps) {
 
   if (loading) {
     return (
@@ -118,7 +117,7 @@ function NudgeCard({ nudge, loading, onApply }: NudgeCardProps) {
           <Grid container spacing={2}>
             {nudge.recommended_jobs.map((job) => (
               <Grid item xs={12} md={4} key={job.id}>
-                <JobCard job={job} onViewDetails={handleViewDetails} onApply={onApply} />
+                <JobCard job={job} onViewDetails={onViewDetails ?? (() => {})} onApply={onApply} />
               </Grid>
             ))}
           </Grid>

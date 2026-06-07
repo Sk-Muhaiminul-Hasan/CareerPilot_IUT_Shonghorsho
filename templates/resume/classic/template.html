@@ -86,6 +86,27 @@
         </section>
         {% endif %}
 
+        {% if projects %}
+        <section class="section">
+            <h2>Projects</h2>
+            <hr class="section-rule">
+            {% for project in projects %}
+            <div class="project-item">
+                <strong>{{ project.name }}</strong>
+                {% if project.description %}
+                <ul>
+                    {% for line in project.description.split('\n') %}
+                    {% if line.strip() %}
+                    <li>{{ line.strip() }}</li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
         {% if certifications %}
         <section class="section">
             <h2>Certifications</h2>

@@ -27,6 +27,8 @@ export interface Job {
   work_type: string;
   match_score: number | null;
   skills_required: Record<string, unknown> | null;
+  /** True when enrichment pipeline has finished processing this job. */
+  is_enriched: boolean;
   status: string;
   created_at: string;
   updated_at: string;

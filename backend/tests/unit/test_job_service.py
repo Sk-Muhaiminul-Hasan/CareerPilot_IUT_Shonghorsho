@@ -57,14 +57,18 @@ class TestSearchJobs:
             query="python developer", platforms=["linkedin"],
         )
 
+        mock_cm = AsyncMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_platform)
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
         with (
             patch.object(
                 job_search.platform_registry, "has", return_value=True,
             ),
             patch.object(
                 job_search.platform_registry,
-                "create",
-                return_value=mock_platform,
+                "create_async",
+                return_value=mock_cm,
             ),
         ):
             result = await job_search.search_jobs(db_session, request)
@@ -90,7 +94,7 @@ class TestSearchJobs:
             ),
             patch.object(
                 job_search.platform_registry,
-                "create",
+                "create_async",
                 return_value=mock_platform,
             ),
         ):

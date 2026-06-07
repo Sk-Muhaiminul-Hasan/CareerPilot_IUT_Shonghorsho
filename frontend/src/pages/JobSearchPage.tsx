@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -6,6 +6,8 @@ import Pagination from '@mui/material/Pagination';
 import Alert from '@mui/material/Alert';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { useSharedWebSocket } from '@/contexts/SharedWebSocketProvider';
 
 import JobFilters from '@/components/jobs/JobFilters';
 import JobCard from '@/components/jobs/JobCard';
@@ -17,10 +19,14 @@ import { useJobs, useSearchJobs } from '@/hooks/useJobs';
 import { useCreateApplication } from '@/hooks/useApplications';
 import { useJobStore } from '@/store/useJobStore';
 import { useAppStore } from '@/store/useAppStore';
+import * as jobService from '@/services/jobService';
+import type { Job } from '@/types/job';
 
 function JobSearchPage() {
   const [page, setPage] = useState(1);
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
+  const enrichmentCountRef = useRef(0);
+  const totalEnrichJobsRef = useRef(0);
   const navigate = useNavigate();
   const searchQuery = useJobStore((s) => s.searchQuery);
   const locationFilter = useJobStore((s) => s.locationFilter);
@@ -30,10 +36,52 @@ function JobSearchPage() {
   const openDetail = useJobStore((s) => s.openDetail);
   const closeDetail = useJobStore((s) => s.closeDetail);
   const showNotification = useAppStore((s) => s.showNotification);
+  const clearNotification = useAppStore((s) => s.clearNotification);
+  const { onJobEnriched } = useSharedWebSocket();
+  const queryClient = useQueryClient();
 
   const { data: jobsData, isLoading, isError } = useJobs(page, 20);
   const searchMutation = useSearchJobs();
   const createAppMutation = useCreateApplication();
+
+  onJobEnriched(
+    useCallback(
+      async ({ job_id }: { job_id: string }) => {
+        enrichmentCountRef.current += 1;
+
+        if (totalEnrichJobsRef.current > 0) {
+          showNotification(
+            `🔍 Enriching jobs... (${enrichmentCountRef.current}/${totalEnrichJobsRef.current} complete)`,
+            'info',
+            null,
+          );
+
+          if (enrichmentCountRef.current >= totalEnrichJobsRef.current) {
+            showNotification('🎉 All job details fetched!', 'success');
+            enrichmentCountRef.current = 0;
+            totalEnrichJobsRef.current = 0;
+          }
+        }
+
+        try {
+          const updatedJob = (await jobService.getJob(job_id)) as Job;
+          queryClient.setQueryData<Job>(['jobs', 'detail', job_id], updatedJob);
+          queryClient.setQueriesData<{ items: Job[] }>({ queryKey: ['jobs', 'list'] }, (old) => {
+            if (!old) {
+              return old;
+            }
+            return {
+              ...old,
+              items: old.items.map((job) => (job.id === job_id ? updatedJob : job)),
+            };
+          });
+        } catch {
+          // Ignore single refresh failures; the list will recover on next fetch.
+        }
+      },
+      [queryClient, showNotification],
+    ),
+  );
 
   const handleApplyClick = useCallback((jobId: string) => {
     setPendingJobId(jobId);
@@ -86,6 +134,16 @@ function JobSearchPage() {
 
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return;
+
+    enrichmentCountRef.current = 0;
+    totalEnrichJobsRef.current = 0;
+
+    showNotification(
+      '🤖 Job hunter agent is actively searching for you. We\'ll notify you when results are ready!',
+      'info',
+      null,
+    );
+
     searchMutation.mutate(
       {
         query: searchQuery,
@@ -95,14 +153,20 @@ function JobSearchPage() {
       },
       {
         onSuccess: (result) => {
-          showNotification(`Found ${result.total} jobs across ${platformFilters.length} platforms.`, 'success');
+          clearNotification();
+          totalEnrichJobsRef.current = result.total;
+          showNotification(
+            `✅ Found ${result.total} jobs! Job crawler is now fetching full details one by one...`,
+            'info',
+            null,
+          );
         },
         onError: () => {
           showNotification('Job search failed. Please try again.', 'error');
         },
       },
     );
-  }, [searchQuery, locationFilter, platformFilters, searchMutation, showNotification]);
+  }, [searchQuery, locationFilter, platformFilters, searchMutation, showNotification, clearNotification]);
 
   const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);

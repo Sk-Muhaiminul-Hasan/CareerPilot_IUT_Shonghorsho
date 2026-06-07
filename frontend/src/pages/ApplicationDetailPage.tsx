@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -11,13 +11,18 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import { useJob } from '@/hooks/useJobs';
-import { useApplication, useGenerateCoverLetter } from '@/hooks/useApplications';
+import { useApplication, useGenerateCoverLetter, useUpdateApplicationStatus } from '@/hooks/useApplications';
 import { useSharedWebSocket } from '@/contexts/SharedWebSocketProvider';
 import { downloadCoverLetter } from '@/services/applicationService';
 import { downloadResume, generateResume } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/types/api';
+import type { ApplicationStatusUpdate } from '@/types/application';
 import TemplateSelector from '@/components/resumes/TemplateSelector';
 import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
 import type { Application } from '@/types/application';
@@ -55,6 +60,99 @@ const STATUS_CONFIG: Record<
   offer: { label: 'Offer', color: 'success' },
   withdrawn: { label: 'Withdrawn', color: 'default' },
 };
+
+const USER_VISIBLE_STATUSES = ['applied', 'interview', 'offer', 'rejected'] as const;
+
+interface StatusSelectorProps {
+  application: Application;
+  onUpdateStatus?: (appId: string, status: string) => void;
+}
+
+function StatusSelector({ application, onUpdateStatus }: StatusSelectorProps) {
+  if (!onUpdateStatus) return null;
+
+  const handleChange = (event: { target: { value: unknown } }) => {
+    const status = event.target.value as string;
+    onUpdateStatus(application.id, status);
+  };
+
+  return (
+    <FormControl size="small" sx={{ minWidth: 140 }}>
+      <InputLabel id={`detail-status-${application.id}`} shrink>
+        Status
+      </InputLabel>
+      <Select
+        labelId={`detail-status-${application.id}`}
+        label="Status"
+        value={application.status}
+        onChange={handleChange}
+      >
+        {USER_VISIBLE_STATUSES.map((status) => (
+          <MenuItem key={status} value={status}>
+            {STATUS_CONFIG[status]?.label ?? status}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+}
+
+interface TimelineEntry {
+  label: string;
+  date: string;
+}
+
+function formatCardDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+interface ApplicationTimelineProps {
+  application: Application;
+}
+
+function ApplicationTimeline({ application }: ApplicationTimelineProps) {
+  const entries: TimelineEntry[] = [
+    { label: 'Created', date: application.created_at },
+  ];
+  if (application.applied_at) {
+    entries.push({ label: 'Applied', date: application.applied_at });
+  }
+  entries.push({ label: 'Current Status', date: application.updated_at });
+
+  return (
+    <Box sx={{ my: 3 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Application Timeline
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {entries.map((entry, index) => (
+          <Box key={entry.label} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                bgcolor: index === entries.length - 1 ? 'primary.main' : 'grey.400',
+                flexShrink: 0,
+              }}
+            />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" fontWeight={500}>
+                {entry.label}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {formatCardDate(entry.date)}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
 
 function ApplicationDetailPage() {
   const { appId } = useParams<{ appId: string }>();
@@ -113,6 +211,22 @@ function ApplicationDetailPage() {
     setGeneratedResumeId(null);
   };
 
+  const updateStatusMutation = useUpdateApplicationStatus();
+
+  const handleUpdateStatus = useCallback(
+    (appId: string, status: string) => {
+      updateStatusMutation.mutate(
+        { appId, update: { status } as ApplicationStatusUpdate },
+        {
+          onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
+          },
+        },
+      );
+    },
+    [updateStatusMutation, queryClient],
+  );
+
   if (appLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
@@ -134,19 +248,35 @@ function ApplicationDetailPage() {
   const statusConf = STATUS_CONFIG[application.status] ?? { label: application.status, color: 'default' as const };
   const atsScore = application.ats_score ?? 0;
 
+  const detailTitle = jobLoading
+    ? application.id.slice(0, 8)
+    : (jobData?.title || application.id.slice(0, 8));
+  const detailSubtitle = jobLoading
+    ? 'Loading job details...'
+    : (jobData?.company ? `${jobData.title ?? 'Application'} at ${jobData.company}` : jobData?.title || 'Application');
+  const detailDate = formatCardDate(application.created_at);
+  const headerSubtitle = jobData?.company
+    ? `${jobData.title || 'Application'} at ${jobData.company} — ${detailDate}`
+    : `${detailSubtitle} — ${detailDate}`;
+
+  const displayStatus = application.reasoning as { matches?: string[]; gaps?: string[] } | null | undefined;
+  const matches = displayStatus?.matches ?? [];
+  const gaps = displayStatus?.gaps ?? [];
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Application {application.id.slice(0, 8)}
+        {detailTitle}
       </Typography>
       <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-        {jobLoading ? 'Loading job details...' : jobData?.title ?? 'Job'}
-        {(jobData?.company ?? '') ? <span> at {jobData.company}</span> : ''}
+        {headerSubtitle}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
         <Chip label={APPLY_MODE_LABELS[application.apply_mode] ?? application.apply_mode} variant="outlined" />
         <Chip label={statusConf.label} color={statusConf.color} size="small" />
+        <StatusSelector application={application} onUpdateStatus={handleUpdateStatus} />
       </Box>
+      <ApplicationTimeline application={application} />
       {application.applied_at && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Applied on {new Date(application.applied_at).toLocaleString()}
@@ -210,7 +340,7 @@ function ApplicationDetailPage() {
             <Typography variant="subtitle2" color="success.main" sx={{ mb: 1 }}>
               Why you match
             </Typography>
-            {(application.reasoning as { matches?: string[] } | null)?.matches?.map((match: string, i: number) => (
+            {matches.map((match: string, i: number) => (
               <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
                 ✓ {match}
               </Typography>
@@ -218,7 +348,7 @@ function ApplicationDetailPage() {
             <Typography variant="subtitle2" color="error.main" sx={{ mt: 2, mb: 1 }}>
               Gaps
             </Typography>
-            {(application.reasoning as { gaps?: string[] } | null)?.gaps?.map((gap: string, i: number) => (
+            {gaps.map((gap: string, i: number) => (
               <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
                 ✗ {gap}
               </Typography>

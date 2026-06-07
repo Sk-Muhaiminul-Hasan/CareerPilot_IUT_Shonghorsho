@@ -9,21 +9,47 @@ import type {
   ResumeContentUpdate,
 } from '@/types/resume';
 
-/** Upload a PDF or DOCX resume file. */
-export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const { data } = await api.post<ResumeUploadResponse>('/resumes/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return data;
+/** Authenticated download of a resume as PDF or DOCX. */
+export async function downloadResume(
+  resumeId: string,
+  format: 'pdf' | 'docx',
+): Promise<void> {
+  try {
+    const response = await api.get(
+      `/resumes/${resumeId}/download?format=${format}`,
+      { responseType: 'blob' },
+    );
+    const filename =
+      getFilenameFromContentDisposition(response.headers['content-disposition']) ??
+      `resume.${format}`;
+    triggerBrowserDownload(response.data, filename);
+  } catch (error) {
+    if (format === 'pdf') {
+      try {
+        const response = await api.get(
+          `/resumes/${resumeId}/download?format=docx`,
+          { responseType: 'blob' },
+        );
+        const filename =
+          getFilenameFromContentDisposition(response.headers['content-disposition']) ??
+          'resume.docx';
+        triggerBrowserDownload(response.data, filename);
+        return;
+      } catch {
+        // docx also failed, surface the original error
+      }
+    }
+    console.error('Failed to download resume:', error);
+    throw error;
+  }
 }
 
-
-/** Authenticated download of a resume as PDF or DOCX. */
-export async function downloadResume(resumeId: string, format: 'pdf' | 'docx'): Promise<void> {
-  const response = await api.get(getDownloadUrl(resumeId, format), { responseType: 'blob' });
-  triggerBrowserDownload(response.data, `resume.${format}`);
+function getFilenameFromContentDisposition(header: string | undefined): string | null {
+  if (!header) return null;
+  const match = header.match(/filename\*?=['"]?([^'";]+)['"]?/i);
+  if (match?.[1]) return decodeURIComponent(match[1]);
+  const simpleMatch = header.match(/filename=['"]?([^'";]+)['"]?/i);
+  return simpleMatch?.[1] ?? null;
 }
 
 function triggerBrowserDownload(blob: Blob, filename: string): void {
@@ -68,6 +94,7 @@ export async function scoreResume(
 
 /** Optimize a resume for ATS keyword matching. */
 export async function optimizeResume(resumeId: string): Promise<Resume> {
+
   const { data } = await api.post<Resume>(`/resumes/${resumeId}/optimize`);
   return data;
 }
@@ -81,14 +108,14 @@ export async function getResumeContent(resumeId: string): Promise<ResumeContent>
 /** Update parsed resume text. */
 export async function updateResumeContent(
   resumeId: string,
-  request: ResumeContentUpdate,
-): Promise<ResumeContent> {
-  const { data } = await api.patch<ResumeContent>(`/resumes/${resumeId}/content`, request);
-  return data;
-}
+      request: ResumeContentUpdate,
+    ): Promise<ResumeContent> {
+      const { data } = await api.patch<ResumeContent>(`/resumes/${resumeId}/content`, request);
+      return data;
+    }
 
 /** Get the download URL for a resume file. */
 export function getDownloadUrl(resumeId: string, format: 'pdf' | 'docx' = 'pdf'): string {
-  const baseURL = api.defaults.baseURL ?? '/api/v1';
-  return `${baseURL}/resumes/${resumeId}/download?format=${format}`;
-}
+      const baseURL = api.defaults.baseURL ?? '/api/v1';
+      return `${baseURL}/resumes/${resumeId}/download?format=${format}`;
+    }

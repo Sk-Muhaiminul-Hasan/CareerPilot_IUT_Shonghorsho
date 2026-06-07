@@ -4,6 +4,7 @@ interface Notification {
   id: string;
   message: string;
   severity: 'success' | 'error' | 'warning' | 'info';
+  autoHideDuration?: number | null;
 }
 
 interface AppStoreState {
@@ -29,12 +30,13 @@ export const useAppStore = create<AppStoreState>((set) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  showNotification: (message, severity = 'info') =>
+  showNotification: (message: string, severity?: Notification['severity'], autoHideDuration?: number | null) =>
     set({
       notification: {
         id: crypto.randomUUID(),
         message,
-        severity,
+        severity: severity ?? 'info',
+        autoHideDuration: typeof autoHideDuration !== 'undefined' ? autoHideDuration : 5000,
       },
     }),
 

@@ -11,8 +11,9 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import ApplicationCard from '@/components/applications/ApplicationCard';
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { useApplications, useApproveApplication } from '@/hooks/useApplications';
+import { useApplications, useApproveApplication, useUpdateApplicationStatus } from '@/hooks/useApplications';
 import { useAppStore } from '@/store/useAppStore';
+import { useNavigate } from 'react-router-dom';
 
 const STATUS_TABS = [
   { label: 'All', value: undefined },
@@ -29,10 +30,12 @@ function ApplicationsPage() {
   const [tabIndex, setTabIndex] = useState(0);
   const [page, setPage] = useState(1);
   const showNotification = useAppStore((s) => s.showNotification);
+  const navigate = useNavigate();
 
   const currentStatus = STATUS_TABS[tabIndex]?.value;
   const { data: appsData, isLoading, isError } = useApplications(page, 20, currentStatus);
   const approveMutation = useApproveApplication();
+  const updateStatusMutation = useUpdateApplicationStatus();
 
   const handleTabChange = useCallback((_: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
@@ -52,6 +55,26 @@ function ApplicationsPage() {
   const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
   }, []);
+
+  const handleUpdateStatus = useCallback(
+    (appId: string, status: string) => {
+      updateStatusMutation.mutate(
+        { appId, update: { status } },
+        {
+          onSuccess: () => showNotification(`Status updated to ${status}.`, 'success'),
+          onError: () => showNotification('Failed to update status.', 'error'),
+        },
+      );
+    },
+    [updateStatusMutation, showNotification],
+  );
+
+  const handleAppClick = useCallback(
+    (appId: string) => {
+      navigate(`/applications/${appId}`);
+    },
+    [navigate],
+  );
 
   return (
     <ErrorBoundary>
@@ -102,7 +125,12 @@ function ApplicationsPage() {
             <Grid container spacing={2}>
               {appsData.items.map((app) => (
                 <Grid item xs={12} sm={6} lg={4} key={app.id}>
-                  <ApplicationCard application={app} onApprove={handleApprove} />
+                  <ApplicationCard
+                    application={app}
+                    onApprove={handleApprove}
+                    onUpdateStatus={handleUpdateStatus}
+                    onClick={handleAppClick}
+                  />
                 </Grid>
               ))}
             </Grid>

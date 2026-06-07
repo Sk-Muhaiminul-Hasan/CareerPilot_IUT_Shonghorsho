@@ -173,46 +173,7 @@ class GlassdoorPlatform(JobPlatform):
         finally:
             await agent.close()
 
-        # Enrich with full description per job for better ATS scoring.
-        enriched: list[JobListing] = []
-        for listing in listings:
-            if not listing.url:
-                enriched.append(listing)
-                continue
-            try:
-                details = await self.scrape_details(listing.url)
-                if details is not None and details.description:
-                    enriched.append(
-                        listing.model_copy(
-                            update={
-                                "description": details.description,
-                                "skills_required": details.skills_required
-                                or listing.skills_required,
-                                "salary_min": details.salary_min or listing.salary_min,
-                                "salary_max": details.salary_max or listing.salary_max,
-                                "salary_range": listing.salary_range
-                                or details.salary_range,
-                                "job_type": listing.job_type or details.job_type,
-                                "remote": listing.remote or details.remote,
-                            },
-                        )
-                    )
-                else:
-                    enriched.append(listing)
-            except Exception as exc:
-                logger.warning(
-                    "glassdoor.enrich_failed",
-                    url=listing.url,
-                    error=str(exc),
-                )
-                enriched.append(listing)
-
-        logger.info(
-            "glassdoor.enrichment_complete",
-            query=query,
-            enriched=sum(1 for l in enriched if len(l.description) > 200),
-        )
-        return enriched
+        return listings
 
     async def scrape_details(self, job_url: str) -> JobListing | None:
         """Scrape full job details from a Glassdoor job page.

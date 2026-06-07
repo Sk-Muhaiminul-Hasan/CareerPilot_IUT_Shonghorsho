@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
+from sqlalchemy import select
 
+from app.api.websocket.events import manager as ws_manager
 from app.core.automation.agent import BrowserAgent
 from app.core.automation.platforms.base import JobListing, JobPlatform
 from app.core.automation.session_manager import SessionManager
@@ -18,6 +20,8 @@ from app.core.exceptions import (
     AuthenticationError,
     SearchError,
 )
+from app.db.session import AsyncSessionLocal
+from app.models.job import Job
 
 logger = structlog.get_logger(__name__)
 
@@ -68,7 +72,10 @@ class LinkedInPlatform(JobPlatform):
                     "Navigate to https://www.linkedin.com/feed/. "
                     "Check if the page shows a logged-in LinkedIn feed. "
                     "If the page redirects to a login form, report 'NOT_LOGGED_IN'. "
-                    "If the feed loads normally, report 'LOGGED_IN'."
+                    "If the feed loads normally, report 'LOGGED_IN'. "
+                    "Your very last action must be `done` with exactly one key: "
+                    '{"done": {"text": "<STATUS>"}, "success": true} '
+                    "where <STATUS> is the literal string LOGGED_IN or NOT_LOGGED_IN."
                 ),
                 llm=llm,
             )
@@ -124,16 +131,6 @@ class LinkedInPlatform(JobPlatform):
         location: str = "",
         filters: dict[str, Any] | None = None,
         ) -> list[JobListing]:
-        import os
-        # Login before searching
-        try:
-            await self.login({
-                "email": os.environ.get("LINKEDIN_EMAIL", ""),
-                "password": os.environ.get("LINKEDIN_PASSWORD", ""),
-            })
-        except Exception as e:
-            logger.warning("linkedin.login_skipped", error=str(e))
-
         search_url = f"{LINKEDIN_JOBS_URL}?keywords={query}"
         if location:
             search_url += f"&location={location}"
@@ -154,7 +151,11 @@ class LinkedInPlatform(JobPlatform):
             "tag on the card, the location text, or the description snippet. "
             "Also set remote=true if \"remote\" appears anywhere on the card. "
             "Return as JSON array with keys: id, title, company, location, url, "
-            "description, salary_range, deadline, work_type, remote."
+            "description, salary_range, deadline, work_type, remote. "
+            "CRITICAL: After the extraction, your absolute last action must be `done` with success=true. "
+            "Set done.text to the RAW JSON array ONLY — no surrounding text. "
+            "Example done.text: "
+            '[{"id":"...","title":"...","company":"...","location":"...","url":"...","description":"...","salary_range":null,"deadline":"...","work_type":"...","remote":true}]'
         )
 
         llm = self._resolve_user_llm()
@@ -173,48 +174,100 @@ class LinkedInPlatform(JobPlatform):
         finally:
             await agent.close()
 
-        # Enrich each listing with full description by visiting its URL.
-        # This is slower (~10-30s total) but gives ATS scoring the complete JD
-        # with all keywords, requirements, and experience expectations.
-        enriched: list[JobListing] = []
-        for listing in listings:
-            if not listing.url:
-                enriched.append(listing)
-                continue
+        return listings
+
+    async def enrich(self, user_id: str, job_urls: list[str]) -> int:
+        """Scrape full details for a batch of job URLs and persist to DB.
+
+        For each URL the method calls :meth:`scrape_details`, then updates the
+        corresponding ``Job`` row with the enriched data. A WebSocket event is
+        pushed per job so the frontend can update in real time.
+
+        Args:
+            user_id: Owner of the jobs.
+            job_urls: Direct LinkedIn job posting URLs to enrich.
+
+        Returns:
+            Number of jobs successfully enriched.
+        """
+        import json as _json
+
+        enriched_count = 0
+
+        for job_url in job_urls:
             try:
-                details = await self.scrape_details(listing.url)
-                if details is not None and details.description:
-                    enriched.append(
-                        listing.model_copy(
-                            update={
-                                "description": details.description,
-                                "skills_required": details.skills_required
-                                or listing.skills_required,
-                                "salary_min": details.salary_min or listing.salary_min,
-                                "salary_max": details.salary_max or listing.salary_max,
-                                "salary_range": listing.salary_range
-                                or details.salary_range,
-                                "job_type": listing.job_type or details.job_type,
-                                "remote": listing.remote or details.remote,
-                            },
-                        )
-                    )
-                else:
-                    enriched.append(listing)
+                detailed = await self.scrape_details(job_url)
             except Exception as exc:
-                logger.warning(
-                    "linkedin.enrich_failed",
-                    url=listing.url,
+                logger.warning("linkedin.enrich_scrape_failed", url=job_url, error=str(exc))
+                continue
+
+            if detailed is None:
+                logger.warning("linkedin.enrich_no_details", url=job_url)
+                continue
+
+            try:
+                async with AsyncSessionLocal() as db:
+                    async with db.begin():
+                        result = await db.execute(
+                            select(Job).where(
+                                Job.platform_job_id == detailed.platform_job_id,
+                                Job.user_id == user_id,
+                            ),
+                        )
+                        job = result.scalar_one_or_none()
+                        if job is None:
+                            logger.warning(
+                                "linkedin.enrich_job_not_found",
+                                platform_job_id=detailed.platform_job_id,
+                                url=job_url,
+                            )
+                            continue
+
+                        if detailed.description:
+                            job.description = detailed.description
+                        if detailed.salary_range:
+                            job.salary_range = detailed.salary_range
+                        if detailed.work_type:
+                            job.work_type = detailed.work_type
+                        if detailed.deadline:
+                            job.deadline = _parse_iso_date(detailed.deadline) or job.deadline
+                        if detailed.skills_required:
+                            job.skills_required = detailed.skills_required
+                        job.is_enriched = True
+                enriched_count += 1
+                await ws_manager.send_to_user(
+                    user_id,
+                    {"type": "job_enriched", "job_id": str(job.id)},
+                )
+            except Exception as exc:
+                logger.error(
+                    "linkedin.enrich_save_failed",
+                    url=job_url,
                     error=str(exc),
                 )
-                enriched.append(listing)
+                continue
 
         logger.info(
             "linkedin.enrichment_complete",
-            query=query,
-            enriched=sum(1 for l in enriched if len(l.description) > 200),
+            user_id=user_id,
+            enriched=enriched_count,
+            total=len(job_urls),
         )
-        return enriched
+        return enriched_count
+
+    @staticmethod
+    def _parse_iso_date(value: str):
+        from datetime import datetime
+
+        if not value:
+            return None
+        text = value.strip()
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
+        return None
 
     async def scrape_details(self, job_url: str) -> JobListing | None:
         """Scrape full job details from a LinkedIn job page.
@@ -225,6 +278,10 @@ class LinkedInPlatform(JobPlatform):
         Returns:
             ``JobListing`` with full details, or ``None`` on failure.
         """
+        logger.info(
+            "linkedin.scrape_details.start",
+            url=job_url,
+        )
         task = (
             f"Navigate to {job_url}. Extract the full job posting details: "
             "job title, company name, location, full job description text, "
@@ -238,16 +295,43 @@ class LinkedInPlatform(JobPlatform):
         agent = BrowserAgent(task=task, llm=llm)
         try:
             result = await agent.run()
-            return self._parse_job_details(result, job_url)
+            parsed = self._parse_job_details(result, job_url)
+            logger.info(
+                "linkedin.scrape_details.parsed",
+                url=job_url,
+                result_type=type(result).__name__,
+                result_is_none=result is None,
+                parsed_is_none=parsed is None,
+                parsed_title=parsed.title if parsed is not None else None,
+                parsed_company=parsed.company if parsed is not None else None,
+                parsed_desc_len=(
+                    len(parsed.description) if parsed is not None and parsed.description else 0
+                ),
+            )
+            return parsed
         except Exception as exc:
             logger.warning(
-                "linkedin.scrape_failed",
+                "linkedin.scrape_details.failed",
                 url=job_url,
                 error=str(exc),
+                exc_type=type(exc).__name__,
+                exc_repr=repr(exc),
+            )
+            logger.debug(
+                "linkedin.scrape_details.traceback",
+                url=job_url,
+                exc_info=True,
             )
             return None
         finally:
-            await agent.close()
+            try:
+                await agent.close()
+            except Exception as close_exc:  # noqa: BLE001
+                logger.warning(
+                    "linkedin.scrape_details.close_failed",
+                    url=job_url,
+                    error=str(close_exc),
+                )
 
     async def apply(
         self,
@@ -351,57 +435,136 @@ class LinkedInPlatform(JobPlatform):
     def _decode_json_candidate(text: str) -> dict | list | None:
         """Return the first valid JSON object/array found in *text*, or ``None``.
 
-        Handles the three common shapes returned by browser-use
-        ``ActionResult.extracted_content``:
+        Handles the shapes returned by browser-use ``ActionResult.extracted_content``:
 
-        1. Browser-use wrapper: ``{"done": {"text": "<actual JSON>"}, "success": true}``
-        2. Bare JSON with trailing garbage after the closing ``]`` or ``}``
-        3. Multiple JSON values concatenated — returns the first complete value
+        1. Text prefix (e.g. ``📄 Extracted from page\n: ``) followed by JSON
+        2. Browser-use wrapper: ``{"done": {"text": "<actual JSON>"}, ...}``
+        3. Double-escaped JSON string embedded as a Python string literal
+           (e.g. ``[{\\"id\\":1}]`` — the agent serialised JSON inside a
+           string value, so ``\\\"`` is an escaped quote inside the outer
+           string representation)
+        4. Bare JSON with trailing garbage after the closing ``]`` or ``}``
         """
         import json
 
-        # Fast path: direct parse
+        # 1. Strip any text prefix (emojis, "Extracted from page", etc.) before
+        #    the first structural JSON character so we always start parsing from
+        #    a clean `{` or `[`.
+        #    Also unescape any double-escaped content so `{\\"id\\":1}` becomes
+        #    `{"id":1}` before `json.loads` is called.
+        def _clean(text_in: str) -> str:
+            cleaned = text_in.strip()
+            first = -1
+            for marker in ("{", "["):
+                idx = cleaned.find(marker)
+                if idx != -1:
+                    if first == -1 or idx < first:
+                        first = idx
+            if first == -1:
+                return cleaned
+            cleaned = cleaned[first:]
+            if "\\\\" in cleaned[:40] or "\\\\" in cleaned[-40:]:
+                cleaned = cleaned.replace('\\\\"', '"').replace('\\\\n', '\\n')
+            return cleaned
+
+        stripped = _clean(text)
+
+        # 2. Fast path: direct parse of the cleaned text
         try:
-            value = json.loads(text)
+            value = json.loads(stripped)
             if isinstance(value, (dict, list)):
                 return value
         except Exception:
             pass
 
-        # Unwrap {"done": {"text": "<json>"}}
+        # 3. Browser-use wrapper: {"done": {"text": "<json>"}, ...}
         try:
-            wrapper = json.loads(text)
+            wrapper = json.loads(stripped)
             if isinstance(wrapper, dict):
                 done = wrapper.get("done")
                 if isinstance(done, dict) and isinstance(done.get("text"), str):
                     inner = done["text"]
-                    value = json.loads(inner)
-                    if isinstance(value, (dict, list)):
-                        return value
+                    # inner may itself be a JSON-stringified value; try direct first
+                    try:
+                        value = json.loads(inner)
+                        # If it's a dict with a jobs/listings/results list, unwrap it
+                        if isinstance(value, dict):
+                            for key in ("jobs", "listings", "results"):
+                                val = value.get(key)
+                                if isinstance(val, list):
+                                    return val
+                        if isinstance(value, (dict, list)):
+                            return value
+                    except Exception:
+                        pass
+                    # inner may be double-escaped (e.g. [\"id\":1])
+                    return LinkedInPlatform._decode_double_escaped_json(inner)
         except Exception:
             pass
 
-        # Walk from each '[' or '{' until we decode a real dict/list
+        # 4. The whole text may be a double-escaped JSON string literal
+        if stripped.startswith("[{") and "\\" in stripped[:20]:
+            return LinkedInPlatform._decode_double_escaped_json(stripped)
+
+        # 5. Walk from each '[' or '{' until we decode a real dict/list
         decoder = json.JSONDecoder()
         start = 0
         while True:
             bracket = -1
             for marker in ("[", "{"):
-                idx = text.find(marker, start)
+                idx = stripped.find(marker, start)
                 if idx != -1:
                     if bracket == -1 or idx < bracket:
                         bracket = idx
             if bracket == -1:
                 break
             try:
-                value, end = decoder.raw_decode(text, bracket)
+                value, end = decoder.raw_decode(stripped, bracket)
                 if isinstance(value, (dict, list)):
                     return value
             except json.JSONDecodeError:
                 pass
             start = bracket + 1
-            if start >= len(text):
+            if start >= len(stripped):
                 break
+
+        return None
+
+    @staticmethod
+    def _decode_double_escaped_json(text: str) -> dict | list | None:
+        """Unescape a double-escaped JSON string and parse it.
+
+        The browser-use agent sometimes emits JSON as the *string contents* of
+        a ``done`` action, e.g.::
+
+            "[{\\"id\\":1, \\"title\\": \\"Engineer\\"}]"
+
+        After the outer wrapper is removed we are left with a Python-style
+        string repr of JSON.  Wrapping it in quotes and calling ``json.loads``
+        twice reconstructs the original JSON structure.
+        """
+        import json
+
+        # Normalise literal newlines that were escaped as \\\\n
+        cleaned = text.replace('\\\\n', '\\n')
+        try:
+            # The string is a JSON string literal — wrap and decode once to
+            # get the inner JSON text, then decode again to get the object.
+            inner = json.loads(f'"{cleaned}"')
+            value = json.loads(inner)
+            if isinstance(value, (dict, list)):
+                return value
+        except Exception:
+            pass
+
+        # Fallback: naive unescape then try once more
+        fallback = cleaned.replace('\\"', '"').replace('\\\\', '\\')
+        try:
+            value = json.loads(fallback)
+            if isinstance(value, (dict, list)):
+                return value
+        except Exception:
+            pass
 
         return None
 
@@ -460,11 +623,36 @@ class LinkedInPlatform(JobPlatform):
                         logger.info(
                             "linkedin.parse_search_results.json_found",
                             source=f"history[{h_idx}].result[{r_idx}].extracted_content",
-                            content_len=len(text),
+                            content_len=len(content),
                         )
                         break
             if text:
                 break
+
+        # Super-fallback: try decoding every history/source item through the
+        # tolerant decoder regardless of leading non-JSON prefix.
+        if not text:
+            for h_idx, hist in enumerate(items):
+                results = getattr(hist, 'result', []) if hasattr(hist, 'result') else (hist.get('result', []) if isinstance(hist, dict) else [])
+                for r_idx, result in enumerate(results):
+                    raw = ""
+                    if hasattr(result, 'extracted_content'):
+                        raw = result.extracted_content or ""
+                    elif hasattr(result, 'text'):
+                        raw = result.text or ""
+                    elif isinstance(result, dict):
+                        raw = result.get('extracted_content') or result.get('text') or ""
+                    decoded = self._decode_json_candidate(raw)
+                    if decoded is not None:
+                        text = raw
+                        logger.info(
+                            "linkedin.parse_search_results.json_found_via_decoder",
+                            source=f"history[{h_idx}].result[{r_idx}]",
+                            content_len=len(raw),
+                        )
+                        break
+                if text:
+                    break
 
         # Fallback: final_result text (usually a summary, rarely the JSON)
         if not text and hasattr(raw_result, 'final_result'):
@@ -620,6 +808,11 @@ class LinkedInPlatform(JobPlatform):
     ) -> JobListing | None:
         """Parse scraped job details into a JobListing model.
 
+        The browser-use ``Agent.run()`` returns an ``AgentHistoryList`` whose
+        JSON payload is tucked into ``history[i].result[j].extracted_content``,
+        not a plain ``dict``. This walker mirrors :meth:`_parse_search_results`
+        so that the same shape is handled uniformly.
+
         Args:
             raw_result: Raw output from the browser-use Agent.
             url: The job posting URL.
@@ -627,30 +820,140 @@ class LinkedInPlatform(JobPlatform):
         Returns:
             ``JobListing`` with full details, or ``None`` if unparseable.
         """
+        payload: dict | None = None
+
+        # 1. Direct dict (legacy / synthetic callers).
         if isinstance(raw_result, dict):
-            return JobListing(
-                platform="linkedin",
-                platform_job_id=str(raw_result.get("id", "")),
-                title=raw_result.get("title", ""),
-                company=raw_result.get("company", ""),
-                location=raw_result.get("location", ""),
-                url=url,
-                description=raw_result.get("description", ""),
-                skills_required=raw_result.get("skills", []),
-                salary_min=raw_result.get("salary_min"),
-                salary_max=raw_result.get("salary_max"),
-                salary_range=raw_result.get("salary_range", ""),
-                job_type=raw_result.get("job_type", ""),
-                remote=raw_result.get("remote", False),
-                work_type=_normalize_work_type(
-                    raw_result.get("work_type", ""),
-                ),
-                deadline=raw_result.get("deadline", ""),
-            )
-        return None
+            payload = raw_result
+
+        # 2. AgentHistoryList → walk history[*].result[*].extracted_content.
+        if payload is None:
+            history_list = getattr(raw_result, "history", None)
+            history_list = getattr(history_list, "history", history_list)
+            if history_list:
+                for hist in history_list:
+                    results = getattr(hist, "result", None) or (
+                        hist.get("result") if isinstance(hist, dict) else None
+                    )
+                    if not results:
+                        continue
+                    for item in results:
+                        # ``item`` may be a dict OR an object with
+                        # ``extracted_content`` (browser-use ``ActionResult``).
+                        if isinstance(item, dict):
+                            content = item.get("extracted_content")
+                            if not content:
+                                content = item.get("content")
+                        else:
+                            content = getattr(item, "extracted_content", None)
+                            if not content:
+                                content = getattr(item, "content", None)
+
+                        if not content:
+                            continue
+                        if isinstance(content, str):
+                            text = content.strip()
+                            if not (
+                                text.startswith("{") or text.startswith("[")
+                            ):
+                                continue
+                            parsed = self._decode_json_candidate(text)
+                            if (
+                                parsed
+                                and isinstance(parsed, dict)
+                                and (
+                                    "title" in parsed
+                                    or "description" in parsed
+                                    or "company" in parsed
+                                )
+                            ):
+                                payload = parsed
+                                break
+                    if payload is not None:
+                        break
+
+        # 3. Fallback to ``final_result`` text (e.g. a markdown summary).
+        if payload is None:
+            final_text = ""
+            get_final = getattr(raw_result, "final_result", None)
+            if callable(get_final):
+                try:
+                    final_text = get_final() or ""
+                except Exception:  # pragma: no cover - defensive
+                    final_text = ""
+            if isinstance(final_text, str) and final_text.strip():
+                decoded = self._decode_json_candidate(final_text)
+                if isinstance(decoded, dict):
+                    payload = decoded
+
+        # 4. Last-ditch: stringify and try tolerant decode.
+        if payload is None:
+            decoded = self._decode_json_candidate(str(raw_result))
+            if isinstance(decoded, dict):
+                payload = decoded
+
+        if not isinstance(payload, dict):
+            return None
+
+        title = (payload.get("title") or "").strip()
+        if not title:
+            # A job-details payload without a title is unusable.
+            return None
+
+        # Coerce skills list (LLM sometimes returns comma-separated string).
+        skills_raw = payload.get("skills") or payload.get(
+            "skills_required"
+        ) or []
+        if isinstance(skills_raw, str):
+            skills_list = [
+                s.strip() for s in skills_raw.split(",") if s.strip()
+            ]
+        elif isinstance(skills_raw, list):
+            skills_list = [str(s).strip() for s in skills_raw if str(s).strip()]
+        else:
+            skills_list = []
+
+        return JobListing(
+            platform="linkedin",
+            platform_job_id=str(
+                payload.get("id") or payload.get("platform_job_id") or ""
+            ),
+            title=title,
+            company=(payload.get("company") or "").strip(),
+            location=(payload.get("location") or "").strip(),
+            url=url,
+            description=(payload.get("description") or "").strip(),
+            skills_required=skills_list,
+            salary_min=_coerce_int(payload.get("salary_min")),
+            salary_max=_coerce_int(payload.get("salary_max")),
+            salary_range=(payload.get("salary_range") or "").strip(),
+            job_type=(payload.get("job_type") or "").strip(),
+            remote=bool(payload.get("remote", False)),
+            work_type=_normalize_work_type(payload.get("work_type", "")),
+            deadline=(payload.get("deadline") or "").strip(),
+        )
 
 
 _VALID_WORK_TYPES = {"", "remote", "hybrid", "onsite"}
+
+
+def _coerce_int(value: Any) -> int | None:
+    """Best-effort coerce a value to ``int``; return ``None`` if not numeric."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        digits = re.sub(r"[^0-9.\-]", "", value)
+        if not digits or digits in {"-", ".", "-."}:
+            return None
+        try:
+            return int(float(digits))
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 def _normalize_work_type(value: Any) -> str:

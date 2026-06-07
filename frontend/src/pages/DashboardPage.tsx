@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+import Typography from '@mui/material/Typography';
 ﻿import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -20,6 +22,9 @@ import type { ApiError } from '@/types/api';
 import { useDashboardStats, useApplicationFunnel } from '@/hooks/useAnalytics';
 import { useApplications } from '@/hooks/useApplications';
 import { useNudge, useNudgeAIError } from '@/hooks/useNudge';
+import { useJobStore } from '@/store/useJobStore';
+import ListItemButton from '@mui/material/ListItemButton';
+import { useNavigate } from 'react-router-dom';
 import { useGoals, useCalendarEvents, useWeeklyProgress } from '@/hooks/useDashboard';
 
 import RecentApplications from '@/components/dashboard/RecentApplications';
@@ -78,6 +83,25 @@ function DashboardPage() {
 
   const { data: nudge, isLoading: nudgeLoading, error: nudgeError } = useNudge();
   const aiNotConfigured = useNudgeAIError(nudgeError as ApiError | null | undefined);
+  const { openDetail } = useJobStore();
+  const navigate = useNavigate();
+
+  const handleViewDetails = useCallback((jobId: string) => {
+    navigate('/jobs');
+    openDetail(jobId);
+  }, [navigate, openDetail]);
+
+  const handleNudgeApply = useCallback((jobId: string) => {
+    navigate('/jobs');
+    openDetail(jobId);
+  }, [navigate, openDetail]);
+
+  const handleAppClick = useCallback(
+    (appId: string) => {
+      navigate(`/applications/${appId}`);
+    },
+    [navigate],
+  );
 
   const { title, subtitle } = TAB_TITLES[activeTab];
 
@@ -88,8 +112,10 @@ function DashboardPage() {
         {aiNotConfigured ? (
           <AINotConfiguredBanner message="Configure your AI model to unlock personalized nudges." />
         ) : (
-          <NudgeCard nudge={nudge} loading={nudgeLoading} />
+          <NudgeCard nudge={nudge} loading={nudgeLoading} onViewDetails={handleViewDetails} onApply={handleNudgeApply} />
         )}
+
+
 
         {/* ── Page header ───────────────────────────────────────── */}
         <Box
@@ -226,6 +252,7 @@ function DashboardPage() {
 
         {/* ── Goals tab ────────────────────────────────────────── */}
         {activeTab === 'goals' && <GoalsView />}
+
 
       </Box>
     </ErrorBoundary>

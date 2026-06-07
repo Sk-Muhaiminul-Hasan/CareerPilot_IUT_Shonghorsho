@@ -415,35 +415,93 @@ class DocumentParser:
     def parse_experience_section(self, text: str) -> list[dict]:
         entries: list[dict] = []
         current: dict | None = None
+
+        year_re = re.compile(r"\b(19|20)\d{2}\b")
+        delimiters = (" | ", " \u2014 ", " @ ", " - ")
+
+        def looks_like_duration(value: str) -> bool:
+            return bool(year_re.search(value))
+
+        def split_header(header: str) -> tuple[str, str, str]:
+            for delim in delimiters:
+                if delim in header:
+                    parts = [p.strip() for p in header.split(delim)]
+                    if len(parts) >= 3:
+                        title, company, duration = parts[0], parts[1], parts[2]
+                        return title, company, duration
+                    if len(parts) == 2:
+                        if looks_like_duration(parts[1]):
+                            return parts[0], "", parts[1]
+                        return parts[0], parts[1], ""
+                    return header, "", ""
+            return header, "", ""
+
         for line in text.split("\n"):
             stripped = line.strip()
             if not stripped:
                 continue
-            if not stripped.startswith(("•", "-", "*", "·")) and len(stripped) < 80:
+            is_bullet = stripped.startswith(("•", "-", "*", "·"))
+            if not is_bullet and len(stripped) < 120:
                 if current:
                     entries.append(current)
+                title, company, duration = split_header(stripped)
                 current = {
-                    "title": stripped,
-                    "company": "",
-                    "duration": "",
+                    "title": title,
+                    "company": company,
+                    "duration": duration,
                     "description": "",
                 }
             elif current:
-                current["description"] += stripped.lstrip("•-*· ") + "\n"
+                if stripped.startswith(("•", "-", "*", "·")):
+                    cleaned = stripped.lstrip("•-*· ").strip()
+                else:
+                    cleaned = stripped
+                current["description"] += cleaned + "\n"
+
         if current:
             entries.append(current)
         return entries
 
     def parse_education_section(self, text: str) -> list[dict]:
         entries: list[dict] = []
+        year_re = re.compile(r"\b(19|20)\d{2}\b")
+        year_range_re = re.compile(r"\b(19|20)\d{2}[\u2013-](present|current|(?:19|20)\d{2})\b")
+
+        def _extract_year(line: str) -> tuple[str, str]:
+            m = year_range_re.search(line)
+            if m:
+                normalized = m.group(0).replace("\u2013", "-")
+                start, end = normalized.split("-")
+                return start, end
+            m = year_re.search(line)
+            if m:
+                return m.group(0), m.group(0)
+            return "", ""
+
         for line in text.split("\n"):
             stripped = line.strip()
             if not stripped or stripped.startswith(("•", "-", "*")):
                 continue
+
+            start_year, end_year = _extract_year(stripped)
+            year = ""
+            if start_year and end_year:
+                year = f"{start_year}-{end_year}" if start_year != end_year else start_year
+
+            degree = stripped
+            institution = ""
+            if year:
+                year_start = stripped.find(start_year)
+                degree = stripped[:year_start].strip(" \u2014,|-")
+                after = stripped[year_start + len(start_year):]
+                if end_year:
+                    after = after[after.find(end_year) + len(end_year):]
+                institution = after.strip(" \u2014,|-")
+
             entries.append({
-                "degree": stripped,
-                "institution": "",
-                "year": "",
+                "degree": degree,
+                "institution": institution,
+                "year": year,
             })
         return entries
 

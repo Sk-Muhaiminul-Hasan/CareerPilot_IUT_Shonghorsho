@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.documents.generator import DocumentGenerator
 from app.core.documents.parser import DocumentParser, ParsedResume
 from app.core.exceptions import ParseError, RecordNotFoundError
-from app.core.llm.client import LLMClient, LLMNotConfiguredError
+from app.core.llm.client import LLMClient
 from app.core.storage import storage as storage_client
 from app.models.job import Job
 from app.models.resume import Resume
@@ -33,7 +33,92 @@ from app.schemas.resume import (
 
 logger = structlog.get_logger(__name__)
 
-_parser = DocumentParser()
+_parser = None
+
+
+def _get_parser() -> DocumentParser:
+    return DocumentParser()
+
+
+def _serialize_resume_data_to_text(data: dict) -> str:
+    name = data.get("name", "")
+    email = data.get("email", "")
+    phone = data.get("phone", "")
+    linkedin = data.get("linkedin", "")
+    github = data.get("github", "")
+
+    lines: list[str] = []
+    lines.append(name or "")
+    contact_parts = [p for p in (email, phone, linkedin, github) if p]
+    if contact_parts:
+        lines.append("Contact: " + " | ".join(contact_parts))
+
+    summary = data.get("summary", "")
+    if summary:
+        lines.append("")
+        lines.append("SUMMARY")
+        lines.append(summary)
+
+    skills = data.get("skills", [])
+    if skills:
+        lines.append("")
+        lines.append("SKILLS")
+        lines.append(", ".join(skills))
+
+    experience = data.get("experience", [])
+    if experience:
+        lines.append("")
+        lines.append("EXPERIENCE")
+        for exp in experience:
+            title = exp.get("title", "")
+            company = exp.get("company", "")
+            duration = exp.get("duration", "")
+            parts = [title, company, duration]
+            header = " — ".join(p for p in parts if p)
+            lines.append(header)
+            desc = exp.get("description", "")
+            if isinstance(desc, str):
+                for bullet in desc.split("\n"):
+                    bullet = bullet.strip()
+                    if bullet:
+                        lines.append(f"- {bullet}")
+
+    education = data.get("education", [])
+    if education:
+        lines.append("")
+        lines.append("EDUCATION")
+        for edu in education:
+            degree = edu.get("degree", "")
+            institution = edu.get("institution", "")
+            year = edu.get("year", "")
+            parts = [degree, institution, year]
+            line = " — ".join(p for p in parts if p)
+            lines.append(line)
+
+    certifications = data.get("certifications", [])
+    if certifications:
+        lines.append("")
+        lines.append("CERTIFICATIONS")
+        for cert in certifications:
+            if isinstance(cert, str) and cert.strip():
+                lines.append(f"- {cert.strip()}")
+
+    projects = data.get("projects", [])
+    if projects:
+        lines.append("")
+        lines.append("PROJECTS")
+        for proj in projects:
+            proj_name = proj.get("name", "") if isinstance(proj, dict) else str(proj)
+            if proj_name:
+                lines.append(proj_name)
+            desc = proj.get("description", "") if isinstance(proj, dict) else ""
+            if isinstance(desc, str):
+                for bullet in desc.split("\n"):
+                    bullet = bullet.strip()
+                    if bullet:
+                        lines.append(f"- {bullet}")
+
+    return "\n".join(lines)
 
 
 def _extract_skills_text_based(text: str) -> list[str]:
@@ -128,7 +213,7 @@ async def upload_resume(
             tmp_path = tmp.name
 
         try:
-            parsed: ParsedResume = await _parser.parse(Path(tmp_path))
+            parsed: ParsedResume = await _get_parser().parse(Path(tmp_path))
             parsed_text = parsed.raw_text
             word_count = parsed.word_count
             skills_detected = _extract_skills(parsed_text)
@@ -373,6 +458,10 @@ async def generate_tailored_resume(
     )
 
     # Create the tailored resume record
+    if doc.tailored_data:
+        tailored_content = _serialize_resume_data_to_text(doc.tailored_data)
+    else:
+        tailored_content = _serialize_resume_data_to_text(resume_data)
     tailored = Resume(
         name=f"Tailored - {base.name}",
         type="tailored",
@@ -381,7 +470,7 @@ async def generate_tailored_resume(
         job_id=request.job_id,
         file_path_pdf=doc.pdf_path,
         file_path_docx=doc.docx_path,
-        content_text=base.content_text,
+        content_text=tailored_content,
         user_id=user_id,
     )
     db.add(tailored)
@@ -647,7 +736,7 @@ async def optimize_resume(
         prompt=prompt,
         output_schema=TailoredResumeData,
         system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
-        purpose="ats_optimize",
+        purpose="extraction",
         user_settings=user_cfg,
     )
 
@@ -662,7 +751,7 @@ async def optimize_resume(
         resume_data=optimized_data.model_dump() | {"user_id": user_id},
         job_description="",
         template_name=resume.template_id,
-        formats=["pdf", "docx"],
+        formats=["docx"],
     )
 
     # Create new optimized resume record

@@ -68,6 +68,8 @@ class ApplicationResponse(BaseModel):
 
     id: str
     job_id: str
+    job_title: str | None = None
+    job_company: str | None = None
     resume_id: str | None = None
     status: str
     apply_mode: str

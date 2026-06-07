@@ -139,7 +139,7 @@ function App() {
 
       <Snackbar
         open={!!notification}
-        autoHideDuration={5000}
+        autoHideDuration={notification?.autoHideDuration ?? 5000}
         onClose={clearNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >

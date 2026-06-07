@@ -115,6 +115,21 @@ class DOCXRenderer:
                 doc.add_heading("Skills", level=1)
                 doc.add_paragraph(", ".join(skills))
 
+            # Projects
+            projects: list[dict] = context.get("projects", [])
+            if projects:
+                doc.add_heading("Projects", level=1)
+                for proj in projects:
+                    p = doc.add_paragraph()
+                    run = p.add_run(proj.get("name", ""))
+                    run.bold = True
+                    desc = proj.get("description", "")
+                    if desc:
+                        for bullet in desc.split("\n"):
+                            bullet = bullet.strip()
+                            if bullet:
+                                doc.add_paragraph(bullet, style="List Bullet")
+
             # Certifications (optional)
             certs: list[str] = context.get("certifications", [])
             if certs:

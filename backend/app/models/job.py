@@ -2,7 +2,17 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, Float, Index, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -60,6 +70,7 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Status tracking
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="new")
+    is_enriched: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(  # noqa: F821
