@@ -59,6 +59,19 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
         pass
 
     try:
+        from app.core.llm.usage_tracker import record_usage
+
+        async def _record(response: LLMResponse) -> None:
+            try:
+                if response.cost_usd > 0:
+                    async with async_session_factory() as _usage_db:
+                        await record_usage(
+                            db=_usage_db, response=response,
+                            purpose="cv_extraction", user_id=user_id,
+                        )
+            except Exception:
+                pass
+
         llm = LLMClient()
         result = await llm.complete_with_structured_output(
             prompt=(
@@ -68,6 +81,7 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
             output_schema=CandidateProfileSchema,
             purpose="extraction",
             user_settings=user_cfg,
+            post_complete=_record,
         )
         profile = result.model_dump()
     except Exception as exc:

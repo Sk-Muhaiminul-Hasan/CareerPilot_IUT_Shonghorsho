@@ -37,6 +37,7 @@ export interface ResumeScoreResponse {
   experience_score: number;
   education_score: number;
   keyword_score: number;
+  matched_skills: string[];
   missing_skills: string[];
   suggestions: string[];
 }

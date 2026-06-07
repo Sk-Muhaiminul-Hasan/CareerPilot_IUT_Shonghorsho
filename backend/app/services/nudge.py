@@ -147,6 +147,14 @@ async def get_nudge(
             user_settings=user_cfg,
         )
 
+        try:
+            from app.core.llm.usage_tracker import record_usage
+            await record_usage(
+                db=db, response=response, purpose="nudge", user_id=user_id,
+            )
+        except Exception:
+            pass
+
         data = json.loads(response.content)
         headline = str(data.get("headline") or fallback.headline)
         bullets = data.get("bullets") or fallback.bullets

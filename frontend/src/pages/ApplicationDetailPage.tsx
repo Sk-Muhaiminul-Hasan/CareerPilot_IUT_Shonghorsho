@@ -159,6 +159,37 @@ function ApplicationDetailPage() {
   const queryClient = useQueryClient();
   const { onScore } = useSharedWebSocket();
 
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [aiNotConfigured, setAINotConfigured] = useState(false);
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [resumeGenerating, setResumeGenerating] = useState(false);
+  const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
+
+  const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
+  const generateCoverLetterMutation = useGenerateCoverLetter();
+  const updateStatusMutation = useUpdateApplicationStatus();
+
+  const application: Application | undefined = appData;
+  const jobId = application?.job_id ?? '';
+  const { data: jobData, isLoading: jobLoading } = useJob(jobId || undefined);
+
+  const handleUpdateStatus = useCallback(
+    (appId: string, status: string) => {
+      updateStatusMutation.mutate(
+        { appId, update: { status } as ApplicationStatusUpdate },
+        {
+          onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
+          },
+        },
+      );
+    },
+    [updateStatusMutation, queryClient],
+  );
+
   useEffect(() => {
     if (!appId) return;
     const unsubscribe = onScore((data: { application_id: string; ats_score: number | null; reasoning: unknown }) => {
@@ -169,23 +200,7 @@ function ApplicationDetailPage() {
     return unsubscribe;
   }, [appId, queryClient, onScore]);
 
-  const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
-  const generateCoverLetterMutation = useGenerateCoverLetter();
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const [aiNotConfigured, setAINotConfigured] = useState(false);
-
-  const [resumeModalOpen, setResumeModalOpen] = useState(false);
-  const [resumeGenerating, setResumeGenerating] = useState(false);
-  const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
-  const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
-
-  const application: Application | undefined = appData;
-  const jobId = application?.job_id ?? '';
-  const { data: jobData, isLoading: jobLoading } = useJob(jobId || undefined);
-
-  const handleGenerateResume = async () => {
+  const handleGenerateResume = useCallback(async () => {
     if (!application?.resume_id || !application?.job_id) return;
     setResumeGenerating(true);
     setResumeGenerateError(null);
@@ -203,29 +218,18 @@ function ApplicationDetailPage() {
     } finally {
       setResumeGenerating(false);
     }
-  };
+  }, [application, selectedTemplate]);
 
-  const handleResumeModalClose = () => {
+  const handleResumeModalClose = useCallback(() => {
     setResumeModalOpen(false);
     setResumeGenerateError(null);
     setGeneratedResumeId(null);
-  };
+  }, []);
 
-  const updateStatusMutation = useUpdateApplicationStatus();
-
-  const handleUpdateStatus = useCallback(
-    (appId: string, status: string) => {
-      updateStatusMutation.mutate(
-        { appId, update: { status } as ApplicationStatusUpdate },
-        {
-          onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ['applications', 'detail', appId] });
-          },
-        },
-      );
-    },
-    [updateStatusMutation, queryClient],
-  );
+  const detailTitle = jobData?.title ?? application?.job_title ?? 'Application';
+  const headerSubtitle = `${detailTitle}${jobData?.company ?? application?.job_company ? ` @ ${jobData?.company ?? application?.job_company}` : ''} — ${formatCardDate(application?.created_at)}`;
+  const atsScore = application?.ats_score ?? 0;
+  const statusConf = STATUS_CONFIG[application?.status ?? ''] ?? { label: application?.status ?? '', color: 'default' as const };
 
   if (appLoading) {
     return (
@@ -245,23 +249,6 @@ function ApplicationDetailPage() {
     );
   }
 
-  const statusConf = STATUS_CONFIG[application.status] ?? { label: application.status, color: 'default' as const };
-  const atsScore = application.ats_score ?? 0;
-
-  const detailTitle = jobLoading
-    ? application.id.slice(0, 8)
-    : (jobData?.title || application.id.slice(0, 8));
-  const detailSubtitle = jobLoading
-    ? 'Loading job details...'
-    : (jobData?.company ? `${jobData.title ?? 'Application'} at ${jobData.company}` : jobData?.title || 'Application');
-  const detailDate = formatCardDate(application.created_at);
-  const headerSubtitle = jobData?.company
-    ? `${jobData.title || 'Application'} at ${jobData.company} — ${detailDate}`
-    : `${detailSubtitle} — ${detailDate}`;
-
-  const displayStatus = application.reasoning as { matches?: string[]; gaps?: string[] } | null | undefined;
-  const matches = displayStatus?.matches ?? [];
-  const gaps = displayStatus?.gaps ?? [];
 
   return (
     <Box>
@@ -299,10 +286,26 @@ function ApplicationDetailPage() {
         </Typography>
         {application.ats_score === null || application.ats_score === undefined ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
-            <Skeleton variant="circular" width={72} height={72} />
+            <Box
+              sx={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: atsScore >= 0.75 ? '#E1F5EE' : atsScore >= 0.5 ? '#FAEEDA' : '#FCEBEB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Typography variant="h6" fontWeight={500} sx={{ color: atsScore >= 0.75 ? '#0F6E56' : atsScore >= 0.5 ? '#854F0B' : '#A32D2D' }}>
+                --
+              </Typography>
+            </Box>
             <Box>
-              <Skeleton width={120} height={20} />
-              <Skeleton width={80} height={16} sx={{ mt: 0.5 }} />
+              <Typography variant="subtitle2">ATS Score</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Loading score...
+              </Typography>
             </Box>
           </Box>
         ) : (
@@ -327,45 +330,67 @@ function ApplicationDetailPage() {
               <Typography variant="caption" color="text.secondary">
                 {atsScore >= 0.75 ? 'Strong match' : atsScore >= 0.5 ? 'Partial match' : 'Weak match'}
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {application.reasoning === null || application.reasoning === undefined
+                  ? 'Match analysis will appear after AI scoring completes.'
+                  : ''}
+              </Typography>
             </Box>
-          </Box>
-        )}
-
-        {application.reasoning === null || application.reasoning === undefined ? (
-          <Box sx={{ my: 2 }}>
-            <AINotConfiguredBanner message="Configure your AI model to see ATS match reasoning." />
-          </Box>
-        ) : (
-          <Box sx={{ my: 2 }}>
-            <Typography variant="subtitle2" color="success.main" sx={{ mb: 1 }}>
-              Why you match
-            </Typography>
-            {matches.map((match: string, i: number) => (
-              <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                ✓ {match}
-              </Typography>
-            ))}
-            <Typography variant="subtitle2" color="error.main" sx={{ mt: 2, mb: 1 }}>
-              Gaps
-            </Typography>
-            {gaps.map((gap: string, i: number) => (
-              <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                ✗ {gap}
-              </Typography>
-            ))}
           </Box>
         )}
       </Box>
 
-      {generateError && !aiNotConfigured && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {generateError}
-        </Alert>
+      {application.reasoning === null || application.reasoning === undefined ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Match analysis will appear after AI scoring completes.
+        </Typography>
+      ) : (
+        (() => {
+          const reasoning = application.reasoning as { matches?: string[]; gaps?: string[] };
+          return (
+            <>
+              <Typography variant="subtitle2" color="success.main" sx={{ mb: 1 }}>
+                Why you match
+              </Typography>
+              {reasoning.matches?.length ? (
+                reasoning.matches.map((match, i) => (
+                  <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+                    ✓ {match}
+                  </Typography>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No match data available
+                </Typography>
+              )}
+              <Typography variant="subtitle2" color="error.main" sx={{ mt: 2, mb: 1 }}>
+                Gaps
+              </Typography>
+              {reasoning.gaps?.length ? (
+                reasoning.gaps.map((gap, i) => (
+                  <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+                    ✗ {gap}
+                  </Typography>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No gap data available
+                </Typography>
+              )}
+            </>
+          );
+        })()
       )}
 
-      {aiNotConfigured && (
-        <AINotConfiguredBanner message="Configure your AI model to generate cover letters." />
-      )}
+        {generateError && !aiNotConfigured && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {generateError}
+          </Alert>
+        )}
+
+        {aiNotConfigured && (
+          <AINotConfiguredBanner message="Configure your AI model to generate cover letters." />
+        )}
 
       <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           {application.cover_letter_path ? (

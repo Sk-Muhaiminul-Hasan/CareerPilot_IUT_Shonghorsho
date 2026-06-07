@@ -4,6 +4,7 @@ Provides aggregated statistics for the dashboard UI.
 """
 
 import structlog
+from datetime import timedelta, timezone, datetime
 from sqlalchemy import String as SAString
 from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,14 @@ _FUNNEL_STAGES = [
     ApplicationStatus.REJECTED,
     ApplicationStatus.WITHDRAWN,
 ]
+
+
+def _period_filter(user_id: str, period_days: int):
+    base = LLMUsage.user_id == user_id
+    if period_days > 0:
+        cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(days=period_days)
+        base = __import__("sqlalchemy").and_(base, LLMUsage.created_at >= cutoff)
+    return base
 
 
 async def get_dashboard_stats(db: AsyncSession, user_id: str = "default_user") -> DashboardStats:
@@ -71,14 +80,6 @@ async def get_dashboard_stats(db: AsyncSession, user_id: str = "default_user") -
         )
     ).scalar() or 0.0
 
-    total_llm_cost = (
-        await db.execute(
-            select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0)).where(
-                LLMUsage.user_id == user_id,
-            ),
-        )
-    ).scalar() or 0.0
-
     return DashboardStats(
         total_jobs_found=total_jobs,
         total_applications=total_apps,
@@ -88,7 +89,6 @@ async def get_dashboard_stats(db: AsyncSession, user_id: str = "default_user") -
         applications_rejected=rejected,
         applications_offer=offer,
         avg_ats_score=round(float(avg_ats), 3),
-        total_llm_cost_usd=round(float(total_llm_cost), 4),
     )
 
 
@@ -133,8 +133,9 @@ async def get_ats_distribution(db: AsyncSession, user_id: str = "default_user") 
     return distribution
 
 
-async def get_llm_usage(db: AsyncSession, user_id: str = "default_user") -> list[LLMUsageStats]:
+async def get_llm_usage(db: AsyncSession, user_id: str = "default_user", period_days: int = 0) -> list[LLMUsageStats]:
     """Get LLM usage statistics grouped by provider + model."""
+    where = _period_filter(user_id, period_days)
     result = await db.execute(
         select(
             LLMUsage.provider,
@@ -144,7 +145,7 @@ async def get_llm_usage(db: AsyncSession, user_id: str = "default_user") -> list
             func.coalesce(func.sum(LLMUsage.cost_usd), 0.0).label("total_cost"),
             func.coalesce(func.avg(LLMUsage.latency_ms), 0.0).label("avg_latency"),
         )
-        .where(LLMUsage.user_id == user_id)
+        .where(where)
         .group_by(LLMUsage.provider, LLMUsage.model)
         .order_by(func.sum(LLMUsage.cost_usd).desc()),
     )

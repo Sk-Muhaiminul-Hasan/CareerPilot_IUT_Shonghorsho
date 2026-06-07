@@ -353,6 +353,8 @@ async def generate_cover_letter(
         template=None,
         user_id=user_id,
         user_settings=user_cfg,
+        usage_db=db,
+        usage_user_id=user_id,
     )
 
     app.cover_letter_path = doc.pdf_path or doc.docx_path

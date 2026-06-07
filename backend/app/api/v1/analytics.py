@@ -1,7 +1,7 @@
 """Analytics and dashboard API routes."""
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -63,11 +63,15 @@ async def ats_scores(
     summary="Get LLM usage stats",
 )
 async def llm_usage(
+    period_days: int = Query(default=0, ge=0, le=365),
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ) -> list[LLMUsageStats]:
-    """Get LLM provider usage statistics."""
-    return await analytics_service.get_llm_usage(db, user_id)
+    """Get LLM provider usage statistics.
+
+    period_days=0 (default) returns all-time usage.
+    """
+    return await analytics_service.get_llm_usage(db, user_id, period_days=period_days)
 
 
 @router.get(

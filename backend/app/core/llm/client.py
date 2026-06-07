@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -236,6 +237,7 @@ class LLMClient:
         response_format: dict[str, Any] | None = None,
         purpose: str = "general",
         user_settings: UserLLMConfig | None = None,
+        post_complete: Callable[[LLMResponse], None] | None = None,
     ) -> LLMResponse:
         """Send completion request with fallback chain and metrics.
 
@@ -344,7 +346,7 @@ class LLMClient:
                     cost_usd=round(cost, 6),
                     latency_ms=round(elapsed_ms, 1),
                 )
-                return LLMResponse(
+                result = LLMResponse(
                     content=content,
                     model=attempt_model,
                     provider=provider,
@@ -354,6 +356,12 @@ class LLMClient:
                     cost_usd=cost,
                     latency_ms=elapsed_ms,
                 )
+                if post_complete is not None:
+                    try:
+                        post_complete(result)
+                    except Exception:
+                        pass
+                return result
 
             except litellm.RateLimitError as exc:
                 last_error = exc
@@ -415,6 +423,7 @@ class LLMClient:
         model: str | None = None,
         purpose: str = "structured",
         user_settings: UserLLMConfig | None = None,
+        post_complete: Callable[[LLMResponse], None] | None = None,
     ) -> BaseModel:
         """Get structured JSON output parsed into a Pydantic model.
 
@@ -462,10 +471,14 @@ class LLMClient:
                 content=response.content[:500],
                 error=str(exc),
             )
-            raise LLMProviderError(
-                provider=response.provider,
-                message=f"Failed to parse structured output: {exc}",
-            ) from exc
+            try:
+                data = json.loads(response.content)
+                return output_schema.model_validate(data)
+            except Exception:
+                raise LLMProviderError(
+                    provider=response.provider,
+                    message=f"Failed to parse structured output: {exc}",
+                ) from exc
 
     def _record_metrics(
         self,

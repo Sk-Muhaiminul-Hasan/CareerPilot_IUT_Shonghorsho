@@ -25,6 +25,17 @@ the candidate has it, even if worded differently in the original.
 8. Return ONLY valid JSON matching the required schema."""
 
 
+ATS_REASONING_SYSTEM_PROMPT = """\
+You are an ATS scoring assistant. Return ONLY a JSON object with exactly two keys:
+- "matches": a list of strings describing specific skills or experiences from the candidate's resume that match the job requirements
+- "gaps": a list of strings describing specific skills or requirements in the job description that are missing from the candidate's resume
+
+Example output:
+{"matches": ["5 years Python experience", "FastAPI framework knowledge"], "gaps": ["Docker experience required", "AWS certification preferred"]}
+
+Do NOT return a schema. Return actual matches and gaps based on the resume and job description provided."""
+
+
 def render_ats_optimize_prompt(
     resume_text: str,
     job_description: str,

@@ -14,7 +14,6 @@ class DashboardStats(BaseModel):
     applications_rejected: int = 0
     applications_offer: int = 0
     avg_ats_score: float = 0.0
-    total_llm_cost_usd: float = 0.0
 
 
 class ApplicationFunnelData(BaseModel):
@@ -29,6 +28,12 @@ class ATSScoreDistribution(BaseModel):
 
     range_label: str
     count: int
+
+
+class LLMUsageQuery(BaseModel):
+    """Query parameters for the LLM usage endpoint."""
+
+    period_days: int = 0
 
 
 class LLMUsageStats(BaseModel):
