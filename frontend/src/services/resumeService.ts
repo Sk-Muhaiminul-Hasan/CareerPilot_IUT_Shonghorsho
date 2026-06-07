@@ -5,6 +5,8 @@ import type {
   ResumeScoreResponse,
   ResumeGenerateRequest,
   ResumeListResponse,
+  ResumeContent,
+  ResumeContentUpdate,
 } from '@/types/resume';
 
 /** Authenticated download of a resume as PDF or DOCX. */
@@ -92,5 +94,28 @@ export async function scoreResume(
 
 /** Optimize a resume for ATS keyword matching. */
 export async function optimizeResume(resumeId: string): Promise<Resume> {
-  return api.post<Resume>(`/resumes/${resumeId}/optimize`);
+
+  const { data } = await api.post<Resume>(`/resumes/${resumeId}/optimize`);
+  return data;
 }
+
+/** Get parsed resume text for simple review/editing. */
+export async function getResumeContent(resumeId: string): Promise<ResumeContent> {
+  const { data } = await api.get<ResumeContent>(`/resumes/${resumeId}/content`);
+  return data;
+}
+
+/** Update parsed resume text. */
+export async function updateResumeContent(
+  resumeId: string,
+      request: ResumeContentUpdate,
+    ): Promise<ResumeContent> {
+      const { data } = await api.patch<ResumeContent>(`/resumes/${resumeId}/content`, request);
+      return data;
+    }
+
+/** Get the download URL for a resume file. */
+export function getDownloadUrl(resumeId: string, format: 'pdf' | 'docx' = 'pdf'): string {
+      const baseURL = api.defaults.baseURL ?? '/api/v1';
+      return `${baseURL}/resumes/${resumeId}/download?format=${format}`;
+    }

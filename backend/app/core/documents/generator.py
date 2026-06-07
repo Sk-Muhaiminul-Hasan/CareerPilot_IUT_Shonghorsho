@@ -11,7 +11,7 @@ import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -25,6 +25,9 @@ from app.core.llm.prompts.cover_letter import (
     render_prompt,
     select_best_template,
 )
+
+if TYPE_CHECKING:
+    from app.core.llm.client import LLMClient
 
 logger = structlog.get_logger(__name__)
 

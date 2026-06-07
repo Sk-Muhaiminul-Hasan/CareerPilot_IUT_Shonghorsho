@@ -12,6 +12,8 @@ import LoadingState from '@/components/common/LoadingState';
 import { useOnboardingStatus } from '@/hooks/useSettings';
 import { SharedWebSocketProvider } from '@/contexts/SharedWebSocketProvider';
 
+// Lazy-loaded pages for code splitting
+const HomePage = lazy(() => import('@/pages/HomePage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const JobSearchPage = lazy(() => import('@/pages/JobSearchPage'));
 const ApplicationDetailPage = lazy(() => import('@/pages/ApplicationDetailPage'));
@@ -21,7 +23,10 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+const ArtifactsPage = lazy(() => import('@/pages/ArtifactsPage'));
 
+// Guards authenticated routes: checks onboarding completion before
+// rendering the app shell. Redirects to /onboarding when AI is not yet set up.
 function ProtectedInner() {
   const { data: onboardingStatus, isLoading, isError } = useOnboardingStatus();
 
@@ -37,7 +42,11 @@ function ProtectedInner() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!onboardingStatus.onboarding_complete && !onboardingStatus.has_general_ai && !onboardingStatus.has_extraction_ai) {
+  if (
+    !onboardingStatus.onboarding_complete &&
+    !onboardingStatus.has_general_ai &&
+    !onboardingStatus.has_extraction_ai
+  ) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -62,26 +71,69 @@ function App() {
 
   return (
     <>
-      <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>}>
+      <Suspense
+        fallback={
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+            <CircularProgress />
+          </Box>
+        }
+      >
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/onboarding" element={<OnboardingPage />} />
+          {/* Public routes (always accessible) */}
           <Route
             path="/"
-            element={
-              user ? <ProtectedInner /> : <Navigate to="/login" replace />
-            }
+            element={user ? <Navigate to="/dashboard" replace /> : <HomePage />}
+          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+
+          {/* Protected routes: each wraps ProtectedInner (onboarding guard + AppLayout) */}
+          <Route
+            path="/dashboard"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="jobs" element={<JobSearchPage />} />
-            <Route path="applications/:appId" element={<ApplicationDetailPage />} />
-            <Route path="applications" element={<ApplicationsPage />} />
-            <Route path="resumes" element={<ResumesPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<DashboardPage />} />
           </Route>
+          <Route
+            path="/jobs"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<JobSearchPage />} />
+          </Route>
+          <Route
+            path="/applications"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ApplicationsPage />} />
+            <Route path=":appId" element={<ApplicationDetailPage />} />
+          </Route>
+          <Route
+            path="/resumes"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ResumesPage />} />
+          </Route>
+          <Route
+            path="/settings"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<SettingsPage />} />
+          </Route>
+          <Route
+            path="/analytics"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<AnalyticsPage />} />
+          </Route>
+          <Route
+            path="/artifacts"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ArtifactsPage />} />
+          </Route>
+
+          {/* Fallback: unknown paths go to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
 

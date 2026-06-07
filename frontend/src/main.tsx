@@ -24,29 +24,49 @@ function AuthHydrator({ children }: { children: React.ReactNode }) {
   const setSession = useAuthStore((s) => s.setSession);
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      const token = session?.access_token ?? null;
-      const user = session?.user
-        ? { id: session.user.id, email: session.user.email ?? undefined }
-        : null;
+    let cancelled = false;
+
+    const finishHydration = (
+      token: string | null,
+      user: ReturnType<typeof useAuthStore.getState>['user'],
+    ) => {
+      if (cancelled) return;
       setSession(token, user, true);
     };
 
-    void getSession();
+    // Hard fallback: if Supabase never responds (e.g. invalid key, network
+    // blocked), don't trap the whole app on the "Verifying session..."
+    // spinner. Continue as logged out after 1.5s.
+    const fallback = window.setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn('Supabase hydration timed out; continuing unauthenticated.');
+      finishHydration(null, null);
+    }, 1500);
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+    const getSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
         const token = session?.access_token ?? null;
         const user = session?.user
           ? { id: session.user.id, email: session.user.email ?? undefined }
           : null;
-        setSession(token, user, true);
-      },
-    );
+        finishHydration(token, user);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Supabase getSession failed; continuing unauthenticated.', err);
+        finishHydration(null, null);
+      } finally {
+        window.clearTimeout(fallback);
+      }
+    };
 
-    return () => subscription.subscription.unsubscribe();
+    void getSession();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallback);
+    };
   }, [setSession]);
 
   return <>{children}</>;

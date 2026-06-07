@@ -5,7 +5,6 @@ import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
-import Link from '@mui/material/Link';
 import Tooltip from '@mui/material/Tooltip';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -13,7 +12,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-
+  import { useChatStore } from '@/store/useChatStore';
 import { useJob } from '@/hooks/useJobs';
 import LoadingState from '@/components/common/LoadingState';
 
@@ -26,6 +25,7 @@ interface JobDetailProps {
 
 function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
   const { data: job, isLoading, isError } = useJob(jobId ?? undefined);
+  const openChatWithJob = useChatStore((s) => s.openChatWithJob);
 
   const formatDeadline = (iso: string): string => {
     const date = new Date(iso);
@@ -217,12 +217,24 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
               <Button
                 variant="outlined"
                 endIcon={<OpenInNewIcon />}
-                component={Link}
+                component="a" // or Link depending on base implementation
                 href={job.url}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 View Original
+              </Button>
+
+              {/* Linked Pillar 3 Context Button */}
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => {
+                  // Close this detail view if needed, or keep it open and pop out the Copilot!
+                  openChatWithJob(job.id);
+                }}
+              >
+                Am I Ready?
               </Button>
             </Box>
           </>

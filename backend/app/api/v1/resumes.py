@@ -15,6 +15,8 @@ from app.core.exceptions import RecordNotFoundError
 from app.core.llm.client import LLMNotConfiguredError
 from app.core.storage import storage as storage_client
 from app.schemas.resume import (
+    ResumeContentResponse,
+    ResumeContentUpdate,
     ResumeGenerateRequest,
     ResumeListResponse,
     ResumeOptimizeRequest,
@@ -91,6 +93,46 @@ async def list_resumes(
 ) -> ResumeListResponse:
     """List all uploaded and generated resumes."""
     return await resume_service.list_resumes(db, user_id)
+
+
+@router.get(
+    "/{resume_id}/content",
+    response_model=ResumeContentResponse,
+    summary="Get parsed resume text",
+)
+async def get_resume_content(
+    resume_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ResumeContentResponse:
+    """Return parsed text for a resume so Pillar 3 can inspect/edit it."""
+    resume = await resume_service.get_resume(db, resume_id)
+    return ResumeContentResponse(
+        resume_id=resume.id,
+        name=resume.name,
+        content_text=resume.content_text or "",
+    )
+
+
+@router.patch(
+    "/{resume_id}/content",
+    response_model=ResumeContentResponse,
+    summary="Update parsed resume text",
+)
+async def update_resume_content(
+    resume_id: str,
+    request: ResumeContentUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> ResumeContentResponse:
+    """Update parsed resume text until Pillar 2 owns richer editing."""
+    resume = await resume_service.get_resume(db, resume_id)
+    resume.content_text = request.content_text
+    await db.commit()
+    await db.refresh(resume)
+    return ResumeContentResponse(
+        resume_id=resume.id,
+        name=resume.name,
+        content_text=resume.content_text or "",
+    )
 
 
 @router.post(

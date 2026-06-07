@@ -69,3 +69,9 @@ INTEGRATION_PLAN.md
 TOOLS.md
 .claude/
 venv311/
+.puku/
+
+backend/data/uploads/*.pdf
+backend/data/vector_indices/
+
+*.env.*

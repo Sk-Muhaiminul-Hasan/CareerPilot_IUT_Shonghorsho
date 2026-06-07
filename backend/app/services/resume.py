@@ -441,6 +441,7 @@ async def generate_tailored_resume(
     from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
     db_settings = await _get_or_create_settings(db, user_id)
     user_cfg = UserLLMConfig.from_settings(db_settings)
+
     llm = LLMClient()
     generator = DocumentGenerator(
         llm_client=llm,
@@ -726,6 +727,7 @@ async def optimize_resume(
     from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
     db_settings = await _get_or_create_settings(db, user_id)
     user_cfg = UserLLMConfig.from_settings(db_settings)
+
     llm = LLMClient()
     prompt = render_ats_optimize_prompt(
         resume_text, job_description, score_breakdown, suggestions,

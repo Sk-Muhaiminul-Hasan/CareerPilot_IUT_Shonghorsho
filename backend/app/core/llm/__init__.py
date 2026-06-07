@@ -1,3 +1,5 @@
-from app.core.llm.client import LLMClient, LLMResponse
+"""LLM package.
 
-__all__ = ["LLMClient", "LLMResponse"]
+Import concrete clients from ``app.core.llm.client`` to avoid loading provider
+dependencies when only prompt modules are needed.
+"""
