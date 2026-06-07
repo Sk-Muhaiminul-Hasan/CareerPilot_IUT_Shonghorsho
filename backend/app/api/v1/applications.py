@@ -1,8 +1,11 @@
 """Application tracking API routes."""
 
+import io
+
+import httpx
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +22,9 @@ from app.schemas.application import (
     ApplicationStatusUpdate,
 )
 from app.services import application as app_service
+
+MIME_PDF = "application/pdf"
+MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -152,7 +158,7 @@ async def download_cover_letter(
     app_id: str,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
-) -> RedirectResponse:
+) -> StreamingResponse:
     app = await app_service.get_application(db, app_id, user_id)
     if not app.cover_letter_path:
         raise HTTPException(
@@ -162,4 +168,17 @@ async def download_cover_letter(
 
     bucket = "generated"
     signed_url = await storage_client.get_signed_url(bucket, app.cover_letter_path)
-    return RedirectResponse(url=signed_url)
+
+    async with httpx.AsyncClient() as client:
+        file_response = await client.get(signed_url)
+        file_response.raise_for_status()
+        file_bytes = file_response.content
+
+    media_type = MIME_PDF if app.cover_letter_path.endswith(".pdf") else MIME_DOCX
+    filename = app.cover_letter_path.split("/")[-1]
+
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename!r}"},
+    )

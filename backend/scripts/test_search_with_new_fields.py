@@ -30,9 +30,9 @@ async def main() -> None:
     print("Registered platforms:", platform_registry.list_platforms())
 
     request = JobSearchRequest(
-        query="python developer",
+        query="site reliability engineer",
         location="remote",
-        platforms=["linkedin", "indeed"],
+        platforms=["linkedin"],
         limit=3,
     )
     print(f"\nRunning search: query={request.query!r}, limit={request.limit}")
@@ -59,6 +59,7 @@ async def main() -> None:
         print(f"remote      : {j.remote}")
         print(f"deadline    : {j.deadline!r}")
         print(f"description : {(j.description or '')[:120]!r}...")
+        print(f"is_enriched : {j.is_enriched}")
 
 
 if __name__ == "__main__":

@@ -43,6 +43,7 @@ class GeneratedDocument(BaseModel):
     template: str
     pdf_path: str | None = None
     docx_path: str | None = None
+    tailored_data: dict[str, Any] | None = None
 
 
 class DocumentGenerator:
@@ -84,8 +85,11 @@ class DocumentGenerator:
         doc_id = uuid.uuid4().hex[:12]
 
         context = resume_data
+        tailored_data: dict[str, Any] | None = None
         if self._llm and job_description:
             context = await self._tailor_resume(resume_data, job_description, user_settings)
+            if context is not resume_data:
+                tailored_data = context
 
         user_id = "default_user"
         if isinstance(resume_data, dict):
@@ -161,6 +165,7 @@ class DocumentGenerator:
             template=template_name,
             pdf_path=pdf_path,
             docx_path=docx_path,
+            tailored_data=tailored_data,
         )
 
     async def generate_cover_letter(
@@ -318,7 +323,7 @@ class DocumentGenerator:
                 prompt=prompt,
                 output_schema=TailoredResumeData,
                 system_prompt=RESUME_TAILOR_SYSTEM_PROMPT,
-                purpose="resume_tailor",
+                purpose="extraction",
                 user_settings=user_settings,
             )
             tailored = result.model_dump()

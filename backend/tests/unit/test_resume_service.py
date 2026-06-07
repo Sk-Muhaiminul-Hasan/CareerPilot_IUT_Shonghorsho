@@ -1,6 +1,6 @@
 """Unit tests for the resume service."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -102,9 +102,7 @@ class TestUploadResume:
         mock_file.filename = "my_resume.pdf"
         mock_file.read = AsyncMock(return_value=b"fake pdf content here with enough words to count")
 
-        with patch.object(resume_service, "UPLOAD_DIR", tmp_path):
-            result = await resume_service.upload_resume(db_session, mock_file)
-
+        result = await resume_service.upload_resume(db_session, mock_file)
         assert result.name == "my_resume.pdf"
         assert result.file_format == "pdf"
         assert result.id is not None
@@ -114,9 +112,9 @@ class TestUploadResume:
         mock_file.filename = "resume.docx"
         mock_file.read = AsyncMock(return_value=b"fake docx content")
 
-        with patch.object(resume_service, "UPLOAD_DIR", tmp_path):
-            result = await resume_service.upload_resume(db_session, mock_file)
+        result = await resume_service.upload_resume(db_session, mock_file)
 
+        assert result.name == "resume.docx"
         assert result.file_format == "docx"
 
     async def test_upload_with_no_filename(self, db_session, tmp_path):
@@ -124,8 +122,7 @@ class TestUploadResume:
         mock_file.filename = None
         mock_file.read = AsyncMock(return_value=b"content")
 
-        with patch.object(resume_service, "UPLOAD_DIR", tmp_path):
-            result = await resume_service.upload_resume(db_session, mock_file)
+        result = await resume_service.upload_resume(db_session, mock_file)
 
         assert result.name == "Untitled Resume"
         assert result.file_format == "pdf"
@@ -198,4 +195,9 @@ class TestFallbackParsers:
         sections = parser._extract_sections(content_text)
         cert_text = sections.get("certifications", "")
         certifications = [c.strip() for c in cert_text.split("\n") if c.strip()] if cert_text else []
+        assert certifications == [
+            "Certified ScrumMaster",
+            "AWS Solutions Architect",
+            "Professional Scrum Master",
+        ]
 

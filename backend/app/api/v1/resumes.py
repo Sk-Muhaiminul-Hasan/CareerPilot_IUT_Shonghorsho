@@ -1,12 +1,13 @@
 """Resume management API routes."""
 
+import io
 import tempfile
 from pathlib import Path
 
 import httpx
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -34,6 +35,9 @@ ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+
+MIME_PDF = "application/pdf"
+MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 @router.post(
@@ -155,17 +159,30 @@ async def download_resume(
     format: str = Query(default="pdf", pattern="^(pdf|docx)$"),
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_current_user),
-) -> FileResponse:
+) -> StreamingResponse:
     """Download a resume in PDF or DOCX format."""
     resume = await resume_service.get_resume(db, resume_id, user_id)
 
     storage_path = resume.file_path_pdf if format == "pdf" else resume.file_path_docx
     if not storage_path:
-        raise RecordNotFoundError("Resume file", resume_id)
+        raise HTTPException(status_code=404, detail="Resume file not found")
 
-    bucket = "resumes"
+    bucket = "generated" if resume.type in ("tailored", "optimized") else "resumes"
     signed_url = await storage_client.get_signed_url(bucket, storage_path)
-    return RedirectResponse(url=signed_url)
+
+    async with httpx.AsyncClient() as client:
+        file_response = await client.get(signed_url)
+        file_response.raise_for_status()
+        file_bytes = file_response.content
+
+    media_type = MIME_PDF if storage_path.endswith(".pdf") else MIME_DOCX
+    filename = Path(storage_path).name
+
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename!r}"},
+    )
 
 
 @router.post(
