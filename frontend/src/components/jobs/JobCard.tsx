@@ -5,10 +5,12 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import StarIcon from '@mui/icons-material/Star';
 import EventIcon from '@mui/icons-material/Event';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 import type { Job } from '@/types/job';
 
@@ -46,6 +48,11 @@ function formatDeadline(iso: string): string {
 function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
   const matchPercent = job.match_score != null ? Math.round(job.match_score * 100) : null;
   const workTypeChip = getWorkTypeChip(job.work_type);
+  const descriptionSnippet = job.description
+    ? job.description.length > 120
+      ? `${job.description.slice(0, 117)}...`
+      : job.description
+    : null;
 
   return (
     <Card>
@@ -61,20 +68,39 @@ function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
                 {job.company}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: descriptionSnippet ? 0.5 : 0.5 }}>
               <LocationOnIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
                 {job.location || (workTypeChip ? workTypeChip.label : 'Location not specified')}
               </Typography>
             </Box>
-            {job.deadline && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                <EventIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary">
-                  Apply by {formatDeadline(job.deadline)}
-                </Typography>
-              </Box>
+            {descriptionSnippet && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {descriptionSnippet}
+              </Typography>
             )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {!job.is_enriched && !(job.description && job.description.length >= 100) && (
+                <Tooltip title="Enrichment in progress">
+                  <FiberManualRecordIcon
+                    sx={{
+                      fontSize: 10,
+                      color: 'text.disabled',
+                      animation: 'pulse 1.5s infinite',
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.3 },
+                      },
+                    }}
+                  />
+                </Tooltip>
+              )}
+              {!job.is_enriched && !(job.description && job.description.length >= 100) && (
+                <Typography variant="caption" color="text.disabled">
+                  Fetching details...
+                </Typography>
+              )}
+            </Box>
           </Box>
 
           {matchPercent !== null && (
@@ -90,7 +116,6 @@ function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
 
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
           <Chip label={job.platform} size="small" variant="outlined" />
-          {/* Single source of truth for work arrangement: prefer work_type, fall back to legacy remote flag. */}
           {workTypeChip
             ? <Chip label={workTypeChip.label} size="small" color={workTypeChip.color} variant="outlined" />
             : job.remote
@@ -98,7 +123,16 @@ function JobCard({ job, onViewDetails, onApply }: JobCardProps) {
               : null}
           {job.job_type && <Chip label={job.job_type} size="small" variant="outlined" />}
           {job.salary_range && (
-            <Chip label={job.salary_range} size="small" color="secondary" variant="outlined" />
+            <Chip
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>💰</span>
+                  <span>{job.salary_range}</span>
+                </Box>
+              }
+              size="small"
+              sx={{ bgcolor: 'success.light', color: 'success.contrastText', border: 'none', fontWeight: 500 }}
+            />
           )}
         </Box>
       </CardContent>

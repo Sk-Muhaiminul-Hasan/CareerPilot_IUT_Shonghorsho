@@ -76,6 +76,27 @@
         </section>
         {% endif %}
 
+        {% if projects %}
+        <section class="section">
+            <div class="section-icon">&#9733;</div>
+            <h2>Projects</h2>
+            {% for project in projects %}
+            <div class="project-item">
+                <h3>{{ project.name }}</h3>
+                {% if project.description %}
+                <div class="timeline-body">
+                    {% for line in project.description.split('\n') %}
+                    {% if line.strip() %}
+                    <p class="bullet">{{ line.strip() }}</p>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
         {% if skills %}
         <section class="section">
             <div class="section-icon">&#9889;</div>

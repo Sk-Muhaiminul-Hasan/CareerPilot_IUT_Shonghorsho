@@ -65,7 +65,16 @@ export async function generateCoverLetter(appId: string): Promise<Application> {
 /** Authenticated browser download of a cover letter for an application. */
 export async function downloadCoverLetter(appId: string): Promise<void> {
   const response = await api.get(`/applications/${appId}/cover-letter/download`, { responseType: 'blob' });
-  triggerBrowserDownload(response.data, 'cover_letter.pdf');
+  const filename = getFilenameFromContentDisposition(response.headers['content-disposition']) ?? 'cover_letter.pdf';
+  triggerBrowserDownload(response.data, filename);
+}
+
+function getFilenameFromContentDisposition(header: string | undefined): string | null {
+  if (!header) return null;
+  const match = header.match(/filename\*?=['"]?([^'";]+)['"]?/i);
+  if (match?.[1]) return decodeURIComponent(match[1]);
+  const simpleMatch = header.match(/filename=['"]?([^'";]+)['"]?/i);
+  return simpleMatch?.[1] ?? null;
 }
 
 function triggerBrowserDownload(blob: Blob, filename: string): void {

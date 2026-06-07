@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useEffect, useRef, useContext } from 'react';
-import { UseWebSocketOptions, useWebSocket } from '@/hooks/useWebSocket';
+import { useCallback, useContext, createContext, useEffect, useRef } from 'react';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { JobEnrichedMessage } from '@/types/websocket';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export type SharedWebSocketContextValue = {
@@ -9,6 +10,7 @@ export type SharedWebSocketContextValue = {
   connect: () => void;
   disconnect: () => void;
   onScore: (listener: (data: { application_id: string; ats_score: number | null; reasoning: unknown }) => void) => () => void;
+  onJobEnriched: (listener: (data: { job_id: string; title: string }) => void) => () => void;
 };
 
 export const SharedWebSocketContext = createContext<SharedWebSocketContextValue | null>(null);
@@ -21,27 +23,58 @@ export function useSharedWebSocket(): SharedWebSocketContextValue {
   return ctx;
 }
 
+type Listener<T> = (data: T) => void;
+
+const scoreListeners = new Set<Listener<{ application_id: string; ats_score: number | null; reasoning: unknown }>>();
+const jobEnrichedListeners = new Set<Listener<{ job_id: string; title: string }>>();
+
+function notifyAll<T>(listeners: Set<Listener<T>>, value: T) {
+  listeners.forEach((listener) => {
+    try {
+      listener(value);
+    } catch (error) {
+      console.error('SharedWebSocket listener failed', error);
+    }
+  });
+}
+
 export function SharedWebSocketProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
 
-  const listenersRef = useRef(new Set<(data: { application_id: string; ats_score: number | null; reasoning: unknown }) => void>());
+  const handleScore = useCallback(
+    (data: { application_id: string; ats_score: number | null; reasoning: unknown }) => {
+      notifyAll(scoreListeners, data);
+    },
+    [],
+  );
 
-  const handleScore: UseWebSocketOptions['onScore'] = useCallback((data: { application_id: string; ats_score: number | null; reasoning: unknown }) => {
-    listenersRef.current.forEach((listener) => listener(data));
+  const handleJobEnriched = useCallback(
+    (data: { job_id: string; title: string }) => {
+      notifyAll(jobEnrichedListeners, data);
+    },
+    [],
+  );
+
+  const ws = useWebSocket('/ws', { onScore: handleScore, onJobEnriched: handleJobEnriched }, token ?? undefined);
+
+  const onScore = useCallback((listener: Listener<{ application_id: string; ats_score: number | null; reasoning: unknown }>) => {
+    scoreListeners.add(listener);
+    return () => {
+      scoreListeners.delete(listener);
+    };
   }, []);
 
-  const ws = useWebSocket('/ws', { onScore: handleScore }, token ?? undefined);
-
-  const onScore: SharedWebSocketContextValue['onScore'] = useCallback((listener) => {
-    listenersRef.current.add(listener);
+  const onJobEnriched = useCallback((listener: Listener<{ job_id: string; title: string }>) => {
+    jobEnrichedListeners.add(listener);
     return () => {
-      listenersRef.current.delete(listener);
+      jobEnrichedListeners.delete(listener);
     };
   }, []);
 
   useEffect(() => {
     return () => {
-      listenersRef.current.clear();
+      scoreListeners.clear();
+      jobEnrichedListeners.clear();
     };
   }, []);
 
@@ -50,6 +83,7 @@ export function SharedWebSocketProvider({ children }: { children: React.ReactNod
     connect: ws.connect,
     disconnect: ws.disconnect,
     onScore,
+    onJobEnriched,
   };
 
   return (

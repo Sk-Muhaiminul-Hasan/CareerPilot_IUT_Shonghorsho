@@ -1,11 +1,12 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 
-/** Shape of a WebSocket event message from the backend. */
 export interface WSMessage {
   type: string;
   application_id?: string;
   status?: string;
   detail?: string;
+  job_id?: string;
+  title?: string;
   payload: Record<string, unknown>;
 }
 
@@ -22,6 +23,8 @@ export interface UseWebSocketOptions {
   onComplete?: (data: { application_id: string; status: string }) => void;
   /** Callback for application scoring updates. */
   onScore?: (data: { application_id: string; ats_score: number | null; reasoning: unknown }) => void;
+  /** Callback for job enrichment updates. */
+  onJobEnriched?: (data: { job_id: string; title: string }) => void;
 }
 
 interface UseWebSocketReturn {
@@ -32,10 +35,6 @@ interface UseWebSocketReturn {
   disconnect: () => void;
 }
 
-/**
- * Hook that manages a WebSocket connection to the backend.
- * Automatically reconnects on disconnect with exponential backoff.
- */
 export function useWebSocket(
   url = '/ws',
   options: UseWebSocketOptions = {},
@@ -48,6 +47,7 @@ export function useWebSocket(
     onProgress,
     onComplete,
     onScore,
+    onJobEnriched,
   } = options;
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -123,6 +123,12 @@ export function useWebSocket(
             reasoning: parsed.payload?.reasoning ?? null,
           });
         }
+        if (parsed.type === 'job_enriched' && onJobEnriched) {
+          onJobEnriched({
+            job_id: parsed.job_id ?? '',
+            title: parsed.title ?? '',
+          });
+        }
       } catch {
         // Ignore non-JSON messages
       }
@@ -145,7 +151,7 @@ export function useWebSocket(
     ws.onerror = () => {
       ws.close();
     };
-  }, [buildUrl, reconnectDelay, maxRetries, disconnect, onProgress, onComplete, onScore]);
+  }, [buildUrl, reconnectDelay, maxRetries, disconnect, onProgress, onComplete, onScore, onJobEnriched]);
 
   useEffect(() => {
     if (autoConnect) {

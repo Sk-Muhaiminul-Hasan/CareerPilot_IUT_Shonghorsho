@@ -6,6 +6,8 @@ import Pagination from '@mui/material/Pagination';
 import Alert from '@mui/material/Alert';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { useSharedWebSocket } from '@/contexts/SharedWebSocketProvider';
 
 import JobFilters from '@/components/jobs/JobFilters';
 import JobCard from '@/components/jobs/JobCard';
@@ -17,6 +19,8 @@ import { useJobs, useSearchJobs } from '@/hooks/useJobs';
 import { useCreateApplication } from '@/hooks/useApplications';
 import { useJobStore } from '@/store/useJobStore';
 import { useAppStore } from '@/store/useAppStore';
+import * as jobService from '@/services/jobService';
+import type { Job } from '@/types/job';
 
 function JobSearchPage() {
   const [page, setPage] = useState(1);
@@ -30,10 +34,35 @@ function JobSearchPage() {
   const openDetail = useJobStore((s) => s.openDetail);
   const closeDetail = useJobStore((s) => s.closeDetail);
   const showNotification = useAppStore((s) => s.showNotification);
+  const { onJobEnriched } = useSharedWebSocket();
+  const queryClient = useQueryClient();
 
   const { data: jobsData, isLoading, isError } = useJobs(page, 20);
   const searchMutation = useSearchJobs();
   const createAppMutation = useCreateApplication();
+
+  onJobEnriched(
+    useCallback(
+      async ({ job_id }: { job_id: string }) => {
+        try {
+          const updatedJob = (await jobService.getJob(job_id)) as Job;
+          queryClient.setQueryData<Job>(['jobs', 'detail', job_id], updatedJob);
+          queryClient.setQueriesData<{ items: Job[] }>({ queryKey: ['jobs', 'list'] }, (old) => {
+            if (!old) {
+              return old;
+            }
+            return {
+              ...old,
+              items: old.items.map((job) => (job.id === job_id ? updatedJob : job)),
+            };
+          });
+        } catch {
+          // Ignore single refresh failures; the list will recover on next fetch.
+        }
+      },
+      [queryClient],
+    ),
+  );
 
   const handleApplyClick = useCallback((jobId: string) => {
     setPendingJobId(jobId);

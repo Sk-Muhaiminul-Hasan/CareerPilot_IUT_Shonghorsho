@@ -47,11 +47,6 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
 
-      if (error.response.status === 404 && error.config.url?.startsWith('/api/v1/')) {
-        void useAuthStore.getState().logout();
-        window.location.href = '/login';
-      }
-
       return Promise.reject(apiError);
     }
     const fallback: ApiError = {

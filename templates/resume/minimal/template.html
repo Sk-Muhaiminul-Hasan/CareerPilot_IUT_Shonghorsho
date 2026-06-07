@@ -70,6 +70,26 @@
         </section>
         {% endif %}
 
+        {% if projects %}
+        <section>
+            <h2>Projects</h2>
+            {% for project in projects %}
+            <div class="project-item">
+                <strong>{{ project.name }}</strong>
+                {% if project.description %}
+                <ul>
+                    {% for line in project.description.split('\n') %}
+                    {% if line.strip() %}
+                    <li>{{ line.strip() }}</li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
         {% if certifications %}
         <section>
             <h2>Certifications</h2>
