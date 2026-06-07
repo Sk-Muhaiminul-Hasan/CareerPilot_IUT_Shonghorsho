@@ -4,8 +4,8 @@ Handles job CRUD operations, search orchestration across platform
 scrapers, and ATS-based job analysis.
 """
 
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 import structlog
 from sqlalchemy import func, select
@@ -17,7 +17,7 @@ from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
 from app.core.exceptions import RecordNotFoundError
 from app.core.job_discovery.exa_search import ExaJobSearch
-from app.db.session import async_session_factory
+from app.db.session import AsyncSessionLocal
 from app.models.job import Job
 from app.models.resume import Resume
 from app.schemas.job import (
@@ -70,6 +70,7 @@ async def search_jobs(
         )
 
     all_jobs: list[Job] = []
+    collected_listings: list[tuple[str, JobListing]] = []
 
     for platform_name in platforms_to_search:
         if not platform_registry.has(platform_name):
@@ -80,7 +81,9 @@ async def search_jobs(
             continue
 
         try:
-            async with platform_registry.create_async(platform_name, db=db, user_id=user_id) as platform:
+            async with platform_registry.create_async(
+                platform_name, db=db, user_id=user_id,
+            ) as platform:
                 listings: list[JobListing] = await platform.search(
                     query=request.query,
                     location=request.location,
@@ -91,6 +94,8 @@ async def search_jobs(
                 platform=platform_name,
                 count=len(listings),
             )
+            for listing in listings:
+                collected_listings.append((platform_name, listing))
         except Exception as exc:
             logger.error(
                 "job_search.platform_search_failed",
@@ -98,32 +103,6 @@ async def search_jobs(
                 error=str(exc),
             )
             continue
-
-        for listing in listings:
-            try:
-                job = _listing_to_job(listing, user_id)
-                existing = await db.execute(
-                    select(Job).where(
-                        Job.platform == job.platform,
-                        Job.platform_job_id == job.platform_job_id,
-                        Job.user_id == user_id,
-                    ),
-                )
-                existing_job = existing.scalar_one_or_none()
-                if existing_job is not None:
-                    all_jobs.append(existing_job)
-                    continue
-
-                db.add(job)
-                all_jobs.append(job)
-            except Exception as exc:
-                logger.warning(
-                    "job_search.listing_conversion_failed",
-                    platform=platform_name,
-                    listing_id=listing.platform_job_id,
-                    error=str(exc),
-                )
-                continue
 
     # ------------------------------------------------------------------
     # Exa AI semantic search (supplementary, non-blocking)
@@ -139,57 +118,45 @@ async def search_jobs(
                 num_results=min(request.limit, 10),
             )
             for listing in exa_listings:
+                collected_listings.append((listing.platform, listing))
+            logger.info("job_search.exa_results", count=len(exa_listings))
+    except Exception as exc:
+        logger.debug("job_search.exa_skipped", reason=str(exc))
+
+    # ------------------------------------------------------------------
+    # Persist collected jobs using a fresh DB session.
+    # The request-scoped session may be closed after long browser automation.
+    # ------------------------------------------------------------------
+    print(f"DEBUG SAVE: collected_listings count={len(collected_listings)}")
+    async with AsyncSessionLocal() as fresh_db:
+        async with fresh_db.begin():
+            for platform_name, listing in collected_listings:
                 try:
                     job = _listing_to_job(listing, user_id)
-                    existing = await db.execute(
+                    existing = await fresh_db.execute(
                         select(Job).where(
                             Job.platform == job.platform,
                             Job.platform_job_id == job.platform_job_id,
                             Job.user_id == user_id,
                         ),
                     )
-                    if existing.scalar_one_or_none() is None:
-                        db.add(job)
-                        all_jobs.append(job)
-                except Exception:
+                    existing_job = existing.scalar_one_or_none()
+                    if existing_job is not None:
+                        all_jobs.append(existing_job)
+                        continue
+
+                    fresh_db.add(job)
+                    all_jobs.append(job)
+                    print(f"DEBUG SAVE: Added job {job.title} for user {user_id}")
+                except Exception as exc:
+                    logger.warning(
+                        "job_search.listing_conversion_failed",
+                        platform=platform_name,
+                        listing_id=listing.platform_job_id,
+                        error=str(exc),
+                    )
                     continue
-            logger.info("job_search.exa_results", count=len(exa_listings))
-    except Exception as exc:
-        logger.debug("job_search.exa_skipped", reason=str(exc))
-
-    # ------------------------------------------------------------------
-    # Persist collected jobs using a fresh DB session when the request-
-    # scoped one has timed out (known Neon issue with 5+ min requests).
-    # ------------------------------------------------------------------
-    async def _persist(
-        session: AsyncSession,
-        jobs: list[Job],
-    ) -> list[Job]:
-        """Commit and refresh a batch of unsaved Job instances."""
-        try:
-            session.add_all(jobs)
-            await session.commit()
-            for job in jobs:
-                await session.refresh(job)
-            return jobs
-        except Exception as exc:
-            logger.error("job_search.commit_failed", error=str(exc))
-            await session.rollback()
-            return []
-
-    session_to_use = db
-    try:
-        await session_to_use.rollback()
-    except Exception as exc:
-        logger.warning(
-            "job_search.request_session_timed_out",
-            error=str(exc),
-            action="opening_fresh_session",
-        )
-        async with async_session_factory() as fresh_db:
-            all_jobs = await _persist(fresh_db, all_jobs)
-    else:
-        all_jobs = await _persist(session_to_use, all_jobs)
+        print(f"DEBUG SAVE: Session committed, total jobs={len(all_jobs)}")
 
     # Apply limit
     limited = all_jobs[: request.limit]

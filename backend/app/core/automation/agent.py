@@ -59,10 +59,9 @@ class BrowserAgent:
     async def run(self) -> Any:
         try:
             from browser_use import Agent, Browser, BrowserConfig
-        except Exception as exc:
-            import traceback
-            traceback.print_exc()
-            raise
+        except ImportError:
+            from browser_use import Agent, Browser
+            BrowserConfig = None
 
         # Support both old (0.1.x) and new (>=0.10) browser-use APIs.
         try:

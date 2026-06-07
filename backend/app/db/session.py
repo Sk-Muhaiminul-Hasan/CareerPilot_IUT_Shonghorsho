@@ -28,6 +28,8 @@ async_session_factory = async_sessionmaker(
     expire_on_commit=False,
 )
 
+AsyncSessionLocal = async_session_factory
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Yield an async database session with automatic cleanup.
