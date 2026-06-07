@@ -356,17 +356,6 @@ class LLMClient:
                     cost_usd=cost,
                     latency_ms=elapsed_ms,
                 )
-                if usage_db is not None and usage_user_id:
-                    try:
-                        from app.core.llm.usage_tracker import record_usage_atomic
-                        await record_usage_atomic(
-                            db=usage_db,
-                            response=result,
-                            purpose=purpose,
-                            user_id=usage_user_id,
-                        )
-                    except Exception:
-                        pass
                 return result
 
             except litellm.RateLimitError as exc:
