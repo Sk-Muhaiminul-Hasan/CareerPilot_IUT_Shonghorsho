@@ -152,8 +152,8 @@ async def get_nudge(
             await record_usage(
                 db=db, response=response, purpose="nudge", user_id=user_id,
             )
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("llm_usage_record_failed", purpose="nudge", error=str(exc))
 
         data = json.loads(response.content)
         headline = str(data.get("headline") or fallback.headline)

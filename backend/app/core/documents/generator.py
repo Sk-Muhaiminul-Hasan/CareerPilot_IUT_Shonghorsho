@@ -276,8 +276,8 @@ class DocumentGenerator:
                         db=usage_db, response=structured,
                         purpose="resume_tailor", user_id=usage_user_id,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("llm_usage_record_failed", purpose="resume_tailor", error=str(exc))
             tailored = TailoredResumeData.model_validate_json(structured.content).model_dump()
             logger.info("resume_tailored_via_llm", skills_count=len(tailored.get("skills", [])))
             return tailored
@@ -312,8 +312,8 @@ class DocumentGenerator:
                     db=usage_db, response=response,
                     purpose="cover_letter", user_id=usage_user_id,
                 )
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("llm_usage_record_failed", purpose="cover_letter", error=str(exc))
 
         return response.content
 

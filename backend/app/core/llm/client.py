@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -237,7 +236,8 @@ class LLMClient:
         response_format: dict[str, Any] | None = None,
         purpose: str = "general",
         user_settings: UserLLMConfig | None = None,
-        post_complete: Callable[[LLMResponse], None] | None = None,
+        usage_db: Any | None = None,
+        usage_user_id: str = "",
     ) -> LLMResponse:
         """Send completion request with fallback chain and metrics.
 
@@ -356,9 +356,15 @@ class LLMClient:
                     cost_usd=cost,
                     latency_ms=elapsed_ms,
                 )
-                if post_complete is not None:
+                if usage_db is not None and usage_user_id:
                     try:
-                        post_complete(result)
+                        from app.core.llm.usage_tracker import record_usage_atomic
+                        await record_usage_atomic(
+                            db=usage_db,
+                            response=result,
+                            purpose=purpose,
+                            user_id=usage_user_id,
+                        )
                     except Exception:
                         pass
                 return result
@@ -423,7 +429,8 @@ class LLMClient:
         model: str | None = None,
         purpose: str = "structured",
         user_settings: UserLLMConfig | None = None,
-        post_complete: Callable[[LLMResponse], None] | None = None,
+        usage_db: Any | None = None,
+        usage_user_id: str = "",
     ) -> BaseModel:
         """Get structured JSON output parsed into a Pydantic model.
 
@@ -458,6 +465,8 @@ class LLMClient:
             model=model,
             purpose=purpose,
             user_settings=user_settings,
+            usage_db=usage_db,
+            usage_user_id=usage_user_id,
         )
 
         try:

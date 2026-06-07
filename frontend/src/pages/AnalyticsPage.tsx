@@ -121,6 +121,9 @@ function AnalyticsPage() {
                 <Typography variant="h6" gutterBottom>
                   ATS Score Distribution
                 </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Calculated from ATS scores of your submitted applications only.
+                </Typography>
                 {atsDistribution && atsDistribution.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
