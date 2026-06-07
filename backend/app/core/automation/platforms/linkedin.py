@@ -68,7 +68,10 @@ class LinkedInPlatform(JobPlatform):
                     "Navigate to https://www.linkedin.com/feed/. "
                     "Check if the page shows a logged-in LinkedIn feed. "
                     "If the page redirects to a login form, report 'NOT_LOGGED_IN'. "
-                    "If the feed loads normally, report 'LOGGED_IN'."
+                    "If the feed loads normally, report 'LOGGED_IN'. "
+                    "Your very last action must be `done` with exactly one key: "
+                    '{"done": {"text": "<STATUS>"}, "success": true} '
+                    "where <STATUS> is the literal string LOGGED_IN or NOT_LOGGED_IN."
                 ),
                 llm=llm,
             )
@@ -154,7 +157,11 @@ class LinkedInPlatform(JobPlatform):
             "tag on the card, the location text, or the description snippet. "
             "Also set remote=true if \"remote\" appears anywhere on the card. "
             "Return as JSON array with keys: id, title, company, location, url, "
-            "description, salary_range, deadline, work_type, remote."
+            "description, salary_range, deadline, work_type, remote. "
+            "CRITICAL: After the extraction, your absolute last action must be `done` with success=true. "
+            "Set done.text to the RAW JSON array ONLY — no surrounding text. "
+            "Example done.text: "
+            '[{"id":"...","title":"...","company":"...","location":"...","url":"...","description":"...","salary_range":null,"deadline":"...","work_type":"...","remote":true}]'
         )
 
         llm = self._resolve_user_llm()
@@ -351,57 +358,136 @@ class LinkedInPlatform(JobPlatform):
     def _decode_json_candidate(text: str) -> dict | list | None:
         """Return the first valid JSON object/array found in *text*, or ``None``.
 
-        Handles the three common shapes returned by browser-use
-        ``ActionResult.extracted_content``:
+        Handles the shapes returned by browser-use ``ActionResult.extracted_content``:
 
-        1. Browser-use wrapper: ``{"done": {"text": "<actual JSON>"}, "success": true}``
-        2. Bare JSON with trailing garbage after the closing ``]`` or ``}``
-        3. Multiple JSON values concatenated — returns the first complete value
+        1. Text prefix (e.g. ``📄 Extracted from page\n: ``) followed by JSON
+        2. Browser-use wrapper: ``{"done": {"text": "<actual JSON>"}, ...}``
+        3. Double-escaped JSON string embedded as a Python string literal
+           (e.g. ``[{\\"id\\":1}]`` — the agent serialised JSON inside a
+           string value, so ``\\\"`` is an escaped quote inside the outer
+           string representation)
+        4. Bare JSON with trailing garbage after the closing ``]`` or ``}``
         """
         import json
 
-        # Fast path: direct parse
+        # 1. Strip any text prefix (emojis, "Extracted from page", etc.) before
+        #    the first structural JSON character so we always start parsing from
+        #    a clean `{` or `[`.
+        #    Also unescape any double-escaped content so `{\\"id\\":1}` becomes
+        #    `{"id":1}` before `json.loads` is called.
+        def _clean(text_in: str) -> str:
+            cleaned = text_in.strip()
+            first = -1
+            for marker in ("{", "["):
+                idx = cleaned.find(marker)
+                if idx != -1:
+                    if first == -1 or idx < first:
+                        first = idx
+            if first == -1:
+                return cleaned
+            cleaned = cleaned[first:]
+            if "\\\\" in cleaned[:40] or "\\\\" in cleaned[-40:]:
+                cleaned = cleaned.replace('\\\\"', '"').replace('\\\\n', '\\n')
+            return cleaned
+
+        stripped = _clean(text)
+
+        # 2. Fast path: direct parse of the cleaned text
         try:
-            value = json.loads(text)
+            value = json.loads(stripped)
             if isinstance(value, (dict, list)):
                 return value
         except Exception:
             pass
 
-        # Unwrap {"done": {"text": "<json>"}}
+        # 3. Browser-use wrapper: {"done": {"text": "<json>"}, ...}
         try:
-            wrapper = json.loads(text)
+            wrapper = json.loads(stripped)
             if isinstance(wrapper, dict):
                 done = wrapper.get("done")
                 if isinstance(done, dict) and isinstance(done.get("text"), str):
                     inner = done["text"]
-                    value = json.loads(inner)
-                    if isinstance(value, (dict, list)):
-                        return value
+                    # inner may itself be a JSON-stringified value; try direct first
+                    try:
+                        value = json.loads(inner)
+                        # If it's a dict with a jobs/listings/results list, unwrap it
+                        if isinstance(value, dict):
+                            for key in ("jobs", "listings", "results"):
+                                val = value.get(key)
+                                if isinstance(val, list):
+                                    return val
+                        if isinstance(value, (dict, list)):
+                            return value
+                    except Exception:
+                        pass
+                    # inner may be double-escaped (e.g. [\"id\":1])
+                    return LinkedInPlatform._decode_double_escaped_json(inner)
         except Exception:
             pass
 
-        # Walk from each '[' or '{' until we decode a real dict/list
+        # 4. The whole text may be a double-escaped JSON string literal
+        if stripped.startswith("[{") and "\\" in stripped[:20]:
+            return LinkedInPlatform._decode_double_escaped_json(stripped)
+
+        # 5. Walk from each '[' or '{' until we decode a real dict/list
         decoder = json.JSONDecoder()
         start = 0
         while True:
             bracket = -1
             for marker in ("[", "{"):
-                idx = text.find(marker, start)
+                idx = stripped.find(marker, start)
                 if idx != -1:
                     if bracket == -1 or idx < bracket:
                         bracket = idx
             if bracket == -1:
                 break
             try:
-                value, end = decoder.raw_decode(text, bracket)
+                value, end = decoder.raw_decode(stripped, bracket)
                 if isinstance(value, (dict, list)):
                     return value
             except json.JSONDecodeError:
                 pass
             start = bracket + 1
-            if start >= len(text):
+            if start >= len(stripped):
                 break
+
+        return None
+
+    @staticmethod
+    def _decode_double_escaped_json(text: str) -> dict | list | None:
+        """Unescape a double-escaped JSON string and parse it.
+
+        The browser-use agent sometimes emits JSON as the *string contents* of
+        a ``done`` action, e.g.::
+
+            "[{\\"id\\":1, \\"title\\": \\"Engineer\\"}]"
+
+        After the outer wrapper is removed we are left with a Python-style
+        string repr of JSON.  Wrapping it in quotes and calling ``json.loads``
+        twice reconstructs the original JSON structure.
+        """
+        import json
+
+        # Normalise literal newlines that were escaped as \\\\n
+        cleaned = text.replace('\\\\n', '\\n')
+        try:
+            # The string is a JSON string literal — wrap and decode once to
+            # get the inner JSON text, then decode again to get the object.
+            inner = json.loads(f'"{cleaned}"')
+            value = json.loads(inner)
+            if isinstance(value, (dict, list)):
+                return value
+        except Exception:
+            pass
+
+        # Fallback: naive unescape then try once more
+        fallback = cleaned.replace('\\"', '"').replace('\\\\', '\\')
+        try:
+            value = json.loads(fallback)
+            if isinstance(value, (dict, list)):
+                return value
+        except Exception:
+            pass
 
         return None
 
@@ -460,11 +546,36 @@ class LinkedInPlatform(JobPlatform):
                         logger.info(
                             "linkedin.parse_search_results.json_found",
                             source=f"history[{h_idx}].result[{r_idx}].extracted_content",
-                            content_len=len(text),
+                            content_len=len(content),
                         )
                         break
             if text:
                 break
+
+        # Super-fallback: try decoding every history/source item through the
+        # tolerant decoder regardless of leading non-JSON prefix.
+        if not text:
+            for h_idx, hist in enumerate(items):
+                results = getattr(hist, 'result', []) if hasattr(hist, 'result') else (hist.get('result', []) if isinstance(hist, dict) else [])
+                for r_idx, result in enumerate(results):
+                    raw = ""
+                    if hasattr(result, 'extracted_content'):
+                        raw = result.extracted_content or ""
+                    elif hasattr(result, 'text'):
+                        raw = result.text or ""
+                    elif isinstance(result, dict):
+                        raw = result.get('extracted_content') or result.get('text') or ""
+                    decoded = self._decode_json_candidate(raw)
+                    if decoded is not None:
+                        text = raw
+                        logger.info(
+                            "linkedin.parse_search_results.json_found_via_decoder",
+                            source=f"history[{h_idx}].result[{r_idx}]",
+                            content_len=len(raw),
+                        )
+                        break
+                if text:
+                    break
 
         # Fallback: final_result text (usually a summary, rarely the JSON)
         if not text and hasattr(raw_result, 'final_result'):

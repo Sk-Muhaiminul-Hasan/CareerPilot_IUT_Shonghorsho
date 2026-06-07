@@ -17,6 +17,7 @@ from app.core.automation.platforms import platform_registry
 from app.core.automation.platforms.base import JobListing
 from app.core.exceptions import RecordNotFoundError
 from app.core.job_discovery.exa_search import ExaJobSearch
+from app.db.session import async_session_factory
 from app.models.job import Job
 from app.models.resume import Resume
 from app.schemas.job import (
@@ -156,15 +157,39 @@ async def search_jobs(
     except Exception as exc:
         logger.debug("job_search.exa_skipped", reason=str(exc))
 
-    if all_jobs:
+    # ------------------------------------------------------------------
+    # Persist collected jobs using a fresh DB session when the request-
+    # scoped one has timed out (known Neon issue with 5+ min requests).
+    # ------------------------------------------------------------------
+    async def _persist(
+        session: AsyncSession,
+        jobs: list[Job],
+    ) -> list[Job]:
+        """Commit and refresh a batch of unsaved Job instances."""
         try:
-            await db.commit()
-            for job in all_jobs:
-                await db.refresh(job)
+            session.add_all(jobs)
+            await session.commit()
+            for job in jobs:
+                await session.refresh(job)
+            return jobs
         except Exception as exc:
             logger.error("job_search.commit_failed", error=str(exc))
-            await db.rollback()
-            all_jobs = []
+            await session.rollback()
+            return []
+
+    session_to_use = db
+    try:
+        await session_to_use.rollback()
+    except Exception as exc:
+        logger.warning(
+            "job_search.request_session_timed_out",
+            error=str(exc),
+            action="opening_fresh_session",
+        )
+        async with async_session_factory() as fresh_db:
+            all_jobs = await _persist(fresh_db, all_jobs)
+    else:
+        all_jobs = await _persist(session_to_use, all_jobs)
 
     # Apply limit
     limited = all_jobs[: request.limit]
