@@ -184,8 +184,8 @@ async def list_applications(
     items: list[ApplicationResponse] = []
     for app, job_title, job_company in rows:
         payload = ApplicationResponse.model_validate(app)
-        payload.job_title = job_title
-        payload.job_company = job_company
+        payload.job_title = job_title or f"Job {app.job_id[:8]}"
+        payload.job_company = job_company or "Unknown company"
         items.append(payload)
 
     return ApplicationListResponse(
@@ -360,3 +360,5 @@ async def generate_cover_letter(
     await db.refresh(app)
     logger.info("cover_letter_generated", app_id=app_id, path=app.cover_letter_path)
     return app
+
+
