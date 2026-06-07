@@ -608,8 +608,14 @@ def _score_with_text_fallback(
     resume_skills = set(_extract_skills(resume_text))
     job_skills = set(_extract_skills(job_description))
 
+    print("[DEBUG][ATS] JD skills extracted:", sorted(job_skills))
+    print("[DEBUG][ATS] CV skills extracted:", sorted(resume_skills))
+
     if job_skills:
         matched = resume_skills & job_skills
+        unmatched = job_skills - resume_skills
+        print("[DEBUG][ATS] Matched skills:", sorted(matched))
+        print("[DEBUG][ATS] Missing skills:", sorted(unmatched))
         skill_score = len(matched) / len(job_skills)
         missing = sorted(job_skills - resume_skills)
     else:
