@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -17,7 +17,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import SaveIcon from '@mui/icons-material/Save';
 
 import ResumeUpload from '@/components/resumes/ResumeUpload';
-import TemplateSelector from '@/components/resumes/TemplateSelector';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useResumeContent, useResumes, useUpdateResumeContent } from '@/hooks/useResumes';
 import { downloadResume } from '@/services/resumeService';
@@ -27,7 +26,6 @@ import { DEMO_CV_TEXT } from '@/data/demoProfile';
 
 function ResumesPage() {
   const navigate = useNavigate();
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [draftContent, setDraftContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: resumeData, isLoading } = useResumes();
@@ -39,10 +37,6 @@ function ResumesPage() {
   const updateContent = useUpdateResumeContent();
   const openChatWithResume = useChatStore((s) => s.openChatWithResume);
   const showNotification = useAppStore((s) => s.showNotification);
-
-  const handleTemplateSelect = useCallback((templateId: string) => {
-    setSelectedTemplate(templateId);
-  }, []);
 
   useEffect(() => {
     if (isDemoSelected) {
@@ -60,7 +54,7 @@ function ResumesPage() {
     setSearchParams({ demo: '1' });
   };
 
-  const useInCopilot = (resumeId: string) => {
+  const handleUseInCopilot = (resumeId: string) => {
     openChatWithResume(resumeId);
     showNotification(
       resumeId === 'default_user' ? 'Demo CV attached to Copilot.' : 'CV attached to Copilot.',
@@ -121,7 +115,7 @@ function ResumesPage() {
               <Button
                 startIcon={<SmartToyIcon />}
                 variant="contained"
-                onClick={() => useInCopilot(isDemoSelected ? 'default_user' : selectedResumeId ?? '')}
+                onClick={() => handleUseInCopilot(isDemoSelected ? 'default_user' : selectedResumeId ?? '')}
               >
                 Use in Copilot
               </Button>
@@ -147,17 +141,6 @@ function ResumesPage() {
             />
           </Paper>
         )}
-
-        <Box sx={{ mt: 4, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Resume Templates
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select a template for generating tailored resumes. Currently selected:{' '}
-            <strong>{selectedTemplate}</strong>
-          </Typography>
-          <TemplateSelector selectedId={selectedTemplate} onSelect={handleTemplateSelect} />
-        </Box>
 
         <Divider sx={{ my: 4 }} />
 
@@ -290,7 +273,7 @@ function ResumesPage() {
                       size="small"
                       variant="outlined"
                       startIcon={<SmartToyIcon />}
-                      onClick={() => useInCopilot(resume.id)}
+                      onClick={() => handleUseInCopilot(resume.id)}
                       sx={{ whiteSpace: 'nowrap' }}
                     >
                       Copilot

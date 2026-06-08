@@ -23,7 +23,6 @@ import { downloadResume, generateResume } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/types/api';
 import type { ApplicationStatusUpdate } from '@/types/application';
-import TemplateSelector from '@/components/resumes/TemplateSelector';
 import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
 import type { Application } from '@/types/application';
 
@@ -178,7 +177,7 @@ function ApplicationDetailPage() {
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [resumeGenerating, setResumeGenerating] = useState(false);
   const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const selectedTemplate = 'modern';
   const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
 
   const application: Application | undefined = appData;
@@ -454,11 +453,6 @@ function ApplicationDetailPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {jobLoading ? 'Loading job details...' : `${jobData?.title ?? 'Job'}${jobData?.company ? ` at ${jobData.company}` : ''}`}
           </Typography>
-
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>
-            Select Template
-          </Typography>
-          <TemplateSelector selectedId={selectedTemplate} onSelect={setSelectedTemplate} />
 
           {(resumeGenerateError || generateError) && (
             <Alert severity="error" sx={{ mt: 2 }}>
