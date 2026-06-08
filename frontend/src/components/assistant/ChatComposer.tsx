@@ -19,6 +19,7 @@ import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import type { ContextOption } from './contextOptions';
 
 interface ChatComposerProps {
@@ -36,6 +37,7 @@ interface ChatComposerProps {
   // Passed directly so we can render a styled inline menu
   contextOptions?: ContextOption[];
   onSelectContextOption?: (option: ContextOption) => void;
+  onCloseJobDescription?: () => void;
 }
 
 /** Pick a small icon for each context option by id */
@@ -82,8 +84,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onSend,
   contextOptions = [],
   onSelectContextOption,
+  onCloseJobDescription,
 }) => {
   const [menuAnchor, setMenuAnchor] = React.useState<HTMLElement | null>(null);
+  const [isEditingJobDesc, setIsEditingJobDesc] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!jobDescription) {
+      setIsEditingJobDesc(true);
+    }
+  }, [jobDescription]);
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchor(event.currentTarget);
@@ -109,17 +119,114 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     >
       <Stack spacing={1}>
         {shouldShowJobDescription && (
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            maxRows={6}
-            size="small"
-            placeholder="Paste job description..."
-            value={jobDescription}
-            onChange={(event) => onJobDescriptionChange(event.target.value)}
-            sx={textFieldSx}
-          />
+          isEditingJobDesc ? (
+            <Box sx={{ position: 'relative', width: '100%' }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                maxRows={6}
+                size="small"
+                autoFocus
+                placeholder="Paste job description..."
+                value={jobDescription}
+                onChange={(event) => onJobDescriptionChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    if (jobDescription.trim()) {
+                      setIsEditingJobDesc(false);
+                    }
+                  }
+                }}
+                sx={{
+                  ...textFieldSx,
+                  '& .MuiOutlinedInput-root': {
+                    ...textFieldSx['& .MuiOutlinedInput-root'],
+                    pr: 5,
+                  }
+                }}
+              />
+              <IconButton
+                size="small"
+                onClick={onCloseJobDescription}
+                aria-label="Remove job description"
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  color: '#737686',
+                  '&:hover': {
+                    color: '#ff4d4f',
+                    backgroundColor: 'rgba(255, 77, 79, 0.08)',
+                  },
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ) : (
+            <Box
+              onClick={() => setIsEditingJobDesc(true)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 0.75,
+                borderRadius: '16px',
+                border: '1px solid #c3c6d7',
+                backgroundColor: '#f5f7ff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                alignSelf: 'flex-start',
+                maxWidth: 'fit-content',
+                boxShadow: '0 2px 6px rgba(0, 74, 198, 0.04)',
+                '&:hover': {
+                  backgroundColor: '#eef2ff',
+                  borderColor: '#004ac6',
+                  boxShadow: '0 4px 12px rgba(0, 74, 198, 0.08)',
+                },
+              }}
+            >
+              <DescriptionOutlinedIcon fontSize="small" sx={{ color: '#004ac6' }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  color: '#0b1c30',
+                  fontSize: '0.85rem',
+                  userSelect: 'none',
+                }}
+              >
+                {(() => {
+                  const words = jobDescription.trim().split(/\s+/);
+                  if (words.length <= 2) {
+                    return jobDescription.trim();
+                  }
+                  return `${words[0]} ${words[1]}...`;
+                })()}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseJobDescription?.();
+                }}
+                aria-label="Remove job description"
+                sx={{
+                  p: 0.25,
+                  color: '#737686',
+                  '&:hover': {
+                    color: '#ff4d4f',
+                    backgroundColor: 'rgba(255, 77, 79, 0.08)',
+                  },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: '0.9rem' }} />
+              </IconButton>
+            </Box>
+          )
         )}
 
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>

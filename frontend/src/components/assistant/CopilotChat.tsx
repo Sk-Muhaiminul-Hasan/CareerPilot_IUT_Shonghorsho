@@ -195,6 +195,7 @@ export const CopilotChat: React.FC = () => {
             onSend={() => void chat.handleSendMessage()}
             contextOptions={chat.contextOptions}
             onSelectContextOption={chat.selectContextOption}
+            onCloseJobDescription={chat.onCloseJobDescription}
           />
         </Box>
       </Drawer>

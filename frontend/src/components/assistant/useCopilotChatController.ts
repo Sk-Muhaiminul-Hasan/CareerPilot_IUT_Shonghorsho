@@ -276,6 +276,11 @@ export function useCopilotChatController() {
     inputRef.current?.focus();
   };
 
+  const onCloseJobDescription = () => {
+    setJobDescription('');
+    setShowJobDescription(false);
+  };
+
   const openResumeContext = (resumeId: string | null | undefined) => {
     if (!resumeId || resumeId === 'default_user' || resumeId === 'demo_profile') {
       navigate('/resumes?demo=1');
@@ -300,5 +305,6 @@ export function useCopilotChatController() {
     sessions, setHistoryOpen, setJobDescription, setMenuAnchor,
     closeMentionMenu: () => setMentionAnchor(null),
     shouldShowJobDescription, startNewChat, updateArtifact, userProfileId,
+    onCloseJobDescription,
   };
 }

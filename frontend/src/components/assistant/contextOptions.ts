@@ -49,12 +49,12 @@ export function buildContextOptions({
     },
     {
       id: 'active-cv',
-      label: userProfileId ? 'Active CV' : 'Latest or demo CV',
-      description: 'Use the latest uploaded CV, or demo CV until Pillar 2 is connected.',
-      insertText: 'active CV',
+      label: 'Latest CV',
+      description: 'Use the latest uploaded CV.',
+      insertText: 'Latest CV',
       attachment: {
         type: 'resume',
-        label: userProfileId ? 'Active CV' : 'Latest or demo CV',
+        label: 'Latest CV',
         value: userProfileId || 'default_user',
       },
     },
@@ -85,17 +85,6 @@ export function buildContextOptions({
       description: 'Tell Copilot the company, role, or profile you want to compare against.',
       insertText: 'benchmark analyser',
       action: 'benchmark_prompt',
-    },
-    {
-      id: 'pillar2-placeholder',
-      label: 'Pillar 2 demo RAG',
-      description: 'Temporary section-chunked CV context until the RAG pillar lands.',
-      insertText: 'Pillar 2 demo RAG',
-      attachment: {
-        type: 'rag_placeholder',
-        label: 'Pillar 2 demo RAG',
-        value: 'Use section-chunked demo CV context until Profile and Resume Intelligence is complete.',
-      },
     },
   ];
 }
