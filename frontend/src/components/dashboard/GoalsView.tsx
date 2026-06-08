@@ -33,7 +33,7 @@ import Skeleton from '@mui/material/Skeleton';
 
 import type { Goal } from '@/types/dashboard';
 import { useGoals, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
-import { createGoal, createCalendarEvent, updateGoal } from '@/services/dashboardService';
+import { createGoal, updateGoal } from '@/services/dashboardService';
 
 /** Gradient colors per goal variant. */
 const BAR_GRADIENT: Record<Goal['colorVariant'], string> = {
@@ -181,12 +181,6 @@ export default function GoalsView() {
     await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     await queryClient.invalidateQueries({ queryKey: GOALS_KEY });
 
-    if (!editingGoal && createdGoal?.dueDate) {
-      const deadlineDate = new Date(createdGoal.dueDate);
-      deadlineDate.setHours(12, 0, 0, 0);
-      await createCalendarEvent(createdGoal.title, deadlineDate);
-      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
-    }
     setIsSubmitting(false);
   }
 

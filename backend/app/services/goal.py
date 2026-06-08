@@ -148,7 +148,7 @@ async def list_goals(
 
 
 async def update_goal(goal_id: str, user_id: str, data: GoalUpdate) -> GoalResponse:
-    async with AsyncSessionLocal() as db:  # noqa: SIM117
+    async with AsyncSessionLocal() as db:
         async with db.begin():
             result = await db.execute(
                 select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id)
@@ -156,6 +156,9 @@ async def update_goal(goal_id: str, user_id: str, data: GoalUpdate) -> GoalRespo
             record = result.scalar_one_or_none()
             if not record:
                 raise RecordNotFoundError("Goal", goal_id)
+
+            original_title = record.title
+            original_due_date = record.due_date
 
             patch = data.model_dump(exclude_unset=True)
 
@@ -178,6 +181,31 @@ async def update_goal(goal_id: str, user_id: str, data: GoalUpdate) -> GoalRespo
                 record.progress_percent = 100.0
 
             await db.flush()
+
+        due_date_changed = "due_date" in patch and patch["due_date"] != original_due_date
+        if due_date_changed:
+            from app.models.calendar_event import CalendarEvent
+
+            existing_result = await db.execute(
+                select(CalendarEvent).where(
+                    CalendarEvent.user_id == user_id,
+                    CalendarEvent.title == f"Goal deadline: {original_title}",
+                )
+            )
+            existing_event = existing_result.scalar_one_or_none()
+            if existing_event is not None:
+                from app.services.calendar_event import delete_event
+
+                await delete_event(existing_event.id, user_id)
+
+            new_due_date = record.due_date
+            if new_due_date is not None and user_id:
+                await _create_calendar_deadline(
+                    goal_id=record.id,
+                    title=record.title,
+                    due_date=new_due_date,
+                    user_id=user_id,
+                )
     return GoalResponse.model_validate(record)
 
 
