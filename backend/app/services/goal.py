@@ -62,32 +62,32 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
     due_date = data.due_date
     if due_date is not None and due_date.tzinfo is not None:
         due_date = due_date.replace(tzinfo=None)
-    async with AsyncSessionLocal() as db, db.begin():
-        progress = _compute_progress(0, data.target_value)
-        record = Goal(
-            title=data.title,
-            description=data.description,
-            category=data.category.value,
-            target_value=data.target_value,
-            current_value=0,
-            progress_percent=progress,
-            color_variant=data.color_variant.value,
-            due_label=data.due_label,
-            due_date=due_date,
-        )
-        db.add(record)
-        await db.commit()
-        await db.refresh(record)
-
-    if data.due_date and user_id:
-        _task = asyncio.create_task(  # noqa: RUF006
-            _create_calendar_deadline(
-                goal_id=record.id,
-                title=record.title,
-                due_date=data.due_date,
-                user_id=user_id,
-            ),
-        )
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            progress = _compute_progress(0, data.target_value)
+            record = Goal(
+                title=data.title,
+                description=data.description,
+                category=data.category.value,
+                target_value=data.target_value,
+                current_value=0,
+                progress_percent=progress,
+                color_variant=data.color_variant.value,
+                due_label=data.due_label,
+                due_date=due_date,
+            )
+            db.add(record)
+            await db.flush()
+            await db.refresh(record)
+        if data.due_date and user_id:
+            _task = asyncio.create_task(  # noqa: RUF006
+                _create_calendar_deadline(
+                    goal_id=record.id,
+                    title=record.title,
+                    due_date=data.due_date,
+                    user_id=user_id,
+                ),
+            )
 
     return GoalResponse.model_validate(record)
 

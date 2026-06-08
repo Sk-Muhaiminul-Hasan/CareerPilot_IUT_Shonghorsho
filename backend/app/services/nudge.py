@@ -20,7 +20,7 @@ from app.schemas.nudge import NudgeResponse, SuggestedTodoResponse
 
 logger = structlog.get_logger(__name__)
 
-_REDIS_TTL = 3600
+_REDIS_TTL = 300
 
 _GENERIC_BULLETS = [
     "Browse new job listings that match your profile.",
@@ -118,7 +118,35 @@ async def get_nudge(
             cached = await redis.get(redis_key)
             if cached:
                 logger.info("nudge_cache_hit", user_id=user_id)
-                return NudgeResponse.model_validate_json(cached)
+                nudge = NudgeResponse.model_validate_json(cached)
+                if not nudge.suggested_todos and nudge.recommended_jobs:
+                    logger.info("nudge_cache_backfill_todos", user_id=user_id)
+                    todo_results = await asyncio.gather(
+                        *[
+                            _create_todo_for_job(
+                                job=job,
+                                user_id=user_id,
+                            )
+                            for job in nudge.recommended_jobs
+                        ],
+                        return_exceptions=False,
+                    )
+                    new_todos = [
+                        SuggestedTodoResponse(
+                            id=t[0],
+                            title=t[1],
+                            due_date=t[2],
+                            priority=t[3],
+                            is_completed=False,
+                        )
+                        for t in todo_results
+                        if t is not None
+                    ]
+                    if new_todos:
+                        nudge = nudge.model_copy(
+                            update={"suggested_todos": new_todos}
+                        )
+                return nudge
         except Exception as exc:
             logger.warning("nudge_cache_read_failed", error=str(exc))
 
