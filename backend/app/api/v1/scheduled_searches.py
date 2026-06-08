@@ -4,19 +4,17 @@ from datetime import datetime
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.scheduled_search import ScheduledSearch
-from app.schemas.job import JobSearchRequest
 from app.schemas.scheduled_search import (
     ScheduledSearchCreate,
     ScheduledSearchResponse,
     ScheduledSearchUpdate,
 )
-from app.services import job_search as job_search_service
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -57,7 +55,10 @@ async def create_scheduled_search(
     if schedule not in SCHEDULE_VALUES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid schedule value: {schedule}. Must be one of {sorted(SCHEDULE_VALUES)}",
+            detail=(
+                f"Invalid schedule value: {schedule}. "
+                f"Must be one of {', '.join(sorted(SCHEDULE_VALUES))}"
+            ),
         )
 
     search = ScheduledSearch(
@@ -116,7 +117,10 @@ async def update_scheduled_search(
         if schedule not in SCHEDULE_VALUES:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid schedule value: {schedule}. Must be one of {sorted(SCHEDULE_VALUES)}",
+                detail=(
+                    f"Invalid schedule value: {schedule}. "
+                    f"Must be one of {', '.join(sorted(SCHEDULE_VALUES))}"
+                ),
             )
 
     for key, value in update_data.items():

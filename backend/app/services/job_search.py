@@ -34,6 +34,29 @@ from app.schemas.job import (
 logger = structlog.get_logger(__name__)
 
 
+async def _create_calendar_deadline(
+    job_title: str,
+    deadline: datetime,
+    user_id: str,
+) -> None:
+    try:
+        from app.schemas.calendar_event import CalendarEventCreate, EventTypeEnum
+        from app.services.calendar_event import create_event
+        await create_event(
+            CalendarEventCreate(
+                title=f"Apply by: {job_title}",
+                event_date=deadline,
+                event_type=EventTypeEnum.DEADLINE,
+            ),
+        )
+    except Exception as exc:
+        logger.warning(
+            "job_search.calendar_deadline_failed",
+            job_title=job_title,
+            error=str(exc),
+        )
+
+
 async def search_jobs(
     db: AsyncSession,
     request: JobSearchRequest,
@@ -176,6 +199,15 @@ async def search_jobs(
                                 user_id=user_id,
                             )
                         continue
+
+                    if job.deadline:
+                        asyncio.create_task(  # noqa: RUF006
+                            _create_calendar_deadline(
+                                job_title=job.title,
+                                deadline=job.deadline,
+                                user_id=user_id,
+                            ),
+                        )
 
                     all_jobs.append(job)
         except Exception as exc:

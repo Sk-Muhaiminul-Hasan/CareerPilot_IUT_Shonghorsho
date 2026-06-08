@@ -7,6 +7,7 @@ from app.models.goal import Goal
 from app.models.job import Job
 from app.models.llm_usage import LLMUsage
 from app.models.resume import Resume
+from app.models.scheduled_search import ScheduledSearch
 from app.models.todo_item import TodoItem
 from app.models.tracker import TrackerLabel, TrackerNote
 from app.models.user_settings import UserSettings
@@ -19,6 +20,7 @@ __all__ = [
     "Job",
     "LLMUsage",
     "Resume",
+    "ScheduledSearch",
     "TimestampMixin",
     "TodoItem",
     "TrackerLabel",

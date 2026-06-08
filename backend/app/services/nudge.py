@@ -1,5 +1,6 @@
 """Nudge service -- AI-powered career suggestions with Redis caching."""
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 
@@ -10,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm.client import LLMClient, UserLLMConfig
 from app.models.application import Application
+from app.models.goal import Goal
 from app.models.job import Job
 from app.schemas.job import JobListingResponse
-from app.schemas.nudge import NudgeResponse
+from app.schemas.nudge import NudgeResponse, SuggestedTodoResponse
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +35,7 @@ def _build_generic_response(applications_this_week: int) -> NudgeResponse:
         type=nudge_type,
         applications_this_week=applications_this_week,
         recommended_jobs=[],
+        suggested_todos=[],
     )
 
 
@@ -43,20 +46,54 @@ def _build_prompt(
     experience_company: str,
     applications_this_week: int,
     jobs: list[Job],
+    goals: list[dict] | None = None,
 ) -> str:
     job_descriptions = "\n".join(
         f"- {job.title} at {job.company} ({job.location})"
         for job in jobs
     )
+    goals_section = ""
+    if goals:
+        goal_lines = "\n".join(
+            f"- {g['title']} ({g['current_value']}/{g['target_value']})"
+            for g in goals
+        )
+        goals_section = f"\nCurrent goals:\n{goal_lines}\n"
     return (
         f"User: {full_name}\n"
         f"Skills: {', '.join(skills) if skills else 'None listed'}\n"
         f"Most recent role: {experience_title} at {experience_company}\n"
-        f"Applications this week: {applications_this_week}\n\n"
-        f"Recommended jobs:\n{job_descriptions}\n\n"
+        f"Applications this week: {applications_this_week}\n"
+        f"{goals_section}"
+        f"\nRecommended jobs:\n{job_descriptions}\n\n"
         "Generate a friendly career nudge with a short headline and 3 concise bullets "
         "encouraging the user to take action. Keep it human and specific."
     )
+
+
+async def _create_todo_for_job(
+    job: Job,
+    user_id: str,
+) -> tuple[str, str, datetime | None, int] | None:
+    due = job.deadline or (datetime.utcnow() + timedelta(days=3))
+    try:
+        from app.schemas.todo_item import TodoItemCreate, TodoPriorityEnum
+        from app.services.todo_item import create_todo
+        todo = await create_todo(
+            TodoItemCreate(
+                title=f"Apply to {job.title} at {job.company}",
+                due_date=due,
+                priority=TodoPriorityEnum.HIGH,
+            ),
+        )
+        return todo.id, todo.title, todo.due_date, todo.priority
+    except Exception as exc:
+        logger.warning(
+            "nudge.todo_creation_failed",
+            job_id=job.id,
+            error=str(exc),
+        )
+        return None
 
 
 async def get_nudge(
@@ -106,6 +143,22 @@ async def get_nudge(
                 logger.warning("nudge_cache_write_failed", error=str(exc))
         return generic
 
+    goals_result = await db.execute(
+        select(Goal.title, Goal.current_value, Goal.target_value).where(
+            Goal.user_id == user_id,
+            Goal.status == "active",
+        ).limit(3)
+    )
+    goal_rows = goals_result.all()
+    goals_context = [
+        {
+            "title": row.title,
+            "current_value": row.current_value,
+            "target_value": row.target_value,
+        }
+        for row in goal_rows
+    ]
+
     jobs_result = await db.execute(
         select(Job)
         .where(
@@ -124,6 +177,7 @@ async def get_nudge(
         experience_company=experience_company,
         applications_this_week=applications_this_week,
         jobs=jobs,
+        goals=goals_context,
     )
 
     llm = LLMClient()
@@ -152,7 +206,7 @@ async def get_nudge(
             await record_usage(
                 db=db, response=response, purpose="nudge", user_id=user_id,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("llm_usage_record_failed", purpose="nudge", error=str(exc))
 
         data = json.loads(response.content)
@@ -166,12 +220,29 @@ async def get_nudge(
         logger.error("nudge_llm_failed", error=str(exc))
         return fallback
 
+    todo_creations = [
+        _create_todo_for_job(job=job, user_id=user_id)
+        for job in jobs
+    ]
+    todo_results = await asyncio.gather(*todo_creations, return_exceptions=False)
+    suggested_todos = [
+        SuggestedTodoResponse(
+            id=t[0],
+            title=t[1],
+            due_date=t[2],
+            priority=t[3],
+            is_completed=False,
+        )
+        for t in todo_results if t is not None
+    ]
+
     result = NudgeResponse(
         headline=headline,
         bullets=[str(b) for b in bullets[:3]],
         type="active" if applications_this_week > 0 else "inactive",
         applications_this_week=applications_this_week,
         recommended_jobs=[JobListingResponse.model_validate(j) for j in jobs],
+        suggested_todos=suggested_todos,
     )
 
     if redis is not None:

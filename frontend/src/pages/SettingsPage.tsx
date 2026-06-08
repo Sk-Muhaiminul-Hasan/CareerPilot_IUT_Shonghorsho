@@ -19,6 +19,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LLMProvidersCard from '@/components/settings/LLMProvidersCard';
 import CandidateProfileEditor from '@/components/settings/CandidateProfileEditor';
 import AISlotConfigCard from '@/components/settings/AISlotConfigCard';
+import ScheduledSearchesCard from '@/components/settings/ScheduledSearchesCard';
 import { useSettings, useUpdateSettings, useLLMProviders } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import type { CandidateProfile } from '@/types/settings';
@@ -293,6 +294,11 @@ function SettingsPage() {
               profile={settings?.candidate_profile ?? null}
               onSave={handleProfileSave}
             />
+          </Grid>
+
+          {/* Scheduled Searches */}
+          <Grid item xs={12}>
+            <ScheduledSearchesCard />
           </Grid>
         </Grid>
       </Box>

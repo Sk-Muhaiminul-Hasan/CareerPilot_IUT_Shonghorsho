@@ -17,6 +17,8 @@ import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Divider from '@mui/material/Divider';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import BriefcaseIcon from '@mui/icons-material/WorkOutline';
 import GroupIcon from '@mui/icons-material/Group';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -28,6 +30,9 @@ import Skeleton from '@mui/material/Skeleton';
 
 import type { Goal } from '@/types/dashboard';
 import { useGoals } from '@/hooks/useDashboard';
+import { createGoal } from '@/services/dashboardService';
+
+const DASHBOARD_KEY = ['dashboard'] as const;
 
 /** Gradient colors per goal variant. */
 const BAR_GRADIENT: Record<Goal['colorVariant'], string> = {
@@ -129,6 +134,29 @@ const COMPLETED_GOALS = [
 
 export default function GoalsView() {
   const { data: goals, isLoading } = useGoals();
+  const queryClient = useQueryClient();
+  const [goalTitle, setGoalTitle] = useState('');
+  const [targetValue, setTargetValue] = useState(1);
+  const [category, setCategory] = useState('applications');
+  const [colorVariant, setColorVariant] = useState('primary');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleCreateGoal() {
+    if (!goalTitle.trim()) return;
+    setIsSubmitting(true);
+    await createGoal({
+      title: goalTitle.trim(),
+      targetValue,
+      category,
+      colorVariant,
+    });
+    setGoalTitle('');
+    setTargetValue(1);
+    setCategory('applications');
+    setColorVariant('primary');
+    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+    setIsSubmitting(false);
+  }
 
   return (
     <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
@@ -183,23 +211,31 @@ export default function GoalsView() {
               placeholder="e.g. Portfolio Revamp"
               fullWidth
               size="small"
+              value={goalTitle}
+              onChange={(e) => setGoalTitle(e.target.value)}
               sx={{ mb: 2 }}
             />
             <Box sx={{ display: 'flex', gap: 2, mb: 2.5 }}>
               <TextField
                 label="Target Number"
-                defaultValue={10}
+                value={targetValue}
                 type="number"
                 size="small"
                 sx={{ flex: 1 }}
+                onChange={(e) => setTargetValue(Number(e.target.value))}
               />
               <FormControl size="small" sx={{ flex: 1 }}>
                 <InputLabel>Category</InputLabel>
-                <Select defaultValue="Applications" label="Category">
-                  <MenuItem value="Applications">Applications</MenuItem>
-                  <MenuItem value="Learning">Learning</MenuItem>
-                  <MenuItem value="Networking">Networking</MenuItem>
-                  <MenuItem value="Prep">Interview Prep</MenuItem>
+                <Select
+                  value={category}
+                  label="Category"
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <MenuItem value="applications">Applications</MenuItem>
+                  <MenuItem value="learning">Learning</MenuItem>
+                  <MenuItem value="networking">Networking</MenuItem>
+                  <MenuItem value="interview_prep">Interview Prep</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -208,15 +244,18 @@ export default function GoalsView() {
               variant="contained"
               fullWidth
               startIcon={<StarIcon />}
+              disabled={isSubmitting || !goalTitle.trim()}
+              onClick={handleCreateGoal}
               sx={{
                 background: 'linear-gradient(90deg, #004ac6 0%, #712ae2 100%)',
                 fontWeight: 700,
                 textTransform: 'none',
                 py: 1.25,
                 borderRadius: 2,
+                '&.Mui-disabled': { opacity: 0.6 },
               }}
             >
-              Set Accountability Target
+              {isSubmitting ? 'Setting Target...' : 'Set Accountability Target'}
             </Button>
           </CardContent>
         </Card>

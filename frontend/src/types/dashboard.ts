@@ -43,3 +43,16 @@ export interface WeeklyProgress {
   /** Number of new skills added this week. */
   skillsAdded: number;
 }
+
+/** A single to-do item, optionally linked to a goal or calendar event. */
+export interface Todo {
+  id: string;
+  title: string;
+  description?: string;
+  /** ISO date string or null. */
+  dueDate: string | null;
+  priority: 1 | 2 | 3;
+  status: string;
+  isCompleted: boolean;
+  createdAt: string;
+}

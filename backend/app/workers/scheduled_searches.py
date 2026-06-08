@@ -1,13 +1,12 @@
 """Background worker for scheduled job searches."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.automation.platforms import platform_registry
 from app.db.session import AsyncSessionLocal
 from app.models.scheduled_search import ScheduledSearch
 from app.schemas.job import JobSearchRequest
@@ -56,8 +55,6 @@ def _compute_next_run(schedule: str, from_dt: datetime) -> datetime:
     ):
         days_ahead = 7
     next_dt = from_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    from datetime import timedelta
-
     return next_dt + timedelta(days=days_ahead)
 
 
@@ -108,14 +105,8 @@ async def _run_single_search(db: AsyncSession, search: ScheduledSearch, now: dat
 
         next_run = _compute_next_run(search.schedule, now)
 
-        await db.execute(
-            update(ScheduledSearch)
-            .where(ScheduledSearch.id == search.id)
-            .values(
-                last_run=now,
-                next_run=next_run,
-            )
-        )
+        search.last_run = now
+        search.next_run = next_run
         await db.commit()
 
         logger.info(

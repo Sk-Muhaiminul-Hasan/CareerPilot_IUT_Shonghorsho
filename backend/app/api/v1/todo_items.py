@@ -10,8 +10,9 @@ DELETE /todos/{todo_id}              Delete a to-do item
 """
 
 import structlog
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.api.deps import get_current_user
 from app.config.constants import DEFAULT_PAGE_SIZE
 from app.schemas.todo_item import (
     TodoItemCreate,
@@ -31,9 +32,12 @@ router = APIRouter()
     status_code=201,
     summary="Create a to-do item",
 )
-async def create_todo(data: TodoItemCreate) -> TodoItemResponse:
+async def create_todo(
+    data: TodoItemCreate,
+    user_id: str = Depends(get_current_user),
+) -> TodoItemResponse:
     """Create a new to-do item, optionally linked to a goal or calendar event."""
-    todo = await todo_service.create_todo(data)
+    todo = await todo_service.create_todo(data, user_id=user_id)
     logger.info("todo_created", todo_id=todo.id)
     return todo
 

@@ -5,20 +5,29 @@
  *
  * Data comes from useApplications() hook — real backend data.
  */
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import BoltIcon from '@mui/icons-material/Bolt';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import IconButton from '@mui/material/IconButton';
 
 import { useApplications } from '@/hooks/useApplications';
+import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo } from '@/hooks/useTodos';
 import type { Application } from '@/types/application';
 
 /** Map application statuses to Kanban columns. */
@@ -266,6 +275,44 @@ export default function TrackerView() {
   const { data: page1, isLoading } = useApplications(1, 100);
   const allApps = page1?.items ?? [];
 
+  const { data: todos = [] } = useTodos('todo');
+  const { data: doneTodos = [] } = useTodos('done');
+  const createTodo = useCreateTodo();
+  const completeTodo = useUpdateTodo();
+  const removeTodo = useDeleteTodo();
+
+  const [newTitle, setNewTitle] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newPriority, setNewPriority] = useState<1 | 2 | 3>(2);
+
+  const pendingTodos = todos
+    .slice()
+    .sort((a, b) => b.priority - a.priority);
+  const allTodos = [...pendingTodos, ...doneTodos];
+
+  async function handleAddTodo() {
+    if (!newTitle.trim()) return;
+    await createTodo.mutateAsync({
+      title: newTitle.trim(),
+      due_date: newDueDate || undefined,
+      priority: newPriority,
+    });
+    setNewTitle('');
+    setNewDueDate('');
+    setNewPriority(2);
+  }
+
+  async function handleToggleTodo(todoId: string, isCompleted: boolean) {
+    await completeTodo.mutateAsync({
+      id: todoId,
+      data: { is_completed: isCompleted ? false : true },
+    });
+  }
+
+  async function handleDeleteTodo(todoId: string) {
+    await removeTodo.mutateAsync(todoId);
+  }
+
   // Distribute apps into columns
   const columnApps = COLUMN_CONFIG.map((col) => {
     const statuses = COLUMN_STATUS_MAP[col.label] ?? [];
@@ -292,6 +339,121 @@ export default function TrackerView() {
           <KanbanColumn key={config.label} config={config} apps={apps} loading={isLoading} />
         ))}
       </Box>
+
+      {/* Todo List */}
+      <Card sx={{ mt: 3 }}>
+        <CardContent sx={{ p: '20px !important' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight={700}>Todo List</Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+            <TextField
+              label="New Task"
+              placeholder="Add a to-do..."
+              size="small"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="Due Date"
+              type="date"
+              size="small"
+              value={newDueDate}
+              onChange={(e) => setNewDueDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <FormControl size="small" sx={{ width: 120 }}>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={newPriority}
+                label="Priority"
+                onChange={(e) => setNewPriority(Number(e.target.value) as 1 | 2 | 3)}
+              >
+                <MenuItem value={1}>Low</MenuItem>
+                <MenuItem value={2}>Medium</MenuItem>
+                <MenuItem value={3}>High</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              onClick={handleAddTodo}
+              disabled={!newTitle.trim() || createTodo.isPending}
+              sx={{ bgcolor: '#004ac6', '&:hover': { bgcolor: '#003b9e' } }}
+            >
+              Add
+            </Button>
+          </Box>
+
+          {allTodos.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No todos yet. Add one above to stay on track.
+            </Typography>
+          ) : (
+            allTodos.map((todo) => (
+              <Box
+                key={todo.id}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  py: 1,
+                  px: 1.25,
+                  borderRadius: 1,
+                  '&:not(:last-child)': { borderBottom: '1px solid #f1f5f9' },
+                }}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => handleToggleTodo(todo.id, todo.isCompleted)}
+                  sx={{
+                    color: todo.isCompleted ? '#1a7f4b' : '#c3c6d7',
+                  }}
+                >
+                  <CheckCircleIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
+                      textDecoration: todo.isCompleted ? 'line-through' : 'none',
+                      color: todo.isCompleted ? 'text.disabled' : 'text.primary',
+                    }}
+                  >
+                    {todo.title}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 0.25 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {todo.dueDate ? new Date(todo.dueDate).toLocaleDateString() : 'No due date'}
+                    </Typography>
+                    <Chip
+                      label={todo.priority === 3 ? 'High' : todo.priority === 2 ? 'Medium' : 'Low'}
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        bgcolor: todo.priority === 3 ? '#fde8e8' : todo.priority === 2 ? '#fff4db' : '#e5eeff',
+                        color: todo.priority === 3 ? '#dc2626' : todo.priority === 2 ? '#b45309' : '#004ac6',
+                      }}
+                    />
+                  </Box>
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  sx={{ color: '#737686' }}
+                >
+                  <DeleteIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       {/* Bottom stats */}
       <TrackerStats apps={allApps} />

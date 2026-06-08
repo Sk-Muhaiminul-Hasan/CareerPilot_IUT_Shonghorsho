@@ -2,9 +2,14 @@
 
 import uuid
 from datetime import datetime
-from typing import Any
 
-from sqlalchemy import Boolean, DateTime, JSON, String, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    String,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin

@@ -6,6 +6,7 @@
  * Data comes from useCalendarEvents() — swap dashboardService.ts for real API calls.
  */
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -15,14 +16,15 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-
 import AddTaskIcon from '@mui/icons-material/AddTask';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 
 import type { CalendarEvent } from '@/types/dashboard';
 import { useCalendarEvents } from '@/hooks/useDashboard';
+import { createCalendarEvent } from '@/services/dashboardService';
 
+const DASHBOARD_KEY = ['dashboard'] as const;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -71,7 +73,9 @@ export default function CalendarView() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [quickAdd, setQuickAdd] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: events = [] } = useCalendarEvents();
 
   const grid = buildCalendarGrid(viewYear, viewMonth);
@@ -88,6 +92,21 @@ export default function CalendarView() {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
     else setViewMonth(m => m + 1);
   }
+
+  async function handleSchedule() {
+    if (!quickAdd.trim()) return;
+    setIsScheduling(true);
+    try {
+      await createCalendarEvent(quickAdd.trim(), selectedDate);
+      setQuickAdd('');
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+    } catch {
+      // error already logged in service
+    } finally {
+      setIsScheduling(false);
+    }
+  }
+
 
   const selectedEvents = eventsOnDay(selectedDate);
   const todayEvents = eventsOnDay(today);
@@ -314,15 +333,18 @@ export default function CalendarView() {
             <Button
               variant="contained"
               fullWidth
+              disabled={isScheduling || !quickAdd.trim()}
+              onClick={handleSchedule}
               sx={{
                 bgcolor: '#fff',
                 color: '#004ac6',
                 fontWeight: 700,
                 textTransform: 'none',
                 '&:hover': { bgcolor: '#eff4ff' },
+                '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.5)', color: 'rgba(0,74,198,0.5)' },
               }}
             >
-              Schedule
+              {isScheduling ? 'Scheduling...' : 'Schedule'}
             </Button>
           </CardContent>
         </Card>

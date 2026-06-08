@@ -1,7 +1,6 @@
 """Pydantic schemas for scheduled search endpoints."""
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
