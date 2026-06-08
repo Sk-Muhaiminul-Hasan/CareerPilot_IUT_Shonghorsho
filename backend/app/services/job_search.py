@@ -30,6 +30,7 @@ from app.schemas.job import (
     JobListResponse,
     JobSearchRequest,
 )
+from app.services.settings_helper import get_or_create_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -103,26 +104,32 @@ async def search_jobs(
     collected_listings: list[tuple[str, JobListing]] = []
     exa_results_count = 0
 
-    try:
-        exa_key = ""
-        settings = get_settings()
-        if settings.exa_api_key:
-            exa_key = settings.exa_api_key.get_secret_value()
-        if exa_key:
-            exa = ExaJobSearch(api_key=exa_key)
-            if exa.available:
-                exa_listings = await exa.search_jobs(
-                    query=request.query,
-                    location=request.location,
-                    num_results=min(request.limit, 10),
-                )
-                exa_results_count = len(exa_listings)
-                for listing in exa_listings:
-                    collected_listings.append(("exa", listing))
-                logger.info("job_search.exa_results", count=exa_results_count)
-    except Exception as exc:
-        logger.debug("job_search.exa_skipped", reason=str(exc))
-        exa_results_count = 0
+    settings = await get_or_create_settings(db, user_id)
+    is_premium = bool(getattr(settings, "is_premium", False))
+
+    if is_premium:
+        try:
+            exa_key = ""
+            app_settings = get_settings()
+            if app_settings.exa_api_key:
+                exa_key = app_settings.exa_api_key.get_secret_value()
+            if exa_key:
+                exa = ExaJobSearch(api_key=exa_key)
+                if exa.available:
+                    exa_listings = await exa.search_jobs(
+                        query=request.query,
+                        location=request.location,
+                        num_results=min(request.limit, 10),
+                    )
+                    exa_results_count = len(exa_listings)
+                    for listing in exa_listings:
+                        collected_listings.append(("exa", listing))
+                    logger.info("job_search.exa_results", count=exa_results_count)
+        except Exception as exc:
+            logger.debug("job_search.exa_skipped", reason=str(exc))
+            exa_results_count = 0
+    else:
+        logger.info("job_search.exa_skipped", reason="not_premium")
 
     if exa_results_count == 0:
         for platform_name in platforms_to_search:

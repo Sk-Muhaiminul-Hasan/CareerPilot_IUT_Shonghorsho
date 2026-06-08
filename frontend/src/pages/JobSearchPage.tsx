@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Pagination from '@mui/material/Pagination';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { QueryClient, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +20,7 @@ import { useJobs, useSearchJobs } from '@/hooks/useJobs';
 import { useCreateApplication } from '@/hooks/useApplications';
 import { useJobStore } from '@/store/useJobStore';
 import { useAppStore } from '@/store/useAppStore';
+import { useSettings } from '@/hooks/useSettings';
 import * as jobService from '@/services/jobService';
 import type { Job } from '@/types/job';
 
@@ -39,6 +41,9 @@ function JobSearchPage() {
   const clearNotification = useAppStore((s) => s.clearNotification);
   const { onJobEnriched } = useSharedWebSocket();
   const queryClient = useQueryClient();
+
+  const { data: settings } = useSettings();
+  const isPremium = Boolean(settings?.is_premium);
 
   const { data: jobsData, isLoading, isError } = useJobs(page, 20);
   const searchMutation = useSearchJobs();
