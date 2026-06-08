@@ -1,0 +1,161 @@
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+
+import { useAuthStore } from '@/store/useAuthStore';
+import { useAppStore } from '@/store/useAppStore';
+import LoginPage from '@/pages/LoginPage';
+import LoadingState from '@/components/common/LoadingState';
+import { useOnboardingStatus } from '@/hooks/useSettings';
+import { SharedWebSocketProvider } from '@/contexts/SharedWebSocketProvider';
+
+// Lazy-loaded pages for code splitting
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const JobSearchPage = lazy(() => import('@/pages/JobSearchPage'));
+const ApplicationDetailPage = lazy(() => import('@/pages/ApplicationDetailPage'));
+const ApplicationsPage = lazy(() => import('@/pages/ApplicationsPage'));
+const ResumesPage = lazy(() => import('@/pages/ResumesPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
+const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+const ArtifactsPage = lazy(() => import('@/pages/ArtifactsPage'));
+
+// Guards authenticated routes: checks onboarding completion before
+// rendering the app shell. Redirects to /onboarding when AI is not yet set up.
+function ProtectedInner() {
+  const { data: onboardingStatus, isLoading, isError } = useOnboardingStatus();
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (isError || !onboardingStatus) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (
+    !onboardingStatus.onboarding_complete &&
+    !onboardingStatus.has_general_ai &&
+    !onboardingStatus.has_extraction_ai
+  ) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return (
+    <Suspense fallback={<LoadingState message="Loading..." />}>
+      <SharedWebSocketProvider>
+        <AppLayout />
+      </SharedWebSocketProvider>
+    </Suspense>
+  );
+}
+
+function App() {
+  const notification = useAppStore((s) => s.notification);
+  const clearNotification = useAppStore((s) => s.clearNotification);
+  const user = useAuthStore((s) => s.user);
+  const hydrated = useAuthStore((s) => s.hydrated);
+
+  if (!hydrated) {
+    return <LoadingState message="Verifying session..." />;
+  }
+
+  return (
+    <>
+      <Suspense
+        fallback={
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
+            <CircularProgress />
+          </Box>
+        }
+      >
+        <Routes>
+          {/* Public routes (always accessible) */}
+          <Route
+            path="/"
+            element={user ? <Navigate to="/dashboard" replace /> : <HomePage />}
+          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+
+          {/* Protected routes: each wraps ProtectedInner (onboarding guard + AppLayout) */}
+          <Route
+            path="/dashboard"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<DashboardPage />} />
+          </Route>
+          <Route
+            path="/jobs"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<JobSearchPage />} />
+          </Route>
+          <Route
+            path="/applications"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ApplicationsPage />} />
+            <Route path=":appId" element={<ApplicationDetailPage />} />
+          </Route>
+          <Route
+            path="/resumes"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ResumesPage />} />
+          </Route>
+          <Route
+            path="/settings"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<SettingsPage />} />
+          </Route>
+          <Route
+            path="/analytics"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<AnalyticsPage />} />
+          </Route>
+          <Route
+            path="/artifacts"
+            element={user ? <ProtectedInner /> : <Navigate to="/login" replace />}
+          >
+            <Route index element={<ArtifactsPage />} />
+          </Route>
+
+          {/* Fallback: unknown paths go to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={notification?.autoHideDuration ?? 5000}
+        onClose={clearNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        {notification ? (
+          <Alert
+            onClose={clearNotification}
+            severity={notification.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
+    </>
+  );
+}
+
+export default App;

@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# IDE
+.idea/
+.vscode/
+.vs-code/
+*.swp
+*.swo
+*~
+.claude
+.claude/
+
+# Data (runtime generated)
+backend/data/db/*.db
+backend/data/sessions/*
+!backend/data/sessions/.gitkeep
+backend/data/generated/*
+!backend/data/generated/resumes/.gitkeep
+!backend/data/generated/cover_letters/.gitkeep
+backend/data/logs/*
+!backend/data/logs/.gitkeep
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Docker
+docker/.env
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+temp.py
+.qodo
+uv.lock
+.kilo/
+API.md
+ARCHITECTURE.md
+INTEGRATION_PLAN.md
+TOOLS.md
+.claude/
+venv311/
+env311/
+.puku/
+
+backend/data/uploads/*.pdf
+backend/data/vector_indices/
+
+*.env.*

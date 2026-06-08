@@ -1,0 +1,213 @@
+import { Outlet, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import Stack from '@mui/material/Stack';
+import Avatar from '@mui/material/Avatar';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
+import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { useState } from 'react';
+
+import Sidebar, { DRAWER_WIDTH } from './Sidebar';
+import { CopilotChat } from '@/components/assistant/CopilotChat';
+import { useAppStore } from '@/store/useAppStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useChatStore } from '@/store/useChatStore';
+
+function AppLayout() {
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const toggleCopilotChat = useChatStore((s) => s.toggleChat);
+  const isChatOpen = useChatStore((s) => s.isOpen);
+  const copilotWidth = useChatStore((s) => s.sidebarWidth);
+  const navigate = useNavigate();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const userInitial = (user?.email ?? 'U').charAt(0).toUpperCase();
+
+  // When copilot sidebar is open the appbar and main content shrink to avoid overlap
+  const rightOffset = isChatOpen ? copilotWidth : 0;
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
+      <Sidebar />
+
+      {/* Top app bar */}
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          // Subtract left nav width + copilot sidebar width
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px - ${rightOffset}px)` },
+          ml: { md: `${DRAWER_WIDTH}px` },
+          mr: { md: `${rightOffset}px` },
+          backgroundColor: 'background.paper',
+          borderBottom: '1px solid #e2e8f0',
+          transition: 'width 0.22s cubic-bezier(0.4, 0, 0.2, 1), margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            edge="start"
+            onClick={() => setSidebarOpen(true)}
+            sx={{ mr: 2, display: { md: 'none' }, color: '#0b1c30' }}
+          >
+            <MenuIcon />
+          </IconButton>
+
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              <img src="/auto-logo.png" alt="Auto" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            </Box>
+            <Typography sx={{ fontWeight: 700, color: '#0b1c30' }}>CareerPilot</Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            {user?.email && (
+              <Typography
+                variant="body2"
+                sx={{ color: '#434655', display: { xs: 'none', sm: 'inline' } }}
+              >
+                {user.email}
+              </Typography>
+            )}
+            <IconButton onClick={(event) => setAnchorEl(event.currentTarget)}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: '#004ac6', fontSize: '0.9rem' }}>
+                {userInitial}
+              </Avatar>
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={!!anchorEl}
+              onClose={() => setAnchorEl(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setAnchorEl(null);
+                  navigate('/settings');
+                }}
+              >
+                <ListItemIcon>
+                  <SettingsOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Settings</ListItemText>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Logout</ListItemText>
+              </MenuItem>
+            </Menu>
+          </Stack>
+        </Toolbar>
+      </AppBar>
+
+      {/* Main content area — shrinks when copilot sidebar is open */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          // On md+, leave space for both sidebars
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px - ${rightOffset}px)` },
+          mt: 8, // toolbar height
+          px: { xs: 2, md: 4 },
+          py: { xs: 2, md: 3 },
+          mr: { md: `${rightOffset}px` },
+          transition: 'margin-right 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        <Outlet />
+      </Box>
+
+      {/* Global Career Copilot chat sidebar */}
+      <CopilotChat />
+
+      {/* Floating chat toggle — bottom-right, Sider-style */}
+      {!isChatOpen && (
+        <Tooltip title="Career Copilot" placement="left">
+          <Box
+            onClick={toggleCopilotChat}
+            aria-label="Open Career Copilot"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleCopilotChat(); }}
+            sx={{
+              position: 'fixed',
+              bottom: 28,
+              right: 24,
+              zIndex: (theme) => theme.zIndex.drawer + 1,
+              width: 52,
+              height: 52,
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+              boxShadow: '0 6px 20px rgba(0, 74, 198, 0.40)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+              '&:hover': {
+                transform: 'translateY(-3px) scale(1.06)',
+                boxShadow: '0 10px 28px rgba(113, 42, 226, 0.45)',
+              },
+              '&:active': {
+                transform: 'translateY(0) scale(0.97)',
+              },
+              // Pulse ring animation
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: -4,
+                borderRadius: '18px',
+                background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+                opacity: 0.3,
+                animation: 'copilot-pulse 2.4s ease-in-out infinite',
+              },
+              '@keyframes copilot-pulse': {
+                '0%, 100%': { transform: 'scale(1)', opacity: 0.3 },
+                '50%': { transform: 'scale(1.18)', opacity: 0 },
+              },
+            }}
+          >
+            <img
+              src="/Auto_using_laptop-removebg-preview.png"
+              alt="Career Copilot"
+              style={{ width: 28, height: 28, objectFit: 'contain', position: 'relative' }}
+            />
+          </Box>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
+export default AppLayout;

@@ -1,0 +1,62 @@
+import axios from 'axios';
+import type { ApiError } from '@/types/api';
+import { useAuthStore } from '@/store/useAuthStore';
+import { supabase } from '@/lib/supabase';
+
+/** Pre-configured Axios instance pointing at the backend API. */
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 300_000,
+});
+
+/** Attach a unique trace-id header and bearer token to every outgoing request. */
+api.interceptors.request.use(async (config) => {
+  config.headers['X-Trace-Id'] = crypto.randomUUID();
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+/** Normalize error responses into a consistent ApiError shape. */
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response) {
+      const data = error.response.data as Record<string, unknown>;
+      const apiError: ApiError = {
+        detail: typeof data['detail'] === 'string' ? data['detail'] : 'An unexpected error occurred',
+        status_code: error.response.status,
+        trace_id:
+          typeof data['trace_id'] === 'string' ? data['trace_id'] : undefined,
+      };
+
+      if (error.response.status === 428 && typeof data['detail'] === 'object') {
+        const detailObj = data['detail'] as Record<string, unknown>;
+        if (detailObj['code'] === 'ai_not_configured') {
+          apiError.detail = JSON.stringify(detailObj);
+          apiError.status_code = 428;
+        }
+      }
+
+      if (error.response.status === 401) {
+        void useAuthStore.getState().logout();
+        window.location.href = '/login';
+      }
+
+      return Promise.reject(apiError);
+    }
+    const fallback: ApiError = {
+      detail: 'Network error. Please check your connection.',
+      status_code: 0,
+    };
+    return Promise.reject(fallback);
+  },
+);
+
+export default api;

@@ -1,0 +1,166 @@
+import { useEffect, useRef, useCallback, useState } from 'react';
+
+export interface WSMessage {
+  type: string;
+  application_id?: string;
+  status?: string;
+  detail?: string;
+  job_id?: string;
+  title?: string;
+  payload: Record<string, unknown>;
+}
+
+export interface UseWebSocketOptions {
+  /** Whether to automatically connect. Defaults to true. */
+  autoConnect?: boolean;
+  /** Reconnection delay in milliseconds. Defaults to 3000. */
+  reconnectDelay?: number;
+  /** Maximum reconnection attempts. Defaults to 10. */
+  maxRetries?: number;
+  /** Callback for application progress updates. */
+  onProgress?: (data: { application_id: string; status: string; detail?: string }) => void;
+  /** Callback for application completion updates. */
+  onComplete?: (data: { application_id: string; status: string }) => void;
+  /** Callback for application scoring updates. */
+  onScore?: (data: { application_id: string; ats_score: number | null; reasoning: unknown }) => void;
+  /** Callback for job enrichment updates. */
+  onJobEnriched?: (data: { job_id: string; title: string }) => void;
+}
+
+interface UseWebSocketReturn {
+  connected: boolean;
+  lastMessage: WSMessage | null;
+  send: (message: WSMessage) => void;
+  connect: () => void;
+  disconnect: () => void;
+}
+
+export function useWebSocket(
+  url = '/ws',
+  options: UseWebSocketOptions = {},
+  token?: string,
+): UseWebSocketReturn {
+  const {
+    autoConnect = true,
+    reconnectDelay = 3000,
+    maxRetries = 10,
+    onProgress,
+    onComplete,
+    onScore,
+    onJobEnriched,
+  } = options;
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const retriesRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [connected, setConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    clearReconnectTimer();
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Client disconnect');
+      wsRef.current = null;
+    }
+    setConnected(false);
+  }, [clearReconnectTimer]);
+
+  const buildUrl = useCallback(() => {
+    const envWsUrl = import.meta.env.VITE_WS_URL;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base =
+      typeof envWsUrl === 'string'
+        ? envWsUrl
+        : url.startsWith('ws')
+          ? url
+          : `${protocol}//${window.location.host}${url}`;
+
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  }, [url, token]);
+
+  const connect = useCallback(() => {
+    disconnect();
+
+    const wsUrl = buildUrl();
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setConnected(true);
+      retriesRef.current = 0;
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(String(event.data)) as WSMessage;
+        setLastMessage(parsed);
+
+        if (parsed.type === 'application_progress' && onProgress) {
+          onProgress({
+            application_id: parsed.application_id ?? '',
+            status: parsed.status ?? '',
+            detail: parsed.detail,
+          });
+        }
+        if (parsed.type === 'application_complete' && onComplete) {
+          onComplete({
+            application_id: parsed.application_id ?? '',
+            status: parsed.status ?? '',
+          });
+        }
+        if (parsed.type === 'application_scored' && onScore) {
+          onScore({
+            application_id: parsed.application_id ?? '',
+            ats_score: (parsed.payload as { ats_score?: number | null } | undefined)?.ats_score ?? null,
+            reasoning: parsed.payload?.reasoning ?? null,
+          });
+        }
+        if (parsed.type === 'job_enriched' && onJobEnriched) {
+          onJobEnriched({
+            job_id: parsed.job_id ?? '',
+            title: parsed.title ?? '',
+          });
+        }
+      } catch {
+        // Ignore non-JSON messages
+      }
+    };
+
+    ws.onclose = (event) => {
+      setConnected(false);
+      if (
+        event.code !== 1000 &&
+        event.code !== 4003 &&
+        event.code !== 4001 &&
+        retriesRef.current < maxRetries
+      ) {
+        const delay = reconnectDelay * Math.pow(2, retriesRef.current);
+        retriesRef.current += 1;
+        reconnectTimerRef.current = setTimeout(connect, delay);
+      }
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  }, [buildUrl, reconnectDelay, maxRetries, disconnect, onProgress, onComplete, onScore, onJobEnriched]);
+
+  useEffect(() => {
+    if (autoConnect) {
+      connect();
+    }
+    return () => {
+      disconnect();
+    };
+  }, [autoConnect, connect, disconnect]);
+
+  return { connected, lastMessage, send: () => {}, connect, disconnect };
+}
