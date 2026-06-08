@@ -164,3 +164,28 @@ $$\mathbf{\text{Total LLM Cost / User / Month}} = \$0.01305 + \$0.00558 = \mathb
 At scale, running CareerPilot costs **$0.044 per user/month** (under 5 cents). 
 
 With a premium subscription pricing tier of just **$5.00/month**, the gross profit margin stands at **99.1%**, indicating an exceptionally scalable, cost-efficient, and sustainable business model.
+
+---
+
+## 5. Architectural Cohesion & Graph-Validated Integrity
+
+By integrating static-analysis metrics from the `.understand-anything/knowledge-graph.json` file, we validate that CareerPilot’s codebase has excellent physical layer boundaries, which directly supports the scaling mitigations outlined in **Section 3**.
+
+### 5.1 Isolating the 44 Complex Nodes (Scrapers & Agents)
+Our static analysis identifies exactly **44 complex nodes** (representing only **3.8%** of the 1,162 total nodes). These represent:
+- Platform scrapers: `LinkedInPlatform` (file: `linkedin.py`), `IndeedPlatform` (file: `indeed.py`), `GlassdoorPlatform` (file: `glassdoor.py`).
+- Automated executors: `BrowserAgent` (file: `agent.py`) and `DocumentGenerator` (file: `generator.py`).
+
+**Scaling Strategy**: Because these are the most complex and CPU-heavy operations in the codebase, we prevent them from impacting the remaining **96.2%** of the system (simple and moderate nodes) by decoupling them into independent background worker pools. Under 10,000 MAUs, worker pods are scaled independently based on Redis task queue length, leaving the API routers light, fast, and responsive.
+
+### 5.2 Thread Pool Offloading of 323 Object Classes
+With **323 class nodes** defined in the project:
+- A significant portion are database models (SQLAlchemy) and Pydantic schemas.
+- Others are document renderers (e.g. `DOCXRenderer`, `PDFRenderer`) that perform synchronous file formatting.
+
+**Scaling Strategy**: Synchronous methods within these class nodes are delegated to a dedicated thread pool via `asyncio.get_running_loop().run_in_executor()` or directly offloaded to celery workers. This ensures that synchronous rendering doesn't starve the FastAPI event loop, allowing the API servers to easily sustain the peak **5.0 QPS** traffic.
+
+### 5.3 Low Coupling Validation via 125 Call Relationships
+Out of 1,539 total relationships in the codebase, only **125 are active inter-module calls** (or 8.1%). This represents a highly decoupled, modular architectural layout:
+- **Clean Ingress/Egress Paths**: Front-facing routers (e.g., `api/v1/nudge.py` and `api/v1/chat.py`) cleanly delegate down to specific business services (`NudgeService`, `RAGService`) without circular dependencies.
+- **Robust Dependency Injection**: Connections are isolated and stateless, making it extremely easy to containerize the FastAPI backend and scale horizontally from a single local docker setup to an AWS ECS cluster.

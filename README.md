@@ -5,6 +5,29 @@ CareerPilot is an interactive, RAG-grounded personal career assistant that perso
 
 ---
 
+## ✨ Visual Showcase & Interface Gallery
+
+Experience the premium, state-of-the-art interface of CareerPilot built for seamless career transitions:
+
+| **Platform Landing Page** | **AI-Personalized Dashboard** |
+|:---:|:---:|
+| ![Landing Page](assets/public/landing.jpg) | ![Dashboard Overview](assets/public/dashboard.jpeg) |
+
+| **Interactive Job Search & Scraping** | **Application Tracking Kanban** |
+|:---:|:---:|
+| ![Job Search](assets/public/job%20search.jpg) | ![Kanban Board](assets/public/kanban%20board.jpg) |
+
+| **Actionable To-Do Calendar** | **Roadmap & Personal Career Goals** |
+|:---:|:---:|
+| ![Calendar](assets/public/calender.jpg) | ![Roadmap & Goals](assets/public/roadmap%20and%20goals.jpg) |
+
+| **Dynamic Application Analytics** | **Knowledge Graph Codebase Topology** |
+|:---:|:---:|
+| ![Analytics](assets/public/analytics.jpg) | ![Static-Analysis Graph](assets/public/understand-graph.png) |
+
+---
+
+
 ## 🚀 Quick Start Guide
 
 ### 1. Clone & Prerequisite Checklist
@@ -71,7 +94,7 @@ python run.py
 ```
 
 > [!TIP]
-> **Why this order is optimized**: By executing `cd backend` first, your `venv311` virtual environment folder is created cleanly inside the backend directory, preventing clutter in your root repository and ensuring smooth relative paths for activation.
+> **Why this order is optimized**: By executing `cd backend` first, `venv311` virtual environment folder is created cleanly inside the backend directory, preventing clutter in root repository and ensuring smooth relative paths for activation.
 
 ---
 

@@ -90,7 +90,7 @@ sequenceDiagram
         RAG-->>BE: Index is up-to-date (no-op)
     else Hash Mismatch / Index Missing (Cache Miss)
         RAG->>RAG: Chunk text into overlapping word segments (max_words=140, overlap=30)
-        RAG->>VS: Create FAISS index & initialize embedding dimension (EMBEDDING_DIMENSION=768)
+        RAG->>VS: Create FAISS index & initialize embedding dimension (EMBEDDING_DIMENSION=384)
         RAG->>VS: Encode chunks using SentenceTransformers (SentenceTransformer("all-MiniLM-L6-v2"))
         RAG->>VS: Save FAISS index files on disk (data/vector_indices/cv_{resume_id})
         RAG->>Disk: Write index chunk metadata (json) on disk
@@ -195,7 +195,67 @@ sequenceDiagram
 
 ---
 
-## 5. Architectural Design Principles
+## 5. Code Dependency Topology (Knowledge-Graph Grounded)
+
+Derived from the static code analysis metadata located in the `.understand-anything/` directory, the following diagram maps the structural dependencies and function call cascades across CareerPilot's backend service layer:
+
+```mermaid
+graph TD
+    %% Controllers / Routers
+    RouterNudge["api/v1/nudge.py<br/>(get_nudge_endpoint)"]
+    RouterChat["api/v1/chat.py<br/>(process_chat_query)"]
+    RouterJobs["api/v1/jobs.py<br/>(analyze_job)"]
+
+    %% Core Services
+    SvcNudge["services/nudge.py<br/>(get_nudge)"]
+    SvcChat["services/chat.py<br/>(process_chat_query)"]
+    SvcJobs["services/job_search.py<br/>(analyze_job)"]
+    SvcRAG["services/rag_service.py<br/>(RAGService)"]
+    SvcSettings["services/settings_helper.py<br/>(get_or_create_settings)"]
+    SvcArt["services/artifact_builder.py<br/>(prepare_assistant_output)"]
+
+    %% Engines / Drivers
+    EngineATS["core/ats/scorer.py<br/>(ResumeScorer)"]
+    EngineMatcher["core/ats/skill_matcher.py<br/>(SkillMatcher)"]
+    EngineAnalyzer["core/ats/keyword_analyzer.py<br/>(KeywordAnalyzer)"]
+    EngineExp["core/ats/experience_analyzer.py<br/>(ExperienceAnalyzer)"]
+    EngineVector["core/matching/vector_store.py<br/>(VectorStore)"]
+    EngineLLM["core/llm/client.py<br/>(LLMClient)"]
+
+    %% Schemas / Models
+    ModelsSQL[(SQLAlchemy models: Resume, Job, Goal, TodoItem)]
+
+    %% Connections
+    RouterNudge -->|Calls| SvcNudge
+    RouterChat -->|Calls| SvcChat
+    RouterJobs -->|Calls| SvcJobs
+
+    SvcNudge -->|Retrieves| SvcSettings
+    SvcNudge -->|Loads Context| SvcRAG
+    SvcNudge -->|Triggers| EngineLLM
+    SvcNudge -->|Saves Suggested To-Dos| ModelsSQL
+
+    SvcChat -->|Loads Context| SvcRAG
+    SvcChat -->|Generates Artifacts| SvcArt
+    SvcChat -->|Triggers| EngineLLM
+    SvcChat -->|Saves Tailored Docs| ModelsSQL
+
+    SvcJobs -->|Computes Match| EngineATS
+    SvcJobs -->|Resolves Settings| SvcSettings
+
+    SvcRAG -->|Queries / Indexes| EngineVector
+    SvcRAG -->|Resolves| ModelsSQL
+
+    EngineATS -->|Aggregates| EngineMatcher
+    EngineATS -->|Aggregates| EngineAnalyzer
+    EngineATS -->|Aggregates| EngineExp
+
+    EngineVector -->|Stores PGVector| ModelsSQL
+```
+
+---
+
+## 6. Architectural Design Principles
 
 1. **Async-First Execution**:
    - All I/O operations—database transactions (SQLAlchemy 2.0 with `AsyncSession`), Redis caching, vector indexing, and LLM completions—are fully asynchronous (`async`/`await`), maximizing hardware utilization and concurrent request handling.
@@ -209,4 +269,40 @@ sequenceDiagram
 4. **Robust Fallbacks & Self-Correction**:
    - If Redis is unavailable, the backend falls back seamlessly to direct database computation.
    - If spaCy models or FAISS indices fail to initialize, lexical token searches (`rag_fallbacks.py`) provide instant backup.
-   - If the user's CV is completely missing, the platform automatically pivots to onboarding configurations, helping them register their profile without crashing the dashboard.o
+   - If the user's CV is completely missing, the platform automatically pivots to onboarding configurations, helping them register their profile without crashing the dashboard.
+
+---
+
+## 7. Knowledge-Graph Static Analysis Audit
+
+To ensure that this architectural description corresponds exactly to the physical codebase structure, we extracted and verified the metrics of the structural nodes from the `.understand-anything/knowledge-graph.json` static-analysis data:
+
+![Static-Analysis Knowledge Graph](assets/public/understand-graph.png)
+
+### 7.1 Structural Metrics Breakdown
+
+| Node Type | Count | Description |
+| :--- | :--- | :--- |
+| **file** | 303 | Source code files, configurations, templates, and environment modules |
+| **class** | 323 | Declarative object-oriented definitions (SQLAlchemy models, custom managers) |
+| **function** | 499 | Core algorithmic/functional blocks (FastAPI endpoints, services, helper methods) |
+| **service** | 11 | Infrastructure-related files (Dockerfiles, Nginx configurations, compose stacks) |
+| **config** | 13 | Environment definitions and static constants |
+| **document** | 8 | Root-level markdown documents (README.md, AGENTS.md, etc.) |
+| **schema / table** | 5 | Pydantic validations & localized SQL databases |
+| **Total Nodes** | **1,162** | Distinct codebase nodes mapped in the index |
+
+### 7.2 Codebase Complexity & Maintainability Profile
+
+Our static code analyzer categorizes files, classes, and methods into three distinct complexity tiers:
+- **Simple (972 nodes - 83.6%)**: Highly decoupled, stateless helpers, single-purpose utilities, and standard API routers.
+- **Moderate (146 nodes - 12.6%)**: State-carrying business-logic layer controllers, such as `RAGService`, `SessionManager`, `DOCXRenderer`, and `NudgeService`.
+- **Complex (44 nodes - 3.8%)**: High-intensity logic, primarily the web scraper drivers (`LinkedInPlatform`, `IndeedPlatform`, `GlassdoorPlatform`) and structural orchestrators (`DocumentGenerator`, `BrowserAgent`). These files are designated as critical targets for comprehensive integration tests.
+
+### 7.3 Inter-Module Relationships & Call Graph
+
+The static dependency graph charts **1,539 total relationships (edges)** across packages:
+* **contains (825 relations)**: Maps internal file clustering, establishing scoping boundaries for classes and inner functions.
+* **imports (564 relations)**: Establishes dependencies between modules, tracking structural package boundaries.
+* **calls (125 relations)**: Represents dynamic function call cascades, demonstrating how API routing calls invoke business services which in turn trigger the `LLMClient` or `VectorStore`.
+* **tested_by (10 relations) & depends_on (5 relations)**: Ensures resilience of backend scoring pipelines.
