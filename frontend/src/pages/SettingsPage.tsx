@@ -162,35 +162,7 @@ function SettingsPage() {
             </Card>
           </Grid>
 
-          {/* Parallel Sessions */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Parallel Browser Sessions
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Number of simultaneous browser sessions for auto-apply.
-                </Typography>
 
-                <Box sx={{ px: 1 }}>
-                  <Slider
-                    value={settings?.max_parallel ?? 3}
-                    onChangeCommitted={handleParallelCommit}
-                    min={1}
-                    max={5}
-                    step={1}
-                    marks={[
-                      { value: 1, label: '1' },
-                      { value: 3, label: '3' },
-                      { value: 5, label: '5' },
-                    ]}
-                    valueLabelDisplay="auto"
-                  />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
 
           {/* Platform Toggles */}
           <Grid item xs={12} md={6}>
@@ -283,12 +255,7 @@ function SettingsPage() {
             </Box>
           </Grid>
 
-          {/* LLM Providers */}
-          <Grid item xs={12}>
-            <LLMProvidersCard providers={llmProviders} />
-          </Grid>
 
-          {/* Candidate Profile */}
           <Grid item xs={12}>
             <CandidateProfileEditor
               profile={settings?.candidate_profile ?? null}
