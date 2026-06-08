@@ -97,7 +97,9 @@ export default function CalendarView() {
     if (!quickAdd.trim()) return;
     setIsScheduling(true);
     try {
-      await createCalendarEvent(quickAdd.trim(), selectedDate);
+      const eventDate = new Date(selectedDate);
+      eventDate.setHours(12, 0, 0, 0);
+      await createCalendarEvent(quickAdd.trim(), eventDate);
       setQuickAdd('');
       await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
     } catch {
