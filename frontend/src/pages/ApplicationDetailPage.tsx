@@ -284,6 +284,32 @@ function ApplicationDetailPage() {
         </Box>
       )}
 
+      {jobLoading ? (
+        <Box sx={{ my: 2 }}>
+          <Skeleton width={180} height={20} />
+        </Box>
+      ) : (
+        <Box sx={{ my: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Job Description</Typography>
+          <Box
+            sx={{
+              maxHeight: 260,
+              overflowY: 'auto',
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: 'divider',
+              p: 1.5,
+              mb: 3,
+              backgroundColor: '#f8f9ff',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+              {jobData?.description || 'No description available.'}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           ATS Score
