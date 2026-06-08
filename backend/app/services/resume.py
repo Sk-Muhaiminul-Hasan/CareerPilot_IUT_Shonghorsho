@@ -434,45 +434,74 @@ async def generate_tailored_resume(
     base = await get_resume(db, request.base_resume_id, user_id)
     job = await _get_job(db, request.job_id, user_id)
 
-    resume_data = _build_resume_data_from_text(base.content_text or "")
-    resume_data["user_id"] = user_id
-
     from app.core.llm.client import UserLLMConfig
     from app.services.settings_helper import get_or_create_settings as _get_or_create_settings
     db_settings = await _get_or_create_settings(db, user_id)
     user_cfg = UserLLMConfig.from_settings(db_settings)
 
     llm = LLMClient()
-    generator = DocumentGenerator(
-        llm_client=llm,
-        upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
-            bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
-        ),
-    )
-    doc = await generator.generate_resume(
-        resume_data=resume_data,
-        job_description=job.description or "",
-        template_name=request.template_id,
-        formats=request.output_formats,
+
+    system_prompt = """You are an expert resume writer and career coach.
+Your task is to tailor a candidate's resume/CV for a specific job posting.
+
+RULES:
+1. The output MUST be a complete, actual, fully written tailored resume in clean Markdown format with all standard sections (e.g., Professional Summary, Skills, Experience, Education, Projects) fully populated.
+2. NEVER use placeholders (such as `[Your tailored resume content will be here]`, `[Your content here]`, etc.) or empty templates. Every section and bullet point must be fully realized with real details.
+3. NEVER fabricate experience, skills, or qualifications not present in the original resume.
+4. Rewrite the professional summary to target the specific role.
+5. Reorder and emphasize skills that match the job requirements.
+6. Rewrite experience bullet points to highlight achievements and responsibilities relevant to the target job.
+7. Use strong action verbs and quantify achievements where the original data supports it.
+8. Preserve ALL factual content — dates, company names, degrees, and certifications must remain unchanged.
+9. Use industry-standard terminology from the job posting where it accurately describes the candidate's experience.
+10. Return ONLY the Markdown content of the tailored resume. Do not include any introductory or concluding conversational text, and do not wrap the output in markdown code block ticks. Only return raw Markdown resume text."""
+
+    user_prompt = f"""Tailor the following resume for the target job posting below.
+
+CURRENT RESUME CONTENT:
+\"\"\"
+{base.content_text or ""}
+\"\"\"
+
+TARGET JOB POSTING:
+\"\"\"
+{job.description or ""}
+\"\"\"
+
+Instructions:
+- Provide the complete tailored resume in Markdown.
+- Maintain the overall formatting, headers, and bullet points using standard Markdown tags (`#`, `##`, `###`, `-`, `**`).
+- Do not use placeholders under any circumstances. Fill in all details truthfully based on the current resume content."""
+
+    response = await llm.complete(
+        prompt=user_prompt,
+        system_prompt=system_prompt,
+        purpose="resume_tailor_markdown",
         user_settings=user_cfg,
-        usage_db=db,
-        usage_user_id=user_id,
     )
+    tailored_markdown = response.content.strip()
+
+    # Strip code block decorators if present
+    if tailored_markdown.startswith("```markdown"):
+        tailored_markdown = tailored_markdown.removeprefix("```markdown")
+        if tailored_markdown.endswith("```"):
+            tailored_markdown = tailored_markdown.removesuffix("```")
+    elif tailored_markdown.startswith("```"):
+        tailored_markdown = tailored_markdown.removeprefix("```")
+        if tailored_markdown.endswith("```"):
+            tailored_markdown = tailored_markdown.removesuffix("```")
+    tailored_markdown = tailored_markdown.strip()
 
     # Create the tailored resume record
-    if doc.tailored_data:
-        tailored_content = _serialize_resume_data_to_text(doc.tailored_data)
-    else:
-        tailored_content = _serialize_resume_data_to_text(resume_data)
     tailored = Resume(
         name=f"Tailored - {base.name}",
         type="tailored",
-        template_id=request.template_id,
+        template_id=request.template_id or "modern",
         base_resume_id=request.base_resume_id,
         job_id=request.job_id,
-        file_path_pdf=doc.pdf_path,
-        file_path_docx=doc.docx_path,
-        content_text=tailored_content,
+        file_path_pdf=None,
+        file_path_docx=None,
+        content_text=tailored_markdown,
         user_id=user_id,
     )
     db.add(tailored)
@@ -484,8 +513,6 @@ async def generate_tailored_resume(
         resume_id=tailored.id,
         base_id=request.base_resume_id,
         job_id=request.job_id,
-        has_pdf=doc.pdf_path is not None,
-        has_docx=doc.docx_path is not None,
     )
     return ResumeResponse.model_validate(tailored)
 
