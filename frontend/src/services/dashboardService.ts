@@ -94,14 +94,19 @@ export async function createGoal(data: {
   targetValue: number;
   category: string;
   colorVariant: string;
+  dueDate: string | null;
+  dueLabel?: string | null;
+  priority?: string;
 }): Promise<Goal | null> {
   try {
-    const payload = {
+    const payload: any = {
       title: data.title,
       target_value: data.targetValue,
       category: data.category,
       color_variant: data.colorVariant,
     };
+    if (data.dueDate) payload.due_date = data.dueDate;
+    if (data.dueLabel) payload.due_label = data.dueLabel;
     const { data: resp } = await api.post('/goals/', payload);
     return {
       id: resp.id,
@@ -109,10 +114,47 @@ export async function createGoal(data: {
       target: resp.target_value,
       current: resp.current_value,
       dueLabel: resp.due_label || 'Ongoing',
+      dueDate: resp.due_date || null,
       colorVariant: resp.color_variant,
+      priority: data.priority || 'Medium',
     };
   } catch (error) {
     console.error('Failed to create goal:', error);
+    return null;
+  }
+}
+
+/** Update an existing career goal via backend API. */
+export async function updateGoal(id: string, data: {
+  title?: string;
+  targetValue?: number;
+  category?: string;
+  colorVariant?: string;
+  dueDate?: string | null;
+  dueLabel?: string | null;
+  priority?: string;
+}): Promise<Goal | null> {
+  try {
+    const payload: any = {};
+    if (data.title !== undefined) payload.title = data.title;
+    if (data.targetValue !== undefined) payload.target_value = data.targetValue;
+    if (data.category !== undefined) payload.category = data.category;
+    if (data.colorVariant !== undefined) payload.color_variant = data.colorVariant;
+    if (data.dueLabel !== undefined) payload.due_label = data.dueLabel;
+    if (data.dueDate !== undefined) payload.due_date = data.dueDate;
+    const { data: resp } = await api.patch(`/goals/${id}`, payload);
+    return {
+      id: resp.id,
+      title: resp.title,
+      target: resp.target_value,
+      current: resp.current_value,
+      dueLabel: resp.due_label || 'Ongoing',
+      dueDate: resp.due_date || null,
+      colorVariant: resp.color_variant,
+      priority: data.priority || 'Medium',
+    };
+  } catch (error) {
+    console.error('Failed to update goal:', error);
     return null;
   }
 }

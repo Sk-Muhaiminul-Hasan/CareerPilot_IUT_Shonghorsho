@@ -8,14 +8,12 @@
 export interface Goal {
   id: string;
   title: string;
-  /** Numerical target (e.g. 5 applications, 20 exercises). */
   target: number;
-  /** Current progress value. */
   current: number;
-  /** Human-readable due date string, or "Ongoing". */
   dueLabel: string;
-  /** Color variant for the progress bar: 'primary' | 'secondary' | 'tertiary'. */
+  dueDate: string | null;
   colorVariant: 'primary' | 'secondary' | 'tertiary';
+  priority: 'Low' | 'Medium' | 'High';
 }
 
 /** Category of a calendar event. */

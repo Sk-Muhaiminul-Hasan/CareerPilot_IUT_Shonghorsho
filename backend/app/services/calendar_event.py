@@ -16,17 +16,23 @@ from app.schemas.calendar_event import (
 
 
 def _now() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
+    event_date = data.event_date
+    end_date = data.end_date
+    if event_date.tzinfo is not None:
+        event_date = event_date.replace(tzinfo=None)
+    if end_date is not None and end_date.tzinfo is not None:
+        end_date = end_date.replace(tzinfo=None)
     async with AsyncSessionLocal() as db, db.begin():
         record = CalendarEvent(
             application_id=data.application_id,
             title=data.title,
             description=data.description,
-            event_date=data.event_date,
-            end_date=data.end_date,
+            event_date=event_date,
+            end_date=end_date,
             all_day=data.all_day,
             event_type=data.event_type.value,
             location=data.location,
@@ -41,9 +47,7 @@ async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
 
 async def get_event(event_id: str) -> CalendarEventResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(CalendarEvent).where(CalendarEvent.id == event_id)
-        )
+        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)
@@ -87,9 +91,7 @@ async def update_event(
     data: CalendarEventUpdate,
 ) -> CalendarEventResponse:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(
-            select(CalendarEvent).where(CalendarEvent.id == event_id)
-        )
+        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)
@@ -110,9 +112,7 @@ async def update_event(
 
 async def delete_event(event_id: str) -> None:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(
-            select(CalendarEvent).where(CalendarEvent.id == event_id)
-        )
+        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)

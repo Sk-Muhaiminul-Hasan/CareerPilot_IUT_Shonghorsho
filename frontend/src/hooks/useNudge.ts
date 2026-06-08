@@ -8,8 +8,9 @@ export function useNudge() {
   return useQuery({
     queryKey: NUDGE_KEY,
     queryFn: nudgeService.getNudge,
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

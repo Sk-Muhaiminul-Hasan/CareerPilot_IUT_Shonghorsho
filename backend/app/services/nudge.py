@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm.client import LLMClient, UserLLMConfig
+from app.db.session import AsyncSessionLocal
 from app.models.application import Application
 from app.models.goal import Goal
 from app.models.job import Job
@@ -48,15 +49,11 @@ def _build_prompt(
     jobs: list[Job],
     goals: list[dict] | None = None,
 ) -> str:
-    job_descriptions = "\n".join(
-        f"- {job.title} at {job.company} ({job.location})"
-        for job in jobs
-    )
+    job_descriptions = "\n".join(f"- {job.title} at {job.company} ({job.location})" for job in jobs)
     goals_section = ""
     if goals:
         goal_lines = "\n".join(
-            f"- {g['title']} ({g['current_value']}/{g['target_value']})"
-            for g in goals
+            f"- {g['title']} ({g['current_value']}/{g['target_value']})" for g in goals
         )
         goals_section = f"\nCurrent goals:\n{goal_lines}\n"
     return (
@@ -75,18 +72,25 @@ async def _create_todo_for_job(
     job: Job,
     user_id: str,
 ) -> tuple[str, str, datetime | None, int] | None:
-    due = job.deadline or (datetime.utcnow() + timedelta(days=3))
+    from app.models.todo_item import TodoItem
+    from app.schemas.todo_item import TodoPriorityEnum
+
     try:
-        from app.schemas.todo_item import TodoItemCreate, TodoPriorityEnum
-        from app.services.todo_item import create_todo
-        todo = await create_todo(
-            TodoItemCreate(
+        async with AsyncSessionLocal() as todo_db, todo_db.begin():
+            due = job.deadline or (datetime.utcnow() + timedelta(days=3))
+            if due.tzinfo is not None:
+                due = due.replace(tzinfo=None)
+            record = TodoItem(
+                user_id=user_id,
                 title=f"Apply to {job.title} at {job.company}",
                 due_date=due,
-                priority=TodoPriorityEnum.HIGH,
-            ),
-        )
-        return todo.id, todo.title, todo.due_date, todo.priority
+                priority=TodoPriorityEnum.HIGH.value,
+                recurrence=None,
+            )
+            todo_db.add(record)
+            await todo_db.commit()
+            await todo_db.refresh(record)
+            return record.id, record.title, record.due_date, record.priority
     except Exception as exc:
         logger.warning(
             "nudge.todo_creation_failed",
@@ -144,10 +148,12 @@ async def get_nudge(
         return generic
 
     goals_result = await db.execute(
-        select(Goal.title, Goal.current_value, Goal.target_value).where(
+        select(Goal.title, Goal.current_value, Goal.target_value)
+        .where(
             Goal.user_id == user_id,
             Goal.status == "active",
-        ).limit(3)
+        )
+        .limit(3)
     )
     goal_rows = goals_result.all()
     goals_context = [
@@ -185,8 +191,8 @@ async def get_nudge(
     system_prompt = (
         "You are a supportive career coach. Reply ONLY with a JSON object "
         "containing:\n"
-        '- headline: short motivational headline (string)\n'
-        '- bullets: array of exactly 3 actionable tips (strings)\n'
+        "- headline: short motivational headline (string)\n"
+        "- bullets: array of exactly 3 actionable tips (strings)\n"
         "Keep bullets under 20 words."
     )
 
@@ -203,8 +209,12 @@ async def get_nudge(
 
         try:
             from app.core.llm.usage_tracker import record_usage
+
             await record_usage(
-                db=db, response=response, purpose="nudge", user_id=user_id,
+                db=db,
+                response=response,
+                purpose="nudge",
+                user_id=user_id,
             )
         except Exception as exc:
             logger.warning("llm_usage_record_failed", purpose="nudge", error=str(exc))
@@ -220,10 +230,7 @@ async def get_nudge(
         logger.error("nudge_llm_failed", error=str(exc))
         return fallback
 
-    todo_creations = [
-        _create_todo_for_job(job=job, user_id=user_id)
-        for job in jobs
-    ]
+    todo_creations = [_create_todo_for_job(job=job, user_id=user_id) for job in jobs]
     todo_results = await asyncio.gather(*todo_creations, return_exceptions=False)
     suggested_todos = [
         SuggestedTodoResponse(
@@ -233,7 +240,8 @@ async def get_nudge(
             priority=t[3],
             is_completed=False,
         )
-        for t in todo_results if t is not None
+        for t in todo_results
+        if t is not None
     ]
 
     result = NudgeResponse(

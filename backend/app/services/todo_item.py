@@ -16,10 +16,13 @@ from app.schemas.todo_item import (
 
 
 def _now() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 async def create_todo(data: TodoItemCreate, user_id: str | None = None) -> TodoItemResponse:
+    due_date = data.due_date
+    if due_date is not None and due_date.tzinfo is not None:
+        due_date = due_date.replace(tzinfo=None)
     async with AsyncSessionLocal() as db, db.begin():
         record = TodoItem(
             user_id=user_id,
@@ -27,7 +30,7 @@ async def create_todo(data: TodoItemCreate, user_id: str | None = None) -> TodoI
             calendar_event_id=data.calendar_event_id,
             title=data.title,
             description=data.description,
-            due_date=data.due_date,
+            due_date=due_date,
             priority=data.priority.value,
             recurrence=data.recurrence.value if data.recurrence else None,
         )
@@ -39,9 +42,7 @@ async def create_todo(data: TodoItemCreate, user_id: str | None = None) -> TodoI
 
 async def get_todo(todo_id: str) -> TodoItemResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(TodoItem).where(TodoItem.id == todo_id)
-        )
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)
@@ -90,9 +91,7 @@ async def update_todo(
     data: TodoItemUpdate,
 ) -> TodoItemResponse:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(
-            select(TodoItem).where(TodoItem.id == todo_id)
-        )
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)
@@ -127,9 +126,7 @@ async def update_todo(
 
 async def delete_todo(todo_id: str) -> None:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(
-            select(TodoItem).where(TodoItem.id == todo_id)
-        )
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)

@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, datetime
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import case, select
 
 from app.core.exceptions import RecordNotFoundError
 from app.db.session import AsyncSessionLocal
@@ -21,7 +21,7 @@ logger = structlog.get_logger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _compute_progress(current: int, target: int) -> float:
@@ -39,6 +39,7 @@ async def _create_calendar_deadline(
     try:
         from app.schemas.calendar_event import CalendarEventCreate, EventTypeEnum
         from app.services.calendar_event import create_event
+
         await create_event(
             CalendarEventCreate(
                 title=f"Goal deadline: {title}",
@@ -55,6 +56,9 @@ async def _create_calendar_deadline(
 
 
 async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
+    due_date = data.due_date
+    if due_date is not None and due_date.tzinfo is not None:
+        due_date = due_date.replace(tzinfo=None)
     async with AsyncSessionLocal() as db, db.begin():
         progress = _compute_progress(0, data.target_value)
         record = Goal(
@@ -66,7 +70,7 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
             progress_percent=progress,
             color_variant=data.color_variant.value,
             due_label=data.due_label,
-            due_date=data.due_date,
+            due_date=due_date,
         )
         db.add(record)
         await db.commit()
@@ -87,11 +91,6 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
 
 async def get_goal(goal_id: str) -> GoalResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Goal).where(Goal.id == goal_id))
-        record = result.scalar_one_or_none()
-        if not record:
-            raise RecordNotFoundError("Goal", goal_id)
-        return GoalResponse.model_validate(record)
         result = await db.execute(select(Goal).where(Goal.id == goal_id))
         record = result.scalar_one_or_none()
         if not record:
@@ -121,11 +120,14 @@ async def list_goals(
         total_result = await db.execute(count_q)
         total = len(total_result.scalars().all())
 
-        status_order = {"active": 0, "paused": 1, "completed": 2, "cancelled": 3}
-        query = query.order_by(
-            status_order.get(Goal.status, 9),
-            Goal.progress_percent.desc(),
+        status_case = case(
+            (Goal.status == "active", 0),
+            (Goal.status == "paused", 1),
+            (Goal.status == "completed", 2),
+            (Goal.status == "cancelled", 3),
+            else_=9,
         )
+        query = query.order_by(status_case, Goal.progress_percent.desc())
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
         result = await db.execute(query)
@@ -160,9 +162,7 @@ async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
             setattr(record, field, value)
 
         record.updated_at = _now()
-        record.progress_percent = _compute_progress(
-            record.current_value, record.target_value
-        )
+        record.progress_percent = _compute_progress(record.current_value, record.target_value)
 
         if patch.get("status") == "completed" and not record.completed_at:
             record.completed_at = _now()
@@ -185,15 +185,10 @@ async def update_progress(
             raise RecordNotFoundError("Goal", goal_id)
 
         record.current_value = data.current_value
-        record.progress_percent = _compute_progress(
-            data.current_value, record.target_value
-        )
+        record.progress_percent = _compute_progress(data.current_value, record.target_value)
         record.updated_at = _now()
 
-        if (
-            data.current_value >= record.target_value
-            and record.status == "active"
-        ):
+        if data.current_value >= record.target_value and record.status == "active":
             record.status = "completed"
             record.completed_at = _now()
 
