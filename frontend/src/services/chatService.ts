@@ -8,6 +8,7 @@ export interface SendChatRequest {
   job_description?: string;
   attachments?: ChatAttachment[];
   conversation_history?: ChatMessage[];
+  session_id?: string;
 }
 
 export async function sendChatMessage(request: SendChatRequest): Promise<ChatResponse> {

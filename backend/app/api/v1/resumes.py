@@ -27,6 +27,7 @@ from app.schemas.resume import (
 )
 from app.schemas.settings import CandidateProfileSchema
 from app.services import resume as resume_service
+from app.services.chat import clear_session_cv_cache
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -128,6 +129,7 @@ async def update_resume_content(
     resume.content_text = request.content_text
     await db.commit()
     await db.refresh(resume)
+    clear_session_cv_cache(resume_id)
     return ResumeContentResponse(
         resume_id=resume.id,
         name=resume.name,
@@ -272,6 +274,7 @@ async def reextract_resume(
     resume.content_text = content_text or None
     await db.commit()
     await db.refresh(resume)
+    clear_session_cv_cache(resume_id)
 
     return JSONResponse({"status": "ok", "text_length": len(content_text)})
 

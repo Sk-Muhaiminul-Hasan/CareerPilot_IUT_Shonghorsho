@@ -17,6 +17,8 @@ export function useCopilotChatController() {
   const addArtifacts = useArtifactStore((s) => s.addArtifacts);
   const updateArtifact = useArtifactStore((s) => s.updateArtifact);
   const removeArtifact = useArtifactStore((s) => s.removeArtifact);
+  const activeArtifactId = useArtifactStore((s) => s.activeArtifactId);
+  const setActiveArtifactId = useArtifactStore((s) => s.setActiveArtifactId);
   const sessions = useChatHistoryStore((s) => s.sessions);
   const activeSessionId = useChatHistoryStore((s) => s.activeSessionId);
   const createSession = useChatHistoryStore((s) => s.createSession);
@@ -46,6 +48,9 @@ export function useCopilotChatController() {
     [activeSessionId, sessions],
   );
   const messages = activeSession?.messages ?? [];
+  const activeArtifact = useMemo(() => {
+    return artifacts.find((a) => a.id === activeArtifactId) ?? null;
+  }, [activeArtifactId, artifacts]);
   const attachedResumeId =
     attachments.find((attachment) => attachment.type === 'resume')?.value || userProfileId;
   const contextOptions: ContextOption[] = useMemo(() => {
@@ -79,6 +84,7 @@ export function useCopilotChatController() {
           query:
             'Give me a short friendly opening using my CV context. One sentence only, then three tiny suggested prompts.',
           user_profile_id: attachedResumeId,
+          session_id: sessionId,
           attachments: contextOptions
             .filter((option) => option.id === 'current-screen' || option.id === 'active-cv')
             .map((option) => option.attachment)
@@ -111,6 +117,7 @@ export function useCopilotChatController() {
           query: 'Please review my fitness for this role. What are my gaps and match score?',
           active_job_id: activeJobId,
           user_profile_id: attachedResumeId,
+          session_id: sessionId,
           attachments,
         });
         appendAssistantMessage(sessionId, response.answer, response.sources);
@@ -193,6 +200,7 @@ export function useCopilotChatController() {
         query: userMsg,
         active_job_id: activeJobId,
         user_profile_id: attachedResumeId,
+        session_id: sessionId,
         job_description: jobDescription.trim() || undefined,
         attachments,
         conversation_history: history,
@@ -222,6 +230,7 @@ export function useCopilotChatController() {
         query: prompt,
         active_job_id: activeJobId,
         user_profile_id: attachedResumeId,
+        session_id: sessionId,
         job_description: jobDescription.trim() || undefined,
         attachments: [...attachments, artifactToAttachment(artifact)],
         conversation_history: history,
@@ -276,6 +285,7 @@ export function useCopilotChatController() {
   };
 
   return {
+    activeArtifact, activeArtifactId, setActiveArtifactId,
     activeJobId, activeSessionId, artifacts, attachments, closeChat, contextOptions, deleteSession,
     handleInputChange, handleSendMessage, historyOpen, input, inputRef, isOpen, isTyping, jobDescription,
     mentionAnchor, mentionQuery, messages, menuAnchor, openMentionSearch, openResumeContext,

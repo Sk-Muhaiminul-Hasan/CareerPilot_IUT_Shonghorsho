@@ -18,15 +18,6 @@ const userBubbleSx = {
   boxShadow: '0 4px 12px rgba(0, 74, 198, 0.18)',
 } as const;
 
-const assistantBubbleSx = {
-  p: 1.5,
-  backgroundColor: '#ffffff',
-  color: '#0b1c30',
-  borderRadius: '20px 20px 20px 4px',
-  borderLeft: '3px solid #004ac6',
-  boxShadow: '0 2px 8px rgba(11, 28, 48, 0.06)',
-} as const;
-
 const TypingDots: React.FC = () => (
   <Box
     sx={{
@@ -35,10 +26,7 @@ const TypingDots: React.FC = () => (
       gap: 0.5,
       px: 1.5,
       py: 1,
-      backgroundColor: '#ffffff',
-      borderRadius: '20px 20px 20px 4px',
-      borderLeft: '3px solid #004ac6',
-      boxShadow: '0 2px 8px rgba(11, 28, 48, 0.06)',
+      backgroundColor: 'transparent',
     }}
     aria-label="Career Copilot is typing"
   >
@@ -69,8 +57,8 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
   scrollRef,
   onOpenSource,
 }) => (
-  <Box sx={{ flexGrow: 1, minHeight: 0, p: 2, overflowY: 'auto', backgroundColor: '#f8f9ff' }}>
-    <Stack spacing={1.5}>
+  <Box sx={{ flexGrow: 1, minHeight: 0, p: 2.5, overflowY: 'auto', backgroundColor: '#f8f9ff' }}>
+    <Stack spacing={2.5}>
       {messages.map((msg, index) => {
         const isUser = msg.sender === 'user';
         return (
@@ -78,36 +66,43 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
             key={msg.id || index}
             sx={{
               alignSelf: isUser ? 'flex-end' : 'flex-start',
-              maxWidth: '88%',
+              maxWidth: isUser ? '85%' : '100%',
+              width: isUser ? 'auto' : '100%',
               display: 'flex',
               flexDirection: 'column',
               alignItems: isUser ? 'flex-end' : 'flex-start',
             }}
           >
-            <Paper elevation={0} sx={isUser ? userBubbleSx : assistantBubbleSx}>
-              <AssistantMarkdown text={msg.text} invert={isUser} />
-              {msg.sources && msg.sources.length > 0 && (
-                <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
-                  {msg.sources.slice(0, 3).map((source) => (
-                    <Tooltip key={source.id} title={source.text}>
-                      <Chip
-                        size="small"
-                        label={source.id}
-                        onClick={() => onOpenSource(source)}
-                        sx={{
-                          backgroundColor: isUser ? 'rgba(255,255,255,0.2)' : 'rgba(0, 74, 198, 0.08)',
-                          color: isUser ? '#ffffff' : '#004ac6',
-                          fontWeight: 600,
-                          '&:hover': {
-                            backgroundColor: isUser ? 'rgba(255,255,255,0.3)' : 'rgba(0, 74, 198, 0.16)',
-                          },
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                </Stack>
-              )}
-            </Paper>
+            {isUser ? (
+              <Paper elevation={0} sx={userBubbleSx}>
+                <AssistantMarkdown text={msg.text} invert={true} />
+              </Paper>
+            ) : (
+              <Box sx={{ width: '100%', px: 0.5 }}>
+                <AssistantMarkdown text={msg.text} invert={false} />
+                {msg.sources && msg.sources.length > 0 && (
+                  <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                    {msg.sources.slice(0, 3).map((source) => (
+                      <Tooltip key={source.id} title={source.text}>
+                        <Chip
+                          size="small"
+                          label={source.id}
+                          onClick={() => onOpenSource(source)}
+                          sx={{
+                            backgroundColor: 'rgba(0, 74, 198, 0.08)',
+                            color: '#004ac6',
+                            fontWeight: 600,
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 74, 198, 0.16)',
+                            },
+                          }}
+                        />
+                      </Tooltip>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+            )}
           </Box>
         );
       })}

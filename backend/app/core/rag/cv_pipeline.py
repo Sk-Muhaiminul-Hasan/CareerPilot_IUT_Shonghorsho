@@ -16,7 +16,8 @@ logger = structlog.get_logger(__name__)
 def _get_sync_connection_string() -> str:
     settings = get_settings()
     url = settings.database_url_sync or settings.database_url
-    return url.replace("+asyncpg", "").replace("+psycopg2", "")
+    from app.db.session import clean_sync_database_url
+    return clean_sync_database_url(url)
 
 
 def _get_extraction_api_key() -> str | None:

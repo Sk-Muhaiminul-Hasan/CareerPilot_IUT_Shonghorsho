@@ -17,7 +17,7 @@ class AssistantIntent(StrEnum):
 
 SYSTEM_PROMPT = """You are CareerPilot's personal AI assistant.
 
-You know the user through the CV context provided to you. Speak like a sharp,
+You know the user through the CV context and profile overview provided to you. Speak like a sharp,
 warm career butler inside the product: natural, specific, and lightly personal.
 Do not sound like a form template unless the user explicitly asks for a report.
 
@@ -42,7 +42,10 @@ Artifact protocol:
 
 READINESS_PROMPT = """Task: decide whether the user is ready for the role.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Job description:
@@ -58,7 +61,10 @@ they improve readability.
 
 GAP_ANALYSIS_PROMPT = """Task: identify skill gaps for the target role/company.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Benchmark profile:
@@ -73,7 +79,10 @@ they already have, what is missing or thin, and what to close first.
 
 ROADMAP_PROMPT = """Task: build a job-readiness roadmap for the duration requested by the user.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 User question:
@@ -92,7 +101,10 @@ not overly academic.
 
 COVER_LETTER_PROMPT = """Task: draft a personalized cover letter.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Job description:
@@ -106,16 +118,18 @@ projects, or education found in the CV context. Do not invent employers,
 projects, metrics, or credentials.
 """
 
-GENERAL_PROMPT = """Task: answer the user's career question using their CV.
+GENERAL_PROMPT = """Task: answer the user's career/academic question using their CV background.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 User question:
 {query}
 
-Answer helpfully and ground claims in the CV. If this is a greeting or opening
-message, keep it to one friendly sentence plus 2-3 short suggestions.
+Answer helpfully, mathematically, and logically, keeping the user's background in mind. Do not just display or list their CV context; directly answer their question with specific, tailored career/academic guidance. If this is a greeting or opening message, keep it to one friendly sentence plus 2-3 short suggestions.
 """
 
 
@@ -126,6 +140,7 @@ def render_assistant_prompt(
     cv_context: str,
     job_description: str = "",
     benchmark_context: str = "",
+    profile_overview: str = "",
 ) -> str:
     """Render the correct prompt for an assistant intent."""
     templates = {
@@ -137,7 +152,8 @@ def render_assistant_prompt(
     }
     return templates[intent].format(
         query=query,
-        cv_context=cv_context,
+        cv_context=cv_context or "No specific matching CV sections found for this query.",
         job_description=job_description or "Not provided.",
         benchmark_context=benchmark_context or "Use common entry-level expectations.",
+        profile_overview=profile_overview or "Not available.",
     )

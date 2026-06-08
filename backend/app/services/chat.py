@@ -19,6 +19,7 @@ from app.services.assistant_support import (
     format_attachments,
     format_cv_context,
     source_payload,
+    extract_profile_overview,
 )
 from app.services.rag_service import RAGService
 
@@ -30,10 +31,27 @@ logger = structlog.get_logger(__name__)
 MISSING_CV_MESSAGE = "Please upload your CV first in the Resume section."
 
 
+# In-memory cache for CV Context to avoid querying DB/RAG on every message in a session
+# Keys: (session_id, resume_id) -> CVContext
+_session_cv_cache: dict[tuple[str, str], Any] = {}
+
+
+def clear_session_cv_cache(resume_id: str | None = None) -> None:
+    """Clear cached CV contexts, optionally for a specific resume_id."""
+    global _session_cv_cache
+    if resume_id:
+        keys_to_delete = [k for k in _session_cv_cache.keys() if k[1] == resume_id]
+        for k in keys_to_delete:
+            _session_cv_cache.pop(k, None)
+    else:
+        _session_cv_cache.clear()
+
+
 async def process_chat_query(
     *,
     db: AsyncSession,
     query: str,
+    user_id: str | None = None,
     resume_id: str | None = None,
     job_id: str | None = None,
     job_description: str | None = None,
@@ -41,6 +59,7 @@ async def process_chat_query(
     attachments: list[dict[str, Any]] | None = None,
     rag_service: RAGService | None = None,
     llm_client: LLMClient | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Process a Pillar 3 assistant query and return a JSON-safe response."""
     normalized_query = query.strip()
@@ -58,13 +77,21 @@ async def process_chat_query(
             "metadata": {"needs_job_description": True},
         }
 
+    global _session_cv_cache
+    base_cv = None
+    cache_key = (session_id or "", resume_id or "")
+    if session_id and resume_id and cache_key in _session_cv_cache:
+        base_cv = _session_cv_cache[cache_key]
+        logger.info("using_cached_cv_for_session", session_id=session_id, resume_id=resume_id)
+
     rag = rag_service or RAGService()
-    cv = (
-        await rag.get_full_cv_text(db, resume_id)
-        if intent == AssistantIntent.COVER_LETTER
-        else await rag.retrieve_relevant_chunks(db, normalized_query, resume_id=resume_id)
-    )
-    if cv is None:
+    if base_cv is None:
+        base_cv = await rag.get_full_cv_text(db, resume_id)
+        if base_cv is not None and session_id and resume_id:
+            _session_cv_cache[cache_key] = base_cv
+            logger.info("cached_cv_for_session", session_id=session_id, resume_id=resume_id)
+
+    if base_cv is None:
         return {
             "answer": MISSING_CV_MESSAGE,
             "intent": intent.value,
@@ -73,14 +100,36 @@ async def process_chat_query(
             "metadata": {"needs_resume": True},
         }
 
+    # Always retrieve query-specific chunks on every message using the cached base_cv
+    if intent == AssistantIntent.COVER_LETTER:
+        cv = base_cv
+    else:
+        cv = await rag.retrieve_relevant_chunks(
+            db, normalized_query, resume_id=resume_id, base_cv=base_cv
+        )
+        if cv is None:
+            cv = base_cv
+
     benchmark = benchmark_context(normalized_query, intent)
+    profile_overview = extract_profile_overview(base_cv.full_text)
     prompt = render_assistant_prompt(
         intent=intent,
         query=_query_with_attachments(conversational_query, attached_context),
         cv_context=format_cv_context(cv),
         job_description=job_context,
         benchmark_context=benchmark,
+        profile_overview=profile_overview,
     )
+
+    # Resolve user settings/keys
+    from app.services.settings_helper import get_or_create_settings
+    from app.core.llm.client import UserLLMConfig
+
+    user_settings = None
+    if user_id:
+        settings_record = await get_or_create_settings(db, user_id)
+        if settings_record:
+            user_settings = UserLLMConfig.from_settings(settings_record)
 
     try:
         if llm_client is None:
@@ -91,6 +140,7 @@ async def process_chat_query(
             prompt=prompt,
             system_prompt=SYSTEM_PROMPT,
             purpose=f"assistant_{intent.value}",
+            user_settings=user_settings,
         )
         raw_answer = response.content.strip()
         metadata: dict[str, Any] = {

@@ -31,6 +31,7 @@ class ChatRequest(BaseModel):
     user_profile_id: Optional[str] = None
     resume_id: Optional[str] = None
     job_description: Optional[str] = None
+    session_id: Optional[str] = None
     conversation_history: list[ConversationMessage] = Field(default_factory=list)
     attachments: list[ChatAttachment] = Field(default_factory=list)
 

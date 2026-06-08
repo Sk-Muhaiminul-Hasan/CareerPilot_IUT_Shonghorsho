@@ -83,14 +83,16 @@ class VectorStore:
         def _add() -> int:
             embeddings_normalized = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
             settings = get_settings()
-            connection_string = settings.database_url.replace("+asyncpg", "+psycopg2")
+            from app.db.session import clean_sync_database_url
+            connection_string = clean_sync_database_url(settings.database_url)
             vectorstore = PGVectorStore(
                 embeddings=self._get_fake_embeddings(),
                 collection_name=index_name,
                 connection=connection_string,
                 use_jsonb=True,
             )
-            vectorstore.add_embeddings(embeddings_normalized, texts, item_ids)
+            metadatas = [{"id": chunk_id} for chunk_id in item_ids]
+            vectorstore.add_embeddings(embeddings_normalized, texts, metadatas=metadatas, ids=item_ids)
             return len(texts)
 
         count = await self._run_sync(_add)
@@ -109,7 +111,8 @@ class VectorStore:
 
         def _search() -> list[dict[str, Any]]:
             settings = get_settings()
-            connection_string = settings.database_url.replace("+asyncpg", "+psycopg2")
+            from app.db.session import clean_sync_database_url
+            connection_string = clean_sync_database_url(settings.database_url)
             embeddings = self._get_fake_embeddings()
             vectorstore = PGVectorStore(
                 embeddings=embeddings,
@@ -119,10 +122,13 @@ class VectorStore:
             )
             results = vectorstore.similarity_search_with_score(query, k=top_k)
             formatted_results = []
-            for rank, (_doc, score) in enumerate(results, start=1):
+            for rank, (doc, score) in enumerate(results, start=1):
+                chunk_id = doc.metadata.get("id") if isinstance(doc.metadata, dict) else None
+                if not chunk_id:
+                    chunk_id = str(uuid.uuid4())
                 formatted_results.append(
                     {
-                        "id": str(uuid.uuid4()),
+                        "id": chunk_id,
                         "score": float(score),
                         "rank": rank,
                     }

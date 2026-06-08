@@ -1,5 +1,6 @@
 """Async SQLAlchemy engine and session factory."""
 
+import urllib.parse
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -29,6 +30,20 @@ async_session_factory = async_sessionmaker(
 )
 
 AsyncSessionLocal = async_session_factory
+
+
+def clean_sync_database_url(raw_url: str) -> str:
+    """Safely convert a database URL to a sync-friendly format, stripping unsupported options."""
+    cleaned = raw_url.replace("+asyncpg", "+psycopg2").replace("+aiosqlite", "")
+    # In some langchain contexts, we want standard psycopg2 syntax
+    if cleaned.startswith("postgresql://"):
+        cleaned = cleaned.replace("postgresql://", "postgresql+psycopg2://")
+    parsed = urllib.parse.urlparse(cleaned)
+    query_params = urllib.parse.parse_qs(parsed.query)
+    query_params.pop("prepared_statement_cache_size", None)
+    new_query = urllib.parse.urlencode(query_params, doseq=True)
+    parsed = parsed._replace(query=new_query)
+    return urllib.parse.urlunparse(parsed)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
