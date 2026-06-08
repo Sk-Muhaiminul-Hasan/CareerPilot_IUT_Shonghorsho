@@ -215,10 +215,10 @@ function HomePage() {
 
   const features = [
     {
-      icon: <RocketLaunchIcon />,
-      title: 'AI Auto-Apply',
+      icon: <WorkIcon />,
+      title: 'AI Job Finder',
       description:
-        'Let Auto handle the applications. Our AI fills and submits job forms on your behalf, saving you hours every week.',
+        'Set your preferences and let Auto find the best opportunities for you from thousands of job boards, in real-time.',
       color: 'rgba(0, 61, 155, 0.08)',
       delay: 400,
     },
@@ -431,8 +431,8 @@ function HomePage() {
                   }}
                 >
                   Meet <strong style={{ color: '#003d9b' }}>Auto</strong> — your personal job-search
-                  superhero. Auto finds opportunities, tailors your resume, fills out applications,
-                  and tracks your progress so you can focus on interview prep.
+                  superhero. Auto finds opportunities, tailors your resume, and tracks your progress
+                  so you can focus on interview prep.
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 5 }}>
@@ -485,7 +485,7 @@ function HomePage() {
 
                 {/* Stats Row */}
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  <StatPill value="10x" label="Faster Apply" delay={600} />
+                  <StatPill value="10x" label="Faster Matching" delay={600} />
                   <StatPill value="500+" label="Job Boards" delay={700} />
                   <StatPill value="94%" label="ATS Match Rate" delay={800} />
                 </Box>
@@ -542,7 +542,7 @@ function HomePage() {
                   }}
                 />
 
-                {/* Floating card: Auto-Apply */}
+                {/* Floating card: Job Applied */}
                 <Box
                   sx={{
                     position: 'absolute',
@@ -580,7 +580,7 @@ function HomePage() {
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#141b2b', lineHeight: 1 }}>
-                      Application Sent!
+                      New Match Found!
                     </Typography>
                     <Typography sx={{ fontSize: '0.65rem', color: '#737685', mt: 0.25 }}>
                       Google · Software Engineer
@@ -774,8 +774,8 @@ function HomePage() {
               },
               {
                 step: '02',
-                title: 'Auto Finds & Applies',
-                body: "Set your job preferences and watch Auto go to work. It searches, matches, and submits applications — all while you sleep.",
+                title: 'Auto Finds Jobs',
+                body: "Set your job preferences and watch Auto go to work. It searches and matches the best opportunities — all while you sleep.",
                 img: '/auto-waving.png',
               },
               {

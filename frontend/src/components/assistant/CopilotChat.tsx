@@ -6,7 +6,6 @@ import { useChatStore } from '@/store/useChatStore';
 import { AssistantDrawerHeader } from './AssistantDrawerHeader';
 import { AssistantMessages } from './AssistantMessages';
 import { AttachmentChips } from './AttachmentChips';
-import { ArtifactPanel } from './ArtifactPanel';
 import { ChatComposer } from './ChatComposer';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { useCopilotChatController } from './useCopilotChatController';
@@ -161,14 +160,9 @@ export const CopilotChat: React.FC = () => {
             isTyping={chat.isTyping}
             scrollRef={chat.scrollRef}
             onOpenSource={chat.openSource}
-          />
-          <ArtifactPanel
-            artifacts={chat.artifacts}
             regeneratingArtifactId={chat.regeneratingArtifactId}
-            onUpdateArtifact={chat.updateArtifact}
-            onRemoveArtifact={chat.removeArtifact}
-            onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}
             onOpenArtifact={(id) => chat.setActiveArtifactId(id)}
+            onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}
           />
           <AttachmentChips
             attachments={chat.attachments}

@@ -123,7 +123,7 @@ function RecentApplications({ data, loading = false }: RecentApplicationsProps) 
                       color="text.primary"
                       sx={{ lineHeight: 1.3 }}
                     >
-                      {`Job #${app.job_id.slice(0, 8)}…`}
+                       {app.job_title || `Job #${app.job_id.slice(0, 8)}`}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {timeAgo(when)}

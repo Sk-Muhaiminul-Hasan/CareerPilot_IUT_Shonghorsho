@@ -1,13 +1,17 @@
 import React from 'react';
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import type { ChatSource, ChatUiMessage } from '@/types/chat';
+import type { StoredArtifact } from '@/store/useArtifactStore';
 import { AssistantMarkdown } from './AssistantMarkdown';
+import { InlineArtifacts } from './InlineArtifacts';
 
 interface AssistantMessagesProps {
   messages: ChatUiMessage[];
   isTyping: boolean;
   scrollRef: React.RefObject<HTMLDivElement>;
   onOpenSource: (source: ChatSource) => void;
+  regeneratingArtifactId?: string | null;
+  onRegenerateArtifact: (artifact: StoredArtifact) => void;
 }
 
 // ✅ KEPT: wasi-not-final full styled version
@@ -76,6 +80,8 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
   isTyping,
   scrollRef,
   onOpenSource,
+  regeneratingArtifactId,
+  onRegenerateArtifact,
 }) => (
   <Box
     sx={{
@@ -112,8 +118,8 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
               <Box
                 sx={{
                   maxWidth: '80%',
-                  px: 2,
-                  py: 1.25,
+                  px: 1.5,
+                  py: 0.75,
                   background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
                   color: '#ffffff',
                   borderRadius: '18px 18px 4px 18px',
@@ -133,8 +139,8 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
           <Box
             key={msg.id || index}
             sx={{
-              px: 2,
-              pt: index === 0 ? 2 : 2,
+              px: 1.5,
+              pt: index === 0 ? 1.5 : 1.5,
               pb: 0,
               display: 'flex',
               flexDirection: 'column',
@@ -166,9 +172,9 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
             {/* Message body — full width, no bubble */}
             <Box
               sx={{
-                pl: '40px', // align with text beside avatar
+                pl: '40px',
                 pr: 0,
-                pb: 2,
+                pb: 1,
                 color: '#1a2740',
                 fontSize: '0.875rem',
                 lineHeight: 1.7,
@@ -179,33 +185,41 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
             >
               <AssistantMarkdown text={msg.text} invert={false} />
 
-              {/* Source chips */}
-              {msg.sources && msg.sources.length > 0 && (
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  sx={{ mt: 1.25, flexWrap: 'wrap', gap: 0.5 }}
-                >
-                  {msg.sources.slice(0, 3).map((source) => (
-                    <Tooltip key={source.id} title={source.text}>
-                      <Chip
-                        size="small"
-                        label={source.id}
-                        onClick={() => onOpenSource(source)}
-                        sx={{
-                          backgroundColor: 'rgba(0,74,198,0.08)',
-                          color: '#004ac6',
-                          fontWeight: 600,
-                          fontSize: '0.7rem',
-                          height: 22,
-                          '&:hover': { backgroundColor: 'rgba(0,74,198,0.16)' },
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
-                </Stack>
-              )}
-            </Box>
+               {/* Source chips */}
+               {msg.sources && msg.sources.length > 0 && (
+                 <Stack
+                   direction="row"
+                   spacing={0.5}
+                   sx={{ mt: 1.25, flexWrap: 'wrap', gap: 0.5 }}
+                 >
+                   {msg.sources.slice(0, 3).map((source) => (
+                     <Tooltip key={source.id} title={source.text}>
+                       <Chip
+                         size="small"
+                         label={source.id}
+                         onClick={() => onOpenSource(source)}
+                         sx={{
+                           backgroundColor: 'rgba(0,74,198,0.08)',
+                           color: '#004ac6',
+                           fontWeight: 600,
+                           fontSize: '0.7rem',
+                           height: 22,
+                           '&:hover': { backgroundColor: 'rgba(0,74,198,0.16)' },
+                         }}
+                       />
+                     </Tooltip>
+                   ))}
+                 </Stack>
+               )}
+
+                 {msg.artifacts && msg.artifacts.length > 0 && (
+                  <InlineArtifacts
+                    artifacts={msg.artifacts as StoredArtifact[]}
+                    regeneratingArtifactId={regeneratingArtifactId}
+                    onRegenerateArtifact={onRegenerateArtifact}
+                  />
+                )}
+             </Box>
           </Box>
         );
       })}

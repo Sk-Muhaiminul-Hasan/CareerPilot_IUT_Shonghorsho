@@ -28,12 +28,14 @@ export function createChatMessage(
   sender: ChatUiMessage['sender'],
   text: string,
   sources?: ChatSource[],
+  artifacts?: ChatUiMessage['artifacts'],
 ): ChatUiMessage {
   return {
     id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     sender,
     text,
     sources,
+    artifacts,
     createdAt: new Date().toISOString(),
   };
 }

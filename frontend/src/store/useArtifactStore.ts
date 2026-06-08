@@ -34,7 +34,7 @@ export const useArtifactStore = create<ArtifactStore>()(
               created_at: created,
             })),
             ...state.artifacts,
-          ].slice(0, 30),
+          ].slice(0, 1),
         }));
       },
       removeArtifact: (artifactId) =>

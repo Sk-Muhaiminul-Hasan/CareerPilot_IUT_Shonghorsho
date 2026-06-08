@@ -12,6 +12,57 @@ from app.schemas.settings import CandidateProfileSchema
 
 logger = structlog.get_logger(__name__)
 
+_NON_SKILL_INDICATORS = frozenset({
+    "bachelor", "master", "degree", "diploma", "certificate", "certification",
+    "university", "college", "institute", "school", "board",
+    "company", "corporation", "inc", "ltd", "corp",
+    "project", "projects", "experience", "education", "contact", "references",
+    "summary", "objective", "profile", "languages", "interests", "volunteer",
+    "san francisco", "new york", "boston", "london", "bangalore", "dhaka",
+    "california", "texas", "engineering", "solutions", "technologies",
+})
+
+
+def _normalize_extracted_profile(profile: dict) -> dict:
+    if not profile:
+        return profile
+
+    skills = [s for s in (profile.get("skills") or []) if isinstance(s, str)]
+    filtered_skills = []
+    for skill in skills:
+        lower = skill.strip().lower()
+        if not lower:
+            continue
+        if lower in _NON_SKILL_INDICATORS:
+            continue
+        if any(ind in lower for ind in _NON_SKILL_INDICATORS):
+            continue
+        if any(token in lower for token in ["university", "college", "institute", "school"]):
+            continue
+        if any(token in lower for token in ["inc", "ltd", "corp", "company", "solutions", "technologies"]):
+            continue
+        if ".edu" in lower or " @ " in lower:
+            continue
+        filtered_skills.append(skill.strip())
+    seen = set()
+    deduped_skills = []
+    for skill in filtered_skills:
+        key = skill.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped_skills.append(skill)
+    profile["skills"] = deduped_skills[:200]
+
+    if not profile.get("experience"):
+        profile["experience"] = []
+    if not profile.get("education"):
+        profile["education"] = []
+    if not profile.get("certifications"):
+        profile["certifications"] = []
+    if not profile.get("projects"):
+        profile["projects"] = []
+    return profile
+
 
 def _get_sync_connection_string() -> str:
     settings = get_settings()
@@ -70,8 +121,18 @@ async def process_resume_upload(
         llm = LLMClient()
         result = await llm.complete_with_structured_output(
             prompt=(
-                "Extract a structured candidate profile from the following resume text.\n\n"
-                f"Resume:\n{content_text[:6000]}"
+                "You are a resume extraction engine. Extract ONLY the information that is explicitly present in the resume text into the provided schema.\n\n"
+                "STRICT RULES:\n"
+                "- location = the city/state/country of the candidate (do NOT put locations in skills).\n"
+                "- skills = ONLY technical skills, programming languages, frameworks, tools, methodologies (e.g., Python, React, Docker, AWS, SQL). Do NOT include schools, companies, or cities.\n"
+                "- experience = jobs/roles with title, company, dates, and descriptions.\n"
+                "- education = academic degrees with institution, graduation year, and degree name.\n"
+                "- certifications = professional certificates (e.g., AWS Certified, PMP). Do NOT put job titles or degrees here.\n"
+                "- projects = named side / academic projects. Do NOT put job experience here.\n"
+                "- If a section is not present, return an empty list.\n"
+                "- Do NOT move fields between sections. Each value belongs to exactly one section.\n\n"
+                "Resume:\n"
+                f"{content_text[:6000]}"
             ),
             output_schema=CandidateProfileSchema,
             purpose="extraction",
@@ -80,6 +141,7 @@ async def process_resume_upload(
             usage_user_id=user_id,
         )
         profile = result.model_dump()
+        profile = _normalize_extracted_profile(profile)
     except Exception as exc:
         logger.warning("cv_extraction_failed", resume_id=resume_id, error=str(exc))
         profile = {}

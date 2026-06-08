@@ -15,6 +15,7 @@ export interface ChatUiMessage {
   text: string;
   createdAt: string;
   sources?: ChatSource[];
+  artifacts?: ChatArtifact[];
 }
 
 export interface ChatSession {

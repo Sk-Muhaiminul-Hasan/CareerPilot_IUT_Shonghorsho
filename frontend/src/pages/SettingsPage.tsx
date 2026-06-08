@@ -91,6 +91,14 @@ function SettingsPage() {
         </Typography>
 
         <Grid container spacing={3}>
+          {/* Profile */}
+          <Grid item xs={12}>
+            <CandidateProfileEditor
+              profile={settings?.candidate_profile}
+              onSave={handleProfileSave}
+            />
+          </Grid>
+
           {/* Two separate AI config slots */}
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -151,6 +159,11 @@ function SettingsPage() {
                 buttonLabel="Save Extraction AI"
               />
             </Box>
+          </Grid>
+
+          {/* Scheduled searches */}
+          <Grid item xs={12}>
+            <ScheduledSearchesCard />
           </Grid>
 
           {/* Logout */}

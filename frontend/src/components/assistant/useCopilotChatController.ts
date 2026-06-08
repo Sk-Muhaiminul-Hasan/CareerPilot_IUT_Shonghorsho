@@ -5,7 +5,7 @@ import { sendChatMessage } from '@/services/chatService';
 import { useArtifactStore, type StoredArtifact } from '@/store/useArtifactStore';
 import { useChatHistoryStore, createChatMessage } from '@/store/useChatHistoryStore';
 import { useChatStore } from '@/store/useChatStore';
-import type { ChatAttachment, ChatMessage, ChatSource, ChatUiMessage } from '@/types/chat';
+import type { ChatAttachment, ChatMessage, ChatSource, ChatUiMessage, ChatArtifact } from '@/types/chat';
 import { artifactContextOptions, artifactToAttachment } from './artifactContextOptions';
 import { buildContextOptions, type ContextOption } from './contextOptions';
 
@@ -70,10 +70,21 @@ export function useCopilotChatController() {
   }, [activeJobId, activeSession, createSession, userProfileId]);
 
   const appendAssistantMessage = useCallback(
-    (sessionId: string, text: string, sources?: ChatSource[]) => {
-      appendMessage(sessionId, createChatMessage('assistant', text, sources));
+    (
+      sessionId: string,
+      text: string,
+      sources?: ChatSource[],
+      artifacts?: ChatArtifact[],
+    ) => {
+      const mapped: StoredArtifact[] = (artifacts ?? []).map((artifact, index) => ({
+        ...artifact,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${index}`,
+        created_at: new Date().toISOString(),
+      } as StoredArtifact));
+      if (mapped.length > 0) addArtifacts(mapped);
+      appendMessage(sessionId, createChatMessage('assistant', text, sources, mapped));
     },
-    [appendMessage],
+    [addArtifacts, appendMessage],
   );
 
   const loadPersonalGreeting = useCallback(
@@ -90,8 +101,7 @@ export function useCopilotChatController() {
             .map((option) => option.attachment)
             .filter((attachment): attachment is ChatAttachment => Boolean(attachment)),
         });
-        replaceMessages(sessionId, [createChatMessage('assistant', response.answer, response.sources)]);
-        addArtifacts(response.artifacts);
+        appendAssistantMessage(sessionId, response.answer, response.sources, response.artifacts);
       } catch {
         replaceMessages(sessionId, [
           createChatMessage(
@@ -120,8 +130,7 @@ export function useCopilotChatController() {
           session_id: sessionId,
           attachments,
         });
-        appendAssistantMessage(sessionId, response.answer, response.sources);
-        addArtifacts(response.artifacts);
+        appendAssistantMessage(sessionId, response.answer, response.sources, response.artifacts);
       } catch {
         appendAssistantMessage(sessionId, 'Sorry, I could not reach the assistant API.');
       } finally {
@@ -205,13 +214,21 @@ export function useCopilotChatController() {
         attachments,
         conversation_history: history,
       });
-      appendAssistantMessage(sessionId, response.answer, response.sources);
-      addArtifacts(response.artifacts);
+      appendAssistantMessage(sessionId, response.answer, response.sources, response.artifacts);
     } catch {
-      appendAssistantMessage(sessionId, 'Sorry, I could not reach the assistant API.');
+      appendAssistantMessage(sessionId, 'Sorry, I could not reach the assistant API for this request.');
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const startNewChat = () => {
+    createSession({ activeJobId: activeJobId ?? null, userProfileId });
+    setAttachments([]);
+    setInput('');
+    setJobDescription('');
+    setShowJobDescription(false);
+    setHistoryOpen(false);
   };
 
   const regenerateArtifact = async (artifact: StoredArtifact) => {
@@ -235,23 +252,13 @@ export function useCopilotChatController() {
         attachments: [...attachments, artifactToAttachment(artifact)],
         conversation_history: history,
       });
-      appendAssistantMessage(sessionId, response.answer, response.sources);
-      addArtifacts(response.artifacts);
+      appendAssistantMessage(sessionId, response.answer, response.sources, response.artifacts);
     } catch {
       appendAssistantMessage(sessionId, 'Sorry, I could not regenerate that artifact yet.');
     } finally {
       setRegeneratingArtifactId(null);
       setIsTyping(false);
     }
-  };
-
-  const startNewChat = () => {
-    createSession({ activeJobId: activeJobId ?? null, userProfileId });
-    setAttachments([]);
-    setInput('');
-    setJobDescription('');
-    setShowJobDescription(false);
-    setHistoryOpen(false);
   };
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

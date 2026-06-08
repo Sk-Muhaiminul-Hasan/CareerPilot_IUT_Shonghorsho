@@ -501,7 +501,7 @@ class DocumentParser:
             entries.append({
                 "degree": degree,
                 "institution": institution,
-                "year": year,
+                "graduation_year": year,
             })
         return entries
 

@@ -92,7 +92,7 @@ function ApplicationCard({ app }: { app: Application }) {
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" fontWeight={700} noWrap color="text.primary">
-              Job #{app.job_id.slice(0, 8)}
+              {app.job_title ?? `Job #${app.job_id.slice(0, 8)}`}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap>
               Mode: {app.apply_mode}
