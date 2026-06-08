@@ -5,6 +5,7 @@ scrapers, and ATS-based job analysis.
 """
 
 import asyncio
+import os
 import re
 from datetime import datetime
 from typing import Any
@@ -130,6 +131,11 @@ async def search_jobs(
             exa_results_count = 0
     else:
         logger.info("job_search.exa_skipped", reason="not_premium")
+
+    is_production = os.getenv("ENVIRONMENT") == "production"
+    if is_production:
+        platforms_to_search = []
+        logger.info("job_search.browser_scraper_disabled_in_production")
 
     if exa_results_count == 0:
         for platform_name in platforms_to_search:
@@ -281,6 +287,10 @@ async def _enrich_jobs_background(
         total=len(listings),
         user_id=user_id,
     )
+
+    if os.getenv("ENVIRONMENT") == "production":
+        logger.info("job_search.enrichment_disabled_in_production")
+        return
 
     for platform_name, listing in listings:
         if not listing.url:
