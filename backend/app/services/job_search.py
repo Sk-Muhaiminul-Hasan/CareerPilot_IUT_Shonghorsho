@@ -42,12 +42,15 @@ async def _create_calendar_deadline(
     try:
         from app.schemas.calendar_event import CalendarEventCreate, EventTypeEnum
         from app.services.calendar_event import create_event
+
+        event_data = CalendarEventCreate(
+            title=f"Apply by: {job_title}",
+            event_date=deadline,
+            event_type=EventTypeEnum.DEADLINE,
+        )
         await create_event(
-            CalendarEventCreate(
-                title=f"Apply by: {job_title}",
-                event_date=deadline,
-                event_type=EventTypeEnum.DEADLINE,
-            ),
+            event_data,
+            user_id=user_id,
         )
     except Exception as exc:
         logger.warning(
@@ -132,7 +135,9 @@ async def search_jobs(
 
             try:
                 async with platform_registry.create_async(
-                    platform_name, db=db, user_id=user_id,
+                    platform_name,
+                    db=db,
+                    user_id=user_id,
                 ) as platform:
                     listings: list[JobListing] = await platform.search(
                         query=request.query,
@@ -220,8 +225,7 @@ async def search_jobs(
             continue
 
     limited = [
-        j for j in all_jobs[: request.limit]
-        if j.id is not None and j.created_at is not None
+        j for j in all_jobs[: request.limit] if j.id is not None and j.created_at is not None
     ]
     items = [JobListingResponse.model_validate(j) for j in limited]
 
@@ -297,7 +301,9 @@ async def _enrich_jobs_background(
         try:
             async with AsyncSessionLocal() as db:
                 async with platform_registry.create_async(
-                    platform_name, db=db, user_id=user_id,
+                    platform_name,
+                    db=db,
+                    user_id=user_id,
                 ) as platform:
                     details = await platform.scrape_details(visit_url)
 
@@ -343,12 +349,8 @@ async def _enrich_jobs_background(
 
                         job.description = details.description or job.description
                         job.salary_range = details.salary_range or job.salary_range
-                        if (
-                            not job.salary_range
-                            or job.salary_range in ("None", "")
-                        ) and (
-                            details.salary_min is not None
-                            or details.salary_max is not None
+                        if (not job.salary_range or job.salary_range in ("None", "")) and (
+                            details.salary_min is not None or details.salary_max is not None
                         ):
                             job.salary_range = _format_salary_range(details)
                         job.work_type = details.work_type or job.work_type
@@ -448,10 +450,7 @@ def _extract_platform_job_id_from_url(url: str) -> str | None:
 def _format_salary_range(details: JobListing) -> str:
     """Build a human-readable salary_range from min/max on a JobListing."""
     if details.salary_min is not None and details.salary_max is not None:
-        return (
-            f"{details.salary_currency} "
-            f"{details.salary_min:,.0f} - {details.salary_max:,.0f}"
-        )
+        return f"{details.salary_currency} {details.salary_min:,.0f} - {details.salary_max:,.0f}"
     if details.salary_min is not None:
         return f"{details.salary_currency} {details.salary_min:,.0f}+"
     if details.salary_max is not None:
@@ -471,8 +470,7 @@ def _listing_to_job(listing: JobListing, user_id: str) -> Job:
     salary_range: str | None = None
     if listing.salary_min is not None and listing.salary_max is not None:
         salary_range = (
-            f"{listing.salary_currency} "
-            f"{listing.salary_min:,.0f} - {listing.salary_max:,.0f}"
+            f"{listing.salary_currency} {listing.salary_min:,.0f} - {listing.salary_max:,.0f}"
         )
     elif listing.salary_min is not None:
         salary_range = f"{listing.salary_currency} {listing.salary_min:,.0f}+"
@@ -671,10 +669,12 @@ async def analyze_job(
         job_metadata: dict[str, Any] = {}
         if job.skills_required and isinstance(job.skills_required, dict):
             job_metadata["required_skills"] = job.skills_required.get(
-                "required", job.skills_required.get("skills", []),
+                "required",
+                job.skills_required.get("skills", []),
             )
             job_metadata["preferred_skills"] = job.skills_required.get(
-                "preferred", [],
+                "preferred",
+                [],
             )
 
         detected_skills = list(skill_matcher.extract_skills(resume_text))

@@ -21,10 +21,8 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 
 import type { CalendarEvent } from '@/types/dashboard';
-import { useCalendarEvents } from '@/hooks/useDashboard';
+import { useCalendarEvents, CALENDAR_KEY } from '@/hooks/useDashboard';
 import { createCalendarEvent } from '@/services/dashboardService';
-
-const DASHBOARD_KEY = ['dashboard'] as const;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -81,7 +79,10 @@ export default function CalendarView() {
   const grid = buildCalendarGrid(viewYear, viewMonth);
 
   function eventsOnDay(date: Date) {
-    return events.filter((e) => isSameDay(new Date(e.date), date));
+    return events.filter((e) => {
+      const [y, m, d] = e.date.split('-').map(Number);
+      return isSameDay(new Date(y, m - 1, d), date);
+    });
   }
 
   function prevMonth() {
@@ -101,7 +102,7 @@ export default function CalendarView() {
       eventDate.setHours(12, 0, 0, 0);
       await createCalendarEvent(quickAdd.trim(), eventDate);
       setQuickAdd('');
-      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     } catch {
       // error already logged in service
     } finally {

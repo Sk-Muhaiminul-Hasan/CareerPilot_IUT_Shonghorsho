@@ -48,6 +48,7 @@ async def _create_calendar_deadline(
                 event_date=due_date,
                 event_type=EventTypeEnum.DEADLINE,
             ),
+            user_id=user_id,
         )
     except Exception as exc:
         logger.warning(
@@ -66,6 +67,7 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
         async with db.begin():
             progress = _compute_progress(0, data.target_value)
             record = Goal(
+                user_id=user_id,
                 title=data.title,
                 description=data.description,
                 category=data.category.value,
@@ -91,9 +93,9 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
     return GoalResponse.model_validate(record)
 
 
-async def get_goal(goal_id: str) -> GoalResponse:
+async def get_goal(goal_id: str, user_id: str) -> GoalResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        result = await db.execute(select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("Goal", goal_id)
@@ -101,19 +103,20 @@ async def get_goal(goal_id: str) -> GoalResponse:
 
 
 async def list_goals(
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
     status: str | None = None,
     category: str | None = None,
 ) -> GoalListResponse:
     async with AsyncSessionLocal() as db:
-        query = select(Goal)
+        query = select(Goal).where(Goal.user_id == user_id)
         if status:
             query = query.where(Goal.status == status)
         if category:
             query = query.where(Goal.category == category)
 
-        count_q = select(Goal.id)
+        count_q = select(Goal.id).where(Goal.user_id == user_id)
         if status:
             count_q = count_q.where(Goal.status == status)
         if category:
@@ -144,10 +147,12 @@ async def list_goals(
         )
 
 
-async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
+async def update_goal(goal_id: str, user_id: str, data: GoalUpdate) -> GoalResponse:
     async with AsyncSessionLocal() as db:  # noqa: SIM117
         async with db.begin():
-            result = await db.execute(select(Goal).where(Goal.id == goal_id))
+            result = await db.execute(
+                select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id)
+            )
             record = result.scalar_one_or_none()
             if not record:
                 raise RecordNotFoundError("Goal", goal_id)
@@ -178,10 +183,11 @@ async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
 
 async def update_progress(
     goal_id: str,
+    user_id: str,
     data: GoalProgressUpdate,
 ) -> GoalResponse:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        result = await db.execute(select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("Goal", goal_id)
@@ -198,9 +204,9 @@ async def update_progress(
         return GoalResponse.model_validate(record)
 
 
-async def delete_goal(goal_id: str) -> None:
+async def delete_goal(goal_id: str, user_id: str) -> None:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        result = await db.execute(select(Goal).where(Goal.id == goal_id, Goal.user_id == user_id))
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("Goal", goal_id)

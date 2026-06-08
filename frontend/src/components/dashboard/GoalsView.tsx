@@ -32,10 +32,8 @@ import StarIcon from '@mui/icons-material/Star';
 import Skeleton from '@mui/material/Skeleton';
 
 import type { Goal } from '@/types/dashboard';
-import { useGoals } from '@/hooks/useDashboard';
-import { createGoal, updateGoal } from '@/services/dashboardService';
-
-const DASHBOARD_KEY = ['dashboard'] as const;
+import { useGoals, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
+import { createGoal, createCalendarEvent, updateGoal } from '@/services/dashboardService';
 
 /** Gradient colors per goal variant. */
 const BAR_GRADIENT: Record<Goal['colorVariant'], string> = {
@@ -167,18 +165,28 @@ export default function GoalsView() {
       dueLabel: dueDate || 'Ongoing',
       priority,
     };
+    let createdGoal: Goal | null = null;
     if (editingGoal) {
-      await updateGoal(editingGoal.id, payload);
+      createdGoal = await updateGoal(editingGoal.id, payload);
       setEditingGoal(null);
     } else {
-      await createGoal(payload);
+      createdGoal = await createGoal(payload);
     }
     setGoalTitle('');
     setCategory('applications');
     setColorVariant('primary');
     setDueDate('');
     setPriority('Medium');
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+
+    await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
+    await queryClient.invalidateQueries({ queryKey: GOALS_KEY });
+
+    if (!editingGoal && createdGoal?.dueDate) {
+      const deadlineDate = new Date(createdGoal.dueDate);
+      deadlineDate.setHours(12, 0, 0, 0);
+      await createCalendarEvent(createdGoal.title, deadlineDate);
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
+    }
     setIsSubmitting(false);
   }
 

@@ -19,7 +19,7 @@ def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
+async def create_event(data: CalendarEventCreate, user_id: str) -> CalendarEventResponse:
     event_date = data.event_date
     end_date = data.end_date
     if event_date.tzinfo is not None:
@@ -28,7 +28,7 @@ async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
         end_date = end_date.replace(tzinfo=None)
     async with AsyncSessionLocal() as db, db.begin():
         record = CalendarEvent(
-            user_id=data.user_id,
+            user_id=user_id,
             application_id=data.application_id,
             title=data.title,
             description=data.description,
@@ -45,9 +45,13 @@ async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
         return CalendarEventResponse.model_validate(record)
 
 
-async def get_event(event_id: str) -> CalendarEventResponse:
+async def get_event(event_id: str, user_id: str) -> CalendarEventResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
+        result = await db.execute(
+            select(CalendarEvent).where(
+                CalendarEvent.id == event_id, CalendarEvent.user_id == user_id
+            )
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)
@@ -55,17 +59,18 @@ async def get_event(event_id: str) -> CalendarEventResponse:
 
 
 async def list_events(
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
     event_type: str | None = None,
 ) -> CalendarEventListResponse:
     async with AsyncSessionLocal() as db:
-        query = select(CalendarEvent)
+        query = select(CalendarEvent).where(CalendarEvent.user_id == user_id)
         if event_type:
             query = query.where(CalendarEvent.event_type == event_type)
         query = query.order_by(CalendarEvent.event_date.asc())
 
-        count_q = select(CalendarEvent.id)
+        count_q = select(CalendarEvent.id).where(CalendarEvent.user_id == user_id)
         if event_type:
             count_q = count_q.where(CalendarEvent.event_type == event_type)
 
@@ -88,10 +93,15 @@ async def list_events(
 
 async def update_event(
     event_id: str,
+    user_id: str,
     data: CalendarEventUpdate,
 ) -> CalendarEventResponse:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
+        result = await db.execute(
+            select(CalendarEvent).where(
+                CalendarEvent.id == event_id, CalendarEvent.user_id == user_id
+            )
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)
@@ -109,9 +119,13 @@ async def update_event(
         return CalendarEventResponse.model_validate(record)
 
 
-async def delete_event(event_id: str) -> None:
+async def delete_event(event_id: str, user_id: str) -> None:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(CalendarEvent).where(CalendarEvent.id == event_id))
+        result = await db.execute(
+            select(CalendarEvent).where(
+                CalendarEvent.id == event_id, CalendarEvent.user_id == user_id
+            )
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("CalendarEvent", event_id)

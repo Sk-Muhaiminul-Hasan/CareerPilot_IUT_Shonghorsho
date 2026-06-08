@@ -50,6 +50,7 @@ async def create_goal(
     summary="List career goals",
 )
 async def list_goals(
+    user_id: str = Depends(get_current_user),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=100, description="Items per page"),
     status: str | None = Query(
@@ -58,11 +59,14 @@ async def list_goals(
     ),
     category: str | None = Query(
         default=None,
-        description="Filter by category: applications | learning | networking | interview_prep | other",
+        description=(
+            "Filter by category: applications | learning | "
+            "networking | interview_prep | other"
+        ),
     ),
 ) -> GoalListResponse:
     """List goals sorted by status (active first) then progress descending."""
-    return await goal_service.list_goals(page, page_size, status, category)
+    return await goal_service.list_goals(user_id, page, page_size, status, category)
 
 
 @router.get(
@@ -70,9 +74,12 @@ async def list_goals(
     response_model=GoalResponse,
     summary="Get a career goal",
 )
-async def get_goal(goal_id: str) -> GoalResponse:
+async def get_goal(
+    goal_id: str,
+    user_id: str = Depends(get_current_user),
+) -> GoalResponse:
     """Get a single goal by ID. Returns 404 if not found."""
-    return await goal_service.get_goal(goal_id)
+    return await goal_service.get_goal(goal_id, user_id)
 
 
 @router.patch(
@@ -83,11 +90,12 @@ async def get_goal(goal_id: str) -> GoalResponse:
 async def update_goal(
     goal_id: str,
     data: GoalUpdate,
+    user_id: str = Depends(get_current_user),
 ) -> GoalResponse:
     """Partially update a goal. Only supplied fields are changed.
     Setting status='completed' auto-sets completed_at and progress to 100%.
     """
-    goal = await goal_service.update_goal(goal_id, data)
+    goal = await goal_service.update_goal(goal_id, user_id, data)
     logger.info("goal_updated", goal_id=goal_id)
     return goal
 
@@ -100,12 +108,13 @@ async def update_goal(
 async def update_progress(
     goal_id: str,
     data: GoalProgressUpdate,
+    user_id: str = Depends(get_current_user),
 ) -> GoalResponse:
     """Set the current progress value for a goal.
     progress_percent is recomputed automatically.
     If current_value reaches target_value, the goal is auto-completed.
     """
-    goal = await goal_service.update_progress(goal_id, data)
+    goal = await goal_service.update_progress(goal_id, user_id, data)
     logger.info("goal_progress_updated", goal_id=goal_id, current=data.current_value)
     return goal
 
@@ -115,7 +124,10 @@ async def update_progress(
     status_code=204,
     summary="Delete a career goal",
 )
-async def delete_goal(goal_id: str) -> None:
+async def delete_goal(
+    goal_id: str,
+    user_id: str = Depends(get_current_user),
+) -> None:
     """Delete a goal by ID. Returns 404 if not found."""
-    await goal_service.delete_goal(goal_id)
+    await goal_service.delete_goal(goal_id, user_id)
     logger.info("goal_deleted", goal_id=goal_id)
