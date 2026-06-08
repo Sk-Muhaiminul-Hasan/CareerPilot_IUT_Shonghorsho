@@ -49,7 +49,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 import type { Goal, Roadmap, RoadmapPhase, RoadmapTask } from '@/types/dashboard';
-import { useGoals, useCompletedGoals, useRoadmap, useCompleteTaskMutation, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
+import { useGoals, useCompletedGoals, useRoadmap, useCompleteTaskMutation, DASHBOARD_KEY, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
 import { useAppStore } from '@/store/useAppStore';
 import {
   createGoal,

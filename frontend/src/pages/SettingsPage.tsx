@@ -16,11 +16,10 @@ import Switch from '@mui/material/Switch';
 
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import LLMProvidersCard from '@/components/settings/LLMProvidersCard';
 import CandidateProfileEditor from '@/components/settings/CandidateProfileEditor';
 import AISlotConfigCard from '@/components/settings/AISlotConfigCard';
 import ScheduledSearchesCard from '@/components/settings/ScheduledSearchesCard';
-import { useSettings, useUpdateSettings, useLLMProviders } from '@/hooks/useSettings';
+import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import type { CandidateProfile } from '@/types/settings';
 
@@ -28,7 +27,6 @@ const PLATFORMS = ['linkedin', 'indeed', 'glassdoor'];
 
 function SettingsPage() {
   const { data: settings, isLoading } = useSettings();
-  const { data: llmProviders } = useLLMProviders();
   const updateMutation = useUpdateSettings();
   const showNotification = useAppStore((s) => s.showNotification);
 
@@ -56,15 +54,6 @@ function SettingsPage() {
     (_: React.SyntheticEvent | Event, value: number | number[]) => {
       if (typeof value === 'number') {
         handleUpdate('min_ats_score', value / 100);
-      }
-    },
-    [handleUpdate],
-  );
-
-  const handleParallelCommit = useCallback(
-    (_: React.SyntheticEvent | Event, value: number | number[]) => {
-      if (typeof value === 'number') {
-        handleUpdate('max_parallel', value);
       }
     },
     [handleUpdate],
