@@ -64,3 +64,70 @@ export interface Todo {
   isCompleted: boolean;
   createdAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// Roadmap types
+// ---------------------------------------------------------------------------
+
+export type RoadmapTaskCategory =
+  | 'learning'
+  | 'project'
+  | 'application'
+  | 'networking'
+  | 'cv_update';
+
+export type RoadmapFeasibility = 'high' | 'medium' | 'low';
+
+export interface RoadmapTask {
+  id: string;            // RoadmapTask.id
+  taskId: string;        // linked TodoItem.id
+  title: string;
+  priority: 1 | 2 | 3;
+  dueDate: string | null;
+  category: RoadmapTaskCategory;
+  spawnsApplication: boolean;
+  completed: boolean;
+  completedAt: string | null;
+}
+
+export interface RoadmapPhase {
+  id: string;
+  phaseNumber: number;
+  title: string;
+  weekStart: number;
+  weekEnd: number;
+  tasks: RoadmapTask[];
+}
+
+export interface RoadmapMeta {
+  id: string;
+  goalId: string;
+  mermaidGantt: string;
+  feasibility: RoadmapFeasibility;
+  feasibilityNote: string;
+  skillGaps: Array<{ skill: string; gap_reason: string }> | null;
+  weeklyHourBudget: number;
+  progressPercent: number;
+  onTrack: boolean;
+  nudgeMessage: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Roadmap {
+  goalId: string;
+  goalTitle: string;
+  goalDeadline: string | null;
+  meta: RoadmapMeta;
+  phases: RoadmapPhase[];
+}
+
+/** Dashboard progress widget item (one per goal with a roadmap). */
+export interface DashboardProgressItem {
+  goalId: string;
+  goalTitle: string;
+  progressPercent: number;
+  onTrack: boolean;
+  nudgeMessage: string;
+  feasibility: RoadmapFeasibility;
+}

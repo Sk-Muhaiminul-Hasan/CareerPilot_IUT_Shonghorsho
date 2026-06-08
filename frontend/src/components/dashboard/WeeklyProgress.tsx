@@ -8,6 +8,8 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 
 import type { WeeklyProgress as WeeklyProgressType } from '@/types/dashboard';
+import { useAppStore } from '@/store/useAppStore';
+import { useRoadmap } from '@/hooks/useDashboard';
 
 interface WeeklyProgressProps {
   data: WeeklyProgressType | undefined;
@@ -20,7 +22,11 @@ interface WeeklyProgressProps {
  * Matches the bottom-center section of Designs/screen.png.
  */
 function WeeklyProgress({ data, loading = false }: WeeklyProgressProps) {
-  const roadmap = data?.roadmapPercent ?? 0;
+  const focusedGoalId = useAppStore((state) => state.focusedGoalId);
+  const { data: focusedRoadmap } = useRoadmap(focusedGoalId);
+
+  const defaultRoadmap = data?.roadmapPercent ?? 0;
+  const roadmap = focusedRoadmap ? Math.round(focusedRoadmap.meta.progressPercent) : defaultRoadmap;
   const streak = data?.streakDays ?? 0;
   const skills = data?.skillsAdded ?? 0;
 

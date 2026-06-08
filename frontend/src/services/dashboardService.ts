@@ -1,11 +1,23 @@
 /**
- * Dashboard service — Goals, Calendar Events, and Weekly Progress.
+ * Dashboard service — Goals, Calendar Events, Weekly Progress, and Roadmap.
  *
- * Connects to the backend APIs for goals and calendar events.
- * Weekly Progress remains mocked until an endpoint is available.
+ * Connects to the backend APIs for goals, calendar events, and roadmaps.
  */
-import type { Goal, CalendarEvent, WeeklyProgress } from '@/types/dashboard';
+import type {
+  Goal,
+  CalendarEvent,
+  WeeklyProgress,
+  Roadmap,
+  RoadmapTask,
+  RoadmapMeta,
+  RoadmapPhase,
+  DashboardProgressItem,
+} from '@/types/dashboard';
 import api from './api';
+
+// ---------------------------------------------------------------------------
+// Goals
+// ---------------------------------------------------------------------------
 
 /** Fetch the user's active career goals. */
 export async function getGoals(): Promise<Goal[]> {
@@ -53,115 +65,6 @@ export async function getCompletedGoals(): Promise<Goal[]> {
   }
 }
 
-
-/** Fetch upcoming calendar events. */
-export async function getCalendarEvents(): Promise<CalendarEvent[]> {
-  try {
-    const { data } = await api.get<{ items: any[] }>('/calendar/');
-    return data.items.map((backendEvent) => {
-      const dateObj = new Date(backendEvent.event_date);
-      const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-
-      let timeStr: string | undefined = undefined;
-      if (!backendEvent.all_day) {
-        timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-      }
-
-      return {
-        id: backendEvent.id,
-        title: backendEvent.title,
-        date: dateStr,
-        time: timeStr,
-        type: backendEvent.event_type as CalendarEvent['type'],
-        subtitle: backendEvent.description || undefined,
-        isCompleted: backendEvent.is_completed,
-      };
-    });
-  } catch (error) {
-    console.error('Failed to fetch calendar events:', error);
-    return [];
-  }
-}
-
-/** Fetch weekly progress snapshot — derived from goal data where possible. */
-export async function getWeeklyProgress(): Promise<WeeklyProgress> {
-  try {
-    const completed = await getCompletedGoals();
-    // Skills added = completed learning-category goals
-    const skillsAdded = completed.filter((g) => g.category === 'learning').length;
-    // Streak = total completed goals (each completion counts as a day of progress)
-    const streakDays = completed.length;
-    // Roadmap: percentage of goals completed out of all goals (active + completed)
-    const activeData = await api.get<{ total: number }>('/goals/?status=active');
-    const totalGoals = (activeData.data?.total ?? 0) + completed.length;
-    const roadmapPercent = totalGoals > 0 ? Math.round((completed.length / totalGoals) * 100) : 0;
-    return { roadmapPercent, streakDays, skillsAdded };
-  } catch {
-    return { roadmapPercent: 0, streakDays: 0, skillsAdded: 0 };
-  }
-}
-
-
-/** Create a new calendar event via backend API. */
-export async function createCalendarEvent(title: string, eventDate: Date, description?: string): Promise<CalendarEvent | null> {
-  try {
-    const payload = {
-      title,
-      event_date: eventDate.toISOString(),
-      event_type: 'task',
-      all_day: true,
-      description: description || undefined,
-    };
-    const { data } = await api.post('/calendar/', payload);
-    const dateObj = new Date(data.event_date);
-    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-    return {
-      id: data.id,
-      title: data.title,
-      date: dateStr,
-      time: undefined,
-      type: data.event_type,
-      subtitle: data.description || undefined,
-      isCompleted: data.is_completed,
-    };
-  } catch (error) {
-    console.error('Failed to create calendar event:', error);
-    return null;
-  }
-}
-
-/** Update an existing calendar event (e.g. marking it completed) via backend API. */
-export async function updateCalendarEvent(id: string, updates: { is_completed?: boolean; title?: string }): Promise<CalendarEvent | null> {
-  try {
-    const { data } = await api.patch(`/calendar/${id}`, updates);
-    const dateObj = new Date(data.event_date);
-    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-    return {
-      id: data.id,
-      title: data.title,
-      date: dateStr,
-      time: data.all_day ? undefined : dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      type: data.event_type,
-      subtitle: data.description || undefined,
-      isCompleted: data.is_completed,
-    };
-  } catch (error) {
-    console.error('Failed to update calendar event:', error);
-    return null;
-  }
-}
-
-/** Delete a calendar event via backend API. */
-export async function deleteCalendarEvent(id: string): Promise<boolean> {
-  try {
-    await api.delete(`/calendar/${id}`);
-    return true;
-  } catch (error) {
-    console.error('Failed to delete calendar event:', error);
-    return false;
-  }
-}
-
 /** Create a new career goal via backend API. */
 export async function createGoal(data: {
   title: string;
@@ -195,7 +98,6 @@ export async function createGoal(data: {
       category: resp.category ?? 'other',
       completedAt: resp.completed_at || null,
     };
-
   } catch (error) {
     console.error('Failed to create goal:', error);
     return null;
@@ -203,16 +105,19 @@ export async function createGoal(data: {
 }
 
 /** Update an existing career goal via backend API. */
-export async function updateGoal(id: string, data: {
-  title?: string;
-  targetValue?: number;
-  category?: string;
-  colorVariant?: string;
-  dueDate?: string | null;
-  dueLabel?: string | null;
-  priority?: string;
-  status?: string;
-}): Promise<Goal | null> {
+export async function updateGoal(
+  id: string,
+  data: {
+    title?: string;
+    targetValue?: number;
+    category?: string;
+    colorVariant?: string;
+    dueDate?: string | null;
+    dueLabel?: string | null;
+    priority?: string;
+    status?: string;
+  },
+): Promise<Goal | null> {
   try {
     const payload: any = {};
     if (data.title !== undefined) payload.title = data.title;
@@ -258,3 +163,212 @@ export async function deleteGoalById(id: string): Promise<boolean> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Calendar Events
+// ---------------------------------------------------------------------------
+
+/** Fetch upcoming calendar events. */
+export async function getCalendarEvents(): Promise<CalendarEvent[]> {
+  try {
+    const { data } = await api.get<{ items: any[] }>('/calendar/');
+    return data.items.map((backendEvent) => {
+      const dateObj = new Date(backendEvent.event_date);
+      const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      let timeStr: string | undefined = undefined;
+      if (!backendEvent.all_day) {
+        timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
+      return {
+        id: backendEvent.id,
+        title: backendEvent.title,
+        date: dateStr,
+        time: timeStr,
+        type: backendEvent.event_type as CalendarEvent['type'],
+        subtitle: backendEvent.description || undefined,
+        isCompleted: backendEvent.is_completed,
+      };
+    });
+  } catch (error) {
+    console.error('Failed to fetch calendar events:', error);
+    return [];
+  }
+}
+
+/** Create a new calendar event via backend API. */
+export async function createCalendarEvent(
+  title: string,
+  eventDate: Date,
+  description?: string,
+): Promise<CalendarEvent | null> {
+  try {
+    const payload = {
+      title,
+      event_date: eventDate.toISOString(),
+      event_type: 'task',
+      all_day: true,
+      description: description || undefined,
+    };
+    const { data } = await api.post('/calendar/', payload);
+    const dateObj = new Date(data.event_date);
+    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    return {
+      id: data.id,
+      title: data.title,
+      date: dateStr,
+      time: undefined,
+      type: data.event_type,
+      subtitle: data.description || undefined,
+      isCompleted: data.is_completed,
+    };
+  } catch (error) {
+    console.error('Failed to create calendar event:', error);
+    return null;
+  }
+}
+
+/** Update an existing calendar event (e.g. marking it completed) via backend API. */
+export async function updateCalendarEvent(
+  id: string,
+  updates: { is_completed?: boolean; title?: string },
+): Promise<CalendarEvent | null> {
+  try {
+    const { data } = await api.patch(`/calendar/${id}`, updates);
+    const dateObj = new Date(data.event_date);
+    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    return {
+      id: data.id,
+      title: data.title,
+      date: dateStr,
+      time: data.all_day
+        ? undefined
+        : dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      type: data.event_type,
+      subtitle: data.description || undefined,
+      isCompleted: data.is_completed,
+    };
+  } catch (error) {
+    console.error('Failed to update calendar event:', error);
+    return null;
+  }
+}
+
+/** Delete a calendar event via backend API. */
+export async function deleteCalendarEvent(id: string): Promise<boolean> {
+  try {
+    await api.delete(`/calendar/${id}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to delete calendar event:', error);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Progress
+// ---------------------------------------------------------------------------
+
+/** Fetch weekly progress snapshot — derived from goal data where possible. */
+export async function getWeeklyProgress(): Promise<WeeklyProgress> {
+  try {
+    const completed = await getCompletedGoals();
+    const skillsAdded = completed.filter((g) => g.category === 'learning').length;
+    const streakDays = completed.length;
+    const activeData = await api.get<{ total: number }>('/goals/?status=active');
+    const totalGoals = (activeData.data?.total ?? 0) + completed.length;
+    const roadmapPercent = totalGoals > 0 ? Math.round((completed.length / totalGoals) * 100) : 0;
+    return { roadmapPercent, streakDays, skillsAdded };
+  } catch {
+    return { roadmapPercent: 0, streakDays: 0, skillsAdded: 0 };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Roadmap API calls
+// ---------------------------------------------------------------------------
+
+function mapRoadmapTask(raw: any): RoadmapTask {
+  return {
+    id: raw.id,
+    taskId: raw.task_id,
+    title: raw.title,
+    priority: raw.priority as 1 | 2 | 3,
+    dueDate: raw.due_date || null,
+    category: raw.category,
+    spawnsApplication: raw.spawns_application,
+    completed: raw.completed,
+    completedAt: raw.completed_at || null,
+  };
+}
+
+function mapRoadmapPhase(raw: any): RoadmapPhase {
+  return {
+    id: raw.id,
+    phaseNumber: raw.phase_number,
+    title: raw.title,
+    weekStart: raw.week_start,
+    weekEnd: raw.week_end,
+    tasks: (raw.tasks ?? []).map(mapRoadmapTask),
+  };
+}
+
+function mapRoadmapMeta(raw: any): RoadmapMeta {
+  return {
+    id: raw.id,
+    goalId: raw.goal_id,
+    mermaidGantt: raw.mermaid_gantt,
+    feasibility: raw.feasibility,
+    feasibilityNote: raw.feasibility_note,
+    skillGaps: raw.skill_gaps || null,
+    weeklyHourBudget: raw.weekly_hour_budget,
+    progressPercent: raw.progress_percent,
+    onTrack: raw.on_track,
+    nudgeMessage: raw.nudge_message,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  };
+}
+
+function mapRoadmap(raw: any): Roadmap {
+  return {
+    goalId: raw.goal_id,
+    goalTitle: raw.goal_title,
+    goalDeadline: raw.goal_deadline || null,
+    meta: mapRoadmapMeta(raw.meta),
+    phases: (raw.phases ?? []).map(mapRoadmapPhase),
+  };
+}
+
+/** Generate a roadmap for a goal via AI (POST). */
+export async function generateRoadmap(goalId: string): Promise<Roadmap> {
+  const { data } = await api.post(`/goals/${goalId}/generate-roadmap`);
+  return mapRoadmap(data);
+}
+
+/** Get the existing roadmap for a goal (GET). */
+export async function getRoadmap(goalId: string): Promise<Roadmap> {
+  const { data } = await api.get(`/goals/${goalId}/roadmap`);
+  return mapRoadmap(data);
+}
+
+/** Mark a roadmap task as complete (PATCH). Returns updated meta. */
+export async function completeRoadmapTask(roadmapTaskId: string): Promise<{ meta: RoadmapMeta }> {
+  const { data } = await api.patch(`/goals/roadmap-tasks/${roadmapTaskId}/complete`);
+  return { meta: mapRoadmapMeta(data.meta) };
+}
+
+/** Get dashboard progress items (all active goals with roadmaps). */
+export async function getDashboardProgress(): Promise<DashboardProgressItem[]> {
+  try {
+    const { data } = await api.get<{ items: any[] }>('/goals/dashboard-progress');
+    return data.items.map((item) => ({
+      goalId: item.goal_id,
+      goalTitle: item.goal_title,
+      progressPercent: item.progress_percent,
+      onTrack: item.on_track,
+      nudgeMessage: item.nudge_message,
+      feasibility: item.feasibility,
+    }));
+  } catch {
+    return [];
+  }
+}

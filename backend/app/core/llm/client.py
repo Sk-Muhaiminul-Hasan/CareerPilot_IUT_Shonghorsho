@@ -153,9 +153,13 @@ class LLMClient:
         for attr, value in key_map.items():
             if value:
                 setattr(litellm, attr, value)
-        if self._cv_extraction_api_key:
+        if self._cv_extraction_api_key and isinstance(self._cv_extraction_api_key, str):
             import os as _os
-            _os.environ["OPENAI_API_KEY"] = self._cv_extraction_api_key
+            # Avoid clobbering OPENAI_API_KEY if it's actually an OpenRouter key
+            if self._cv_extraction_api_key.startswith("sk-or-"):
+                _os.environ["OPENROUTER_API_KEY"] = self._cv_extraction_api_key
+            elif self._cv_extraction_api_key.startswith("sk-"):
+                _os.environ["OPENAI_API_KEY"] = self._cv_extraction_api_key
 
     def _build_messages(
         self, prompt: str, system_prompt: str
@@ -271,27 +275,6 @@ class LLMClient:
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
 
-        if purpose == "general":
-            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
-        elif purpose == "extraction":
-            user_api_key = self._cv_extraction_api_key or (
-                user_settings.api_key_for(purpose) if user_settings else None
-            )
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
-        else:
-            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
-
         if purpose == "extraction":
             model_chain = [self._cv_extraction_model]
         else:
@@ -305,6 +288,29 @@ class LLMClient:
                 if "/" in attempt_model
                 else "openai"
             )
+            
+            # Resolve the active API key for this attempt
+            active_key = user_settings.api_key_for(purpose) if user_settings else None
+            
+            if not active_key:
+                if purpose == "extraction" and provider == "openai" and isinstance(self._cv_extraction_api_key, str):
+                    active_key = self._cv_extraction_api_key
+            
+            if not active_key:
+                if provider == "openai":
+                    active_key = self._llm.openai_api_key.get_secret_value()
+                elif provider == "openrouter":
+                    active_key = self._llm.openrouter_api_key.get_secret_value()
+                elif provider == "groq":
+                    active_key = self._llm.groq_api_key.get_secret_value()
+                elif provider in ("gemini", "google"):
+                    active_key = self._llm.gemini_api_key.get_secret_value()
+
+            # If no API key is available for this provider, we cannot try this model
+            if not active_key:
+                logger.warning("llm_key_missing", provider=provider, model=attempt_model)
+                continue
+
             start = time.perf_counter()
             try:
                 all_kwargs: dict[str, Any] = {
@@ -317,15 +323,14 @@ class LLMClient:
                     all_kwargs["response_format"] = response_format
                 if metadata:
                     all_kwargs["metadata"] = metadata
-                if user_api_key:
-                    all_kwargs["api_key"] = user_api_key
+                all_kwargs["api_key"] = active_key
 
                 response = await litellm.acompletion(**all_kwargs)
                 latency_s = time.perf_counter() - start
                 elapsed_ms = latency_s * 1000
 
                 usage = response.usage or litellm.Usage()
-                cost = litellm.completion_cost(completion_response=response)
+                cost = litellm.completion_cost(completion_response=response, model=attempt_model)
 
                 self._record_metrics(
                     provider=provider,
@@ -405,9 +410,13 @@ class LLMClient:
             raise LLMRateLimitError(provider=model_chain[-1])
         if isinstance(last_error, litellm.Timeout):
             raise LLMTimeoutError(f"All models timed out: {model_chain}")
-        raise LLMProviderError(
-            provider=model_chain[-1],
-            message=str(last_error) if last_error else "Unknown error",
+        if last_error:
+            raise LLMProviderError(
+                provider=model_chain[-1],
+                message=str(last_error),
+            )
+        raise LLMNotConfiguredError(
+            "AI not configured. Please configure your AI model in Settings or .env."
         )
 
     async def complete_with_structured_output(

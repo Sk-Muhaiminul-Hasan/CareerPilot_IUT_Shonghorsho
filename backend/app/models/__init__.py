@@ -7,6 +7,7 @@ from app.models.goal import Goal
 from app.models.job import Job
 from app.models.llm_usage import LLMUsage
 from app.models.resume import Resume
+from app.models.roadmap import RoadmapMeta, RoadmapPhase, RoadmapTask
 from app.models.scheduled_search import ScheduledSearch
 from app.models.todo_item import TodoItem
 from app.models.tracker import TrackerLabel, TrackerNote
@@ -20,6 +21,9 @@ __all__ = [
     "Job",
     "LLMUsage",
     "Resume",
+    "RoadmapMeta",
+    "RoadmapPhase",
+    "RoadmapTask",
     "ScheduledSearch",
     "TimestampMixin",
     "TodoItem",

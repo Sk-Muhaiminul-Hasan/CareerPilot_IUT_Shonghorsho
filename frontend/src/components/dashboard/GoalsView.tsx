@@ -6,6 +6,7 @@
  * – Roadmap progress bar showing % of all goals completed.
  * – Real completed goals list from API with "skill" badge for learning goals.
  * – Current streak card driven by completed goal count.
+ * – Generate Roadmap button on each goal card (Focus mode).
  */
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
@@ -23,6 +24,10 @@ import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import LinearProgress from '@mui/material/LinearProgress';
 import Skeleton from '@mui/material/Skeleton';
+import Collapse from '@mui/material/Collapse';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Checkbox from '@mui/material/Checkbox';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -38,10 +43,24 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StarIcon from '@mui/icons-material/Star';
 import SchoolIcon from '@mui/icons-material/School';
 import MapIcon from '@mui/icons-material/Map';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
-import type { Goal } from '@/types/dashboard';
-import { useGoals, useCompletedGoals } from '@/hooks/useDashboard';
-import { createGoal, updateGoal, completeGoal, deleteGoalById } from '@/services/dashboardService';
+import type { Goal, Roadmap, RoadmapPhase, RoadmapTask } from '@/types/dashboard';
+import { useGoals, useCompletedGoals, useRoadmap, useCompleteTaskMutation } from '@/hooks/useDashboard';
+import { useAppStore } from '@/store/useAppStore';
+import {
+  createGoal,
+  updateGoal,
+  completeGoal,
+  deleteGoalById,
+  generateRoadmap,
+  getRoadmap,
+  completeRoadmapTask,
+} from '@/services/dashboardService';
+import MermaidChart from './MermaidChart';
 
 const DASHBOARD_KEY = ['dashboard'] as const;
 
@@ -79,12 +98,14 @@ function GoalCard({
   onEdit,
   onComplete,
   onDelete,
+  onOpenRoadmap,
 }: {
   goal: Goal;
   index: number;
   onEdit: (goal: Goal) => void;
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpenRoadmap: (goal: Goal) => void;
 }) {
   const progress = goal.target > 0 ? Math.min((goal.current / goal.target) * 100, 100) : 0;
   const isOngoing = goal.dueLabel === 'Ongoing';
@@ -178,6 +199,22 @@ function GoalCard({
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Generate AI Roadmap (Focus mode)">
+              <IconButton
+                size="small"
+                onClick={() => onOpenRoadmap(goal)}
+                sx={{
+                  color: '#712ae2',
+                  bgcolor: '#f3e8ff',
+                  borderRadius: 1.5,
+                  '&:hover': { bgcolor: '#e9d5ff' },
+                  width: 30,
+                  height: 30,
+                }}
+              >
+                <AutoAwesomeIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Mark as completed">
               <IconButton
                 size="small"
@@ -224,10 +261,392 @@ function formatCompletedAt(iso: string | null): string {
   return `Completed ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
+// ---------------------------------------------------------------------------
+// RoadmapPanel — inline expandable panel below the goal cards grid
+// ---------------------------------------------------------------------------
+
+const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
+  learning: { bg: '#ede9fe', color: '#5b21b6' },
+  project: { bg: '#dbeafe', color: '#1d4ed8' },
+  application: { bg: '#dcfce7', color: '#15803d' },
+  networking: { bg: '#fff7ed', color: '#c2410c' },
+  cv_update: { bg: '#fef9c3', color: '#a16207' },
+};
+
+function RoadmapTaskRow({
+  task,
+  onComplete,
+}: {
+  task: RoadmapTask;
+  onComplete: (id: string) => void;
+}) {
+  const cat = CATEGORY_COLORS[task.category] ?? { bg: '#f1f5f9', color: '#475569' };
+  const dueStr = task.dueDate
+    ? new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        p: '8px 12px',
+        borderRadius: 2,
+        bgcolor: task.completed ? '#f0fdf4' : 'white',
+        border: '1px solid',
+        borderColor: task.completed ? '#bbf7d0' : '#e2e8f0',
+        transition: 'all 0.2s',
+        opacity: task.completed ? 0.75 : 1,
+      }}
+    >
+      <Checkbox
+        id={`rdm-task-${task.id}`}
+        size="small"
+        checked={task.completed}
+        disabled={task.completed}
+        onChange={() => !task.completed && onComplete(task.id)}
+        sx={{ p: 0.25 }}
+      />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 500,
+            textDecoration: task.completed ? 'line-through' : 'none',
+            color: task.completed ? 'text.secondary' : 'text.primary',
+            lineHeight: 1.3,
+          }}
+        >
+          {task.title}
+        </Typography>
+        {dueStr && (
+          <Typography variant="caption" color="text.secondary">
+            Due {dueStr}
+          </Typography>
+        )}
+      </Box>
+      <Chip
+        label={task.category.replace('_', ' ')}
+        size="small"
+        sx={{ bgcolor: cat.bg, color: cat.color, fontWeight: 600, fontSize: '0.65rem', height: 20 }}
+      />
+    </Box>
+  );
+}
+
+function PhaseSection({
+  phase,
+  onCompleteTask,
+}: {
+  phase: RoadmapPhase;
+  onCompleteTask: (taskId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const doneCount = phase.tasks.filter((t) => t.completed).length;
+  const pct = phase.tasks.length > 0 ? Math.round((doneCount / phase.tasks.length) * 100) : 0;
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Box
+        onClick={() => setOpen((o) => !o)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          cursor: 'pointer',
+          px: 1,
+          py: 0.75,
+          borderRadius: 1.5,
+          '&:hover': { bgcolor: '#f8faff' },
+        }}
+      >
+        {open ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+        <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1 }}>
+          Phase {phase.phaseNumber}: {phase.title}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+          Weeks {phase.weekStart}–{phase.weekEnd}
+        </Typography>
+        <Chip
+          label={`${pct}%`}
+          size="small"
+          sx={{
+            bgcolor: pct === 100 ? '#dcfce7' : '#e5eeff',
+            color: pct === 100 ? '#16a34a' : '#004ac6',
+            fontWeight: 700,
+            fontSize: '0.68rem',
+            height: 20,
+          }}
+        />
+      </Box>
+      <Collapse in={open}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, pl: 1, pt: 0.5 }}>
+          {phase.tasks.map((task) => (
+            <RoadmapTaskRow key={task.id} task={task} onComplete={onCompleteTask} />
+          ))}
+          {phase.tasks.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ pl: 2 }}>
+              No tasks in this phase.
+            </Typography>
+          )}
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}
+
+function RoadmapPanel({
+  goal,
+  roadmap,
+  loading,
+  generating,
+  error,
+  onGenerate,
+  onRegenerate,
+  onCompleteTask,
+  onClose,
+}: {
+  goal: Goal;
+  roadmap: Roadmap | null;
+  loading: boolean;
+  generating: boolean;
+  error: string | null;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  onCompleteTask: (taskId: string) => void;
+  onClose: () => void;
+}) {
+  const focusedGoalId = useAppStore((state) => state.focusedGoalId);
+  const setFocusedGoalId = useAppStore((state) => state.setFocusedGoalId);
+  const isFocused = focusedGoalId === goal.id;
+
+  const feasibilityColors: Record<string, { bg: string; color: string }> = {
+    high: { bg: '#dcfce7', color: '#16a34a' },
+    medium: { bg: '#fef9c3', color: '#a16207' },
+    low: { bg: '#fee2e2', color: '#dc2626' },
+  };
+
+  const fColor = (roadmap && feasibilityColors[roadmap.meta.feasibility]) || { bg: '#fef9c3', color: '#a16207' };
+
+  return (
+    <Card
+      sx={{
+        mt: 2,
+        border: '2px solid #712ae2',
+        borderRadius: 3,
+        background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+        boxShadow: '0 8px 32px rgba(113,42,226,0.12)',
+      }}
+    >
+      <CardContent sx={{ p: '24px !important' }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AutoAwesomeIcon sx={{ color: '#712ae2', fontSize: 22 }} />
+            <Typography variant="h6" fontWeight={700} color="#4c1d95">
+              AI Roadmap — {goal.title}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {roadmap && (
+              <>
+                <Button
+                  size="small"
+                  variant={isFocused ? "contained" : "outlined"}
+                  onClick={() => setFocusedGoalId(isFocused ? null : goal.id)}
+                  sx={{
+                    textTransform: 'none',
+                    bgcolor: isFocused ? '#712ae2' : 'transparent',
+                    color: isFocused ? 'white' : '#712ae2',
+                    borderColor: '#712ae2',
+                    fontWeight: 700,
+                    borderRadius: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      bgcolor: isFocused ? '#5b21b6' : 'rgba(113,42,226,0.08)',
+                      borderColor: '#5b21b6',
+                    }
+                  }}
+                >
+                  {isFocused ? 'Focused' : 'Focus'}
+                </Button>
+                <Tooltip title="Regenerate roadmap">
+                  <IconButton size="small" onClick={onRegenerate} disabled={generating}>
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            <Button size="small" onClick={onClose} sx={{ color: '#712ae2', textTransform: 'none' }}>
+              Close
+            </Button>
+          </Box>
+        </Box>
+
+        {/* States */}
+        {(loading || generating) && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 4, justifyContent: 'center' }}>
+            <CircularProgress size={28} sx={{ color: '#712ae2' }} />
+            <Typography variant="body2" color="text.secondary">
+              {generating ? 'Generating your personalized roadmap with AI…' : 'Loading roadmap…'}
+            </Typography>
+          </Box>
+        )}
+
+        {error && !loading && !generating && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button size="small" onClick={onGenerate} sx={{ textTransform: 'none' }}>
+                Generate Now
+              </Button>
+            }
+          >
+            {error.includes('not found') || error.includes('404')
+              ? 'No roadmap yet. Generate one with AI!'
+              : error}
+          </Alert>
+        )}
+
+        {!roadmap && !loading && !generating && !error && (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              No roadmap generated yet. Click below to create an AI-powered roadmap for this goal.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={onGenerate}
+              sx={{
+                bgcolor: '#712ae2',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 700,
+                '&:hover': { bgcolor: '#5b21b6' },
+              }}
+            >
+              Generate Roadmap
+            </Button>
+          </Box>
+        )}
+
+        {roadmap && !loading && !generating && (
+          <>
+            {/* Meta row */}
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2.5 }}>
+              <Chip
+                label={`Feasibility: ${roadmap.meta.feasibility}`}
+                size="small"
+                sx={{ bgcolor: fColor.bg, color: fColor.color, fontWeight: 700 }}
+              />
+              <Chip
+                label={`~${roadmap.meta.weeklyHourBudget}h/week`}
+                size="small"
+                sx={{ bgcolor: '#e5eeff', color: '#004ac6', fontWeight: 600 }}
+              />
+              <Chip
+                label={roadmap.meta.onTrack ? '✓ On Track' : '⚠ Behind Schedule'}
+                size="small"
+                sx={{
+                  bgcolor: roadmap.meta.onTrack ? '#dcfce7' : '#fff7ed',
+                  color: roadmap.meta.onTrack ? '#16a34a' : '#c2410c',
+                  fontWeight: 700,
+                }}
+              />
+              <Chip
+                label={`${Math.round(roadmap.meta.progressPercent)}% complete`}
+                size="small"
+                sx={{ bgcolor: '#f1f5f9', color: '#334155', fontWeight: 600 }}
+              />
+            </Box>
+
+            {/* Feasibility note */}
+            {roadmap.meta.feasibilityNote && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                {roadmap.meta.feasibilityNote}
+              </Typography>
+            )}
+
+            {/* Skill gaps */}
+            {roadmap.meta.skillGaps && roadmap.meta.skillGaps.length > 0 && (
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                  Skill Gaps to Address
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {roadmap.meta.skillGaps.map((sg, i) => (
+                    <Tooltip key={i} title={sg.gap_reason}>
+                      <Chip
+                        label={sg.skill}
+                        size="small"
+                        sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 600, cursor: 'help' }}
+                      />
+                    </Tooltip>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Nudge message */}
+            {roadmap.meta.nudgeMessage && (
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: roadmap.meta.onTrack ? '#f0fdf4' : '#fff7ed',
+                  border: '1px solid',
+                  borderColor: roadmap.meta.onTrack ? '#bbf7d0' : '#fed7aa',
+                  mb: 2.5,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ color: roadmap.meta.onTrack ? '#065f46' : '#9a3412', fontStyle: 'italic' }}
+                >
+                  {roadmap.meta.nudgeMessage}
+                </Typography>
+              </Box>
+            )}
+
+            {/* Mermaid Flowchart */}
+            {roadmap.meta.mermaidGantt && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                  Roadmap Workflow
+                </Typography>
+                <MermaidChart
+                  chart={roadmap.meta.mermaidGantt}
+                  maxHeight="350px"
+                  onNodeClick={onCompleteTask}
+                />
+              </Box>
+            )}
+
+            <Divider sx={{ mb: 2 }} />
+
+            {/* Phase task lists */}
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+              Phases &amp; Tasks
+            </Typography>
+            {roadmap.phases.map((phase) => (
+              <PhaseSection key={phase.id} phase={phase} onCompleteTask={onCompleteTask} />
+            ))}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function GoalsView() {
   const { data: goals, isLoading } = useGoals();
   const { data: completedGoals, isLoading: completedLoading } = useCompletedGoals();
   const queryClient = useQueryClient();
+  const focusedGoalId = useAppStore((state) => state.focusedGoalId);
+  const { data: focusedRoadmap } = useRoadmap(focusedGoalId);
+  const completeTaskMutation = useCompleteTaskMutation();
 
   const [goalTitle, setGoalTitle] = useState('');
   const [category, setCategory] = useState('applications');
@@ -237,10 +656,18 @@ export default function GoalsView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
+  // Roadmap panel state
+  const [roadmapGoal, setRoadmapGoal] = useState<Goal | null>(null);
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapGenerating, setRoadmapGenerating] = useState(false);
+  const [roadmapError, setRoadmapError] = useState<string | null>(null);
+
   const activeCount = goals?.length ?? 0;
   const completedCount = completedGoals?.length ?? 0;
   const totalGoals = activeCount + completedCount;
-  const roadmapPercent = totalGoals > 0 ? Math.round((completedCount / totalGoals) * 100) : 0;
+  const defaultRoadmapPercent = totalGoals > 0 ? Math.round((completedCount / totalGoals) * 100) : 0;
+  const roadmapPercent = focusedRoadmap ? Math.round(focusedRoadmap.meta.progressPercent) : defaultRoadmapPercent;
   const skillsAdded = (completedGoals ?? []).filter((g) => g.category === 'learning').length;
 
   async function invalidate() {
@@ -304,6 +731,65 @@ export default function GoalsView() {
     setPriority('Medium');
   }
 
+  async function handleOpenRoadmap(goal: Goal) {
+    setRoadmapGoal(goal);
+    setRoadmap(null);
+    setRoadmapError(null);
+    setRoadmapLoading(true);
+    try {
+      const existing = await getRoadmap(goal.id);
+      setRoadmap(existing);
+    } catch {
+      // 404 = no roadmap yet
+      setRoadmapError('not found');
+    } finally {
+      setRoadmapLoading(false);
+    }
+  }
+
+  async function handleGenerateRoadmap() {
+    if (!roadmapGoal) return;
+    setRoadmapError(null);
+    setRoadmapGenerating(true);
+    try {
+      const result = await generateRoadmap(roadmapGoal.id);
+      setRoadmap(result);
+      // Refresh dashboard progress widget
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'dashboard-progress'] });
+    } catch (err: any) {
+      setRoadmapError(err?.detail ?? 'Failed to generate roadmap. Please try again.');
+    } finally {
+      setRoadmapGenerating(false);
+    }
+  }
+
+  async function handleCompleteRoadmapTask(roadmapTaskId: string) {
+    try {
+      const { meta } = await completeRoadmapTask(roadmapTaskId);
+      // Update the local roadmap with new meta and mark task done
+      setRoadmap((prev) =>
+        prev
+          ? {
+              ...prev,
+              meta,
+              phases: prev.phases.map((phase) => ({
+                ...phase,
+                tasks: phase.tasks.map((t) =>
+                  t.id === roadmapTaskId ? { ...t, completed: true, completedAt: new Date().toISOString() } : t,
+                ),
+              })),
+            }
+          : prev,
+      );
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'dashboard-progress'] });
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'roadmap'] });
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'weekly-progress'] });
+      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+    } catch (err) {
+      console.error('Failed to complete roadmap task', err);
+    }
+  }
+
   return (
     <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
       {/* ── Left: Current goals ──────────────────────────── */}
@@ -333,49 +819,62 @@ export default function GoalsView() {
           )}
         </Box>
 
-        {/* Roadmap progress bar */}
+        {/* Roadmap progress bar card */}
         <Card sx={{ mb: 2.5, background: 'linear-gradient(135deg, #0b1c30 0%, #1e3a5f 100%)' }}>
           <CardContent sx={{ p: '20px !important' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MapIcon sx={{ color: '#bc4800', fontSize: 20 }} />
-                <Typography variant="subtitle2" fontWeight={700} color="white">
-                  Career Roadmap Progress
+            {focusedRoadmap ? (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MapIcon sx={{ color: '#bc4800', fontSize: 20 }} />
+                    <Typography variant="subtitle2" fontWeight={700} color="white">
+                      Focused on "{focusedRoadmap.goalTitle}"
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="h5"
+                    fontWeight={800}
+                    sx={{ color: roadmapPercent >= 50 ? '#34d399' : '#f59e0b', lineHeight: 1 }}
+                  >
+                    {roadmapPercent}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={roadmapPercent}
+                  sx={{
+                    height: 10,
+                    borderRadius: 9999,
+                    bgcolor: 'rgba(255,255,255,0.15)',
+                    '& .MuiLinearProgress-bar': {
+                      background: roadmapPercent >= 50
+                        ? 'linear-gradient(90deg, #059669 0%, #34d399 100%)'
+                        : 'linear-gradient(90deg, #b45309 0%, #f59e0b 100%)',
+                      borderRadius: 9999,
+                    },
+                  }}
+                />
+                <Box sx={{ mt: 2.5, borderTop: '1px solid rgba(255,255,255,0.15)', pt: 2.5 }}>
+                  <MermaidChart
+                    chart={focusedRoadmap.meta.mermaidGantt}
+                    maxHeight="300px"
+                    onNodeClick={(taskId) => completeTaskMutation.mutate(taskId)}
+                  />
+                </Box>
+              </>
+            ) : (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MapIcon sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={700} color="white">
+                    No goal is currently being followed
+                  </Typography>
+                </Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 1, display: 'block' }}>
+                  Open any goal's roadmap panel and click "Focus" to follow its horizontal flowchart here.
                 </Typography>
-              </Box>
-              <Typography
-                variant="h5"
-                fontWeight={800}
-                sx={{ color: roadmapPercent >= 50 ? '#34d399' : '#f59e0b', lineHeight: 1 }}
-              >
-                {roadmapPercent}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={roadmapPercent}
-              sx={{
-                height: 10,
-                borderRadius: 9999,
-                bgcolor: 'rgba(255,255,255,0.15)',
-                '& .MuiLinearProgress-bar': {
-                  background: roadmapPercent >= 50
-                    ? 'linear-gradient(90deg, #059669 0%, #34d399 100%)'
-                    : 'linear-gradient(90deg, #b45309 0%, #f59e0b 100%)',
-                  borderRadius: 9999,
-                },
-              }}
-            />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                {completedCount} of {totalGoals} goals completed
-              </Typography>
-              {skillsAdded > 0 && (
-                <Typography variant="caption" sx={{ color: '#d2bbff', fontWeight: 600 }}>
-                  🎓 {skillsAdded} skill{skillsAdded !== 1 ? 's' : ''} added
-                </Typography>
-              )}
-            </Box>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -414,9 +913,26 @@ export default function GoalsView() {
                   onEdit={handleEdit}
                   onComplete={handleComplete}
                   onDelete={handleDelete}
+                  onOpenRoadmap={handleOpenRoadmap}
                 />
               ))}
         </Box>
+
+        {roadmapGoal && (
+          <Box sx={{ mb: 3 }}>
+            <RoadmapPanel
+              goal={roadmapGoal}
+              roadmap={roadmap}
+              loading={roadmapLoading}
+              generating={roadmapGenerating}
+              error={roadmapError}
+              onGenerate={handleGenerateRoadmap}
+              onRegenerate={handleGenerateRoadmap}
+              onCompleteTask={handleCompleteRoadmapTask}
+              onClose={() => setRoadmapGoal(null)}
+            />
+          </Box>
+        )}
 
         {/* Create / Edit Goal form */}
         <Card sx={{ border: '1.5px dashed #c3c6d7' }}>

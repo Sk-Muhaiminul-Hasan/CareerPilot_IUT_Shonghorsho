@@ -14,6 +14,7 @@ class DashboardStats(BaseModel):
     applications_rejected: int = 0
     applications_offer: int = 0
     avg_ats_score: float = 0.0
+    total_llm_cost_usd: float = 0.0
 
 
 class ApplicationFunnelData(BaseModel):
@@ -54,3 +55,13 @@ class TimelineEntry(BaseModel):
     applications_created: int = 0
     applications_applied: int = 0
     jobs_found: int = 0
+
+
+class AnalyticsResponse(BaseModel):
+    """Full analytics response wrapper."""
+
+    stats: DashboardStats
+    funnel: list[ApplicationFunnelData] = []
+    ats_distribution: list[ATSScoreDistribution] = []
+    llm_usage: list[LLMUsageStats] = []
+    timeline: list[TimelineEntry] = []
