@@ -42,7 +42,6 @@ async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
         )
         db.add(record)
         await db.commit()
-        await db.refresh(record)
         return CalendarEventResponse.model_validate(record)
 
 
@@ -107,7 +106,6 @@ async def update_event(
             record.completed_at = _now()
 
         await db.commit()
-        await db.refresh(record)
         return CalendarEventResponse.model_validate(record)
 
 

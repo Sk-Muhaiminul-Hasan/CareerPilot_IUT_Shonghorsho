@@ -91,7 +91,6 @@ async def _create_todo_for_job(
             )
             todo_db.add(record)
             await todo_db.commit()
-            await todo_db.refresh(record)
             return record.id, record.title, record.due_date, record.priority
     except Exception as exc:
         logger.warning(

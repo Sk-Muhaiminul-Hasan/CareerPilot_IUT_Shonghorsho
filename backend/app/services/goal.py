@@ -78,7 +78,6 @@ async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
             )
             db.add(record)
             await db.flush()
-            await db.refresh(record)
         if data.due_date and user_id:
             _task = asyncio.create_task(  # noqa: RUF006
                 _create_calendar_deadline(
@@ -174,7 +173,6 @@ async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
                 record.progress_percent = 100.0
 
             await db.flush()
-            await db.refresh(record)
     return GoalResponse.model_validate(record)
 
 
@@ -197,7 +195,6 @@ async def update_progress(
             record.completed_at = _now()
 
         await db.commit()
-        await db.refresh(record)
         return GoalResponse.model_validate(record)
 
 
