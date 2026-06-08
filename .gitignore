@@ -64,7 +64,7 @@ temp.py
 uv.lock
 .kilo/
 API.md
-ARCHITECTURE.md
+
 INTEGRATION_PLAN.md
 TOOLS.md
 .claude/

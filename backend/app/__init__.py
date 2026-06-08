@@ -1,1 +1,1 @@
-"""AutoApply AI Backend."""
+"""CareerPilot AI Backend."""
