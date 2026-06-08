@@ -19,8 +19,9 @@ import { useJob } from '@/hooks/useJobs';
 import { useApplication, useGenerateCoverLetter, useUpdateApplicationStatus } from '@/hooks/useApplications';
 import { useSharedWebSocket } from '@/contexts/SharedWebSocketProvider';
 import { downloadCoverLetter } from '@/services/applicationService';
-import { downloadResume, generateResume } from '@/services/resumeService';
+import { generateResume, getResumeRaw } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
+import { convertMarkdownToHtml } from '@/utils/artifactFiles';
 import type { ApiError } from '@/types/api';
 import type { ApplicationStatusUpdate } from '@/types/application';
 import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
@@ -37,6 +38,53 @@ function isAINotConfigured(error: unknown): boolean {
     return false;
   }
 }
+
+const handleClientPdfDownload = (name: string, contentText: string) => {
+  const container = document.createElement('div');
+  container.style.padding = '35px';
+  container.style.color = '#1e293b';
+  container.style.fontFamily = "'Inter', system-ui, -apple-system, sans-serif";
+  container.style.lineHeight = '1.5';
+  container.style.backgroundColor = '#ffffff';
+
+  const htmlContent = convertMarkdownToHtml(contentText);
+
+  container.innerHTML = `
+    <div style="font-family: 'Inter', sans-serif;">
+      <h1 style="text-align: center; color: #0f172a; margin-top: 0; margin-bottom: 15px; font-size: 24px; font-weight: 800; text-transform: uppercase;">${name}</h1>
+      <div style="margin-top: 15px;">
+        ${htmlContent}
+      </div>
+    </div>
+  `;
+
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  script.onload = () => {
+    const opt = {
+      margin:       [12, 12, 12, 12],
+      filename:     `${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_resume.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    // @ts-ignore
+    window.html2pdf().from(container).set(opt).save();
+  };
+  document.head.appendChild(script);
+};
+
+const handleDownloadMarkdown = (name: string, contentText: string) => {
+  const blob = new Blob([contentText], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_resume.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
 
 const APPLY_MODE_LABELS: Record<string, string> = {
   review: 'Reviewed before applying',
@@ -209,7 +257,7 @@ function ApplicationDetailPage() {
         base_resume_id: application.resume_id,
         job_id: application.job_id,
         template_id: selectedTemplate,
-        output_formats: ['pdf', 'docx'],
+        output_formats: ['pdf'],
       });
       setGeneratedResumeId(result.id);
     } catch (err) {
@@ -218,6 +266,30 @@ function ApplicationDetailPage() {
       setResumeGenerating(false);
     }
   }, [application, selectedTemplate]);
+
+  const handlePdfDownload = useCallback(async () => {
+    if (!generatedResumeId) return;
+    try {
+      const resRaw = await getResumeRaw(generatedResumeId);
+      if (resRaw?.raw_text) {
+        handleClientPdfDownload(resRaw.filename.replace(/\.[^/.]+$/, "") || "Tailored_Resume", resRaw.raw_text);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [generatedResumeId]);
+
+  const handleMarkdownDownload = useCallback(async () => {
+    if (!generatedResumeId) return;
+    try {
+      const resRaw = await getResumeRaw(generatedResumeId);
+      if (resRaw?.raw_text) {
+        handleDownloadMarkdown(resRaw.filename.replace(/\.[^/.]+$/, "") || "Tailored_Resume", resRaw.raw_text);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [generatedResumeId]);
 
   const handleResumeModalClose = useCallback(() => {
     setResumeModalOpen(false);
@@ -507,20 +579,52 @@ function ApplicationDetailPage() {
               minHeight={100}
             />
           ) : generatedResumeId ? (
-            <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', alignItems: 'center' }}>
+              <Alert severity="success" sx={{ width: '100%' }}>
+                Tailored resume generated successfully! It is saved to the **Generated** section of the Resume Manager.
+              </Alert>
+              <Box sx={{ display: 'flex', gap: 1.5, width: '100%' }}>
+                <Button
+                  variant="contained"
+                  onClick={handlePdfDownload}
+                  sx={{
+                    flex: 1,
+                    py: 1.2,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    backgroundColor: '#0f172a',
+                    '&:hover': { backgroundColor: '#1e293b' },
+                  }}
+                >
+                  Download PDF
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleMarkdownDownload}
+                  sx={{
+                    flex: 1,
+                    py: 1.2,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    borderColor: '#0f172a',
+                    color: '#0f172a',
+                    '&:hover': { borderColor: '#1e293b', backgroundColor: '#f8fafc' },
+                  }}
+                >
+                  Download Markdown
+                </Button>
+              </Box>
               <Button
-                variant="contained"
-                onClick={() => downloadResume(generatedResumeId, 'pdf')}
-                sx={{ flex: 1 }}
+                variant="text"
+                onClick={() => {
+                  window.location.hash = '/resumes';
+                  handleResumeModalClose();
+                }}
+                sx={{ textTransform: 'none', color: '#64748b', '&:hover': { color: '#0f172a' } }}
               >
-                Download PDF
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => downloadResume(generatedResumeId, 'docx')}
-                sx={{ flex: 1 }}
-              >
-                Download DOCX
+                Go to Resume Manager
               </Button>
             </Box>
           ) : (
