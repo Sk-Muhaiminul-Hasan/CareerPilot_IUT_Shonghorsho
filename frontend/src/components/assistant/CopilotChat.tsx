@@ -159,7 +159,6 @@ export const CopilotChat: React.FC = () => {
             messages={chat.messages}
             isTyping={chat.isTyping}
             scrollRef={chat.scrollRef}
-            onOpenSource={chat.openSource}
             regeneratingArtifactId={chat.regeneratingArtifactId}
             onOpenArtifact={(id) => chat.setActiveArtifactId(id)}
             onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}

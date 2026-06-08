@@ -5,7 +5,7 @@ import { sendChatMessage } from '@/services/chatService';
 import { useArtifactStore, type StoredArtifact } from '@/store/useArtifactStore';
 import { useChatHistoryStore, createChatMessage } from '@/store/useChatHistoryStore';
 import { useChatStore } from '@/store/useChatStore';
-import type { ChatAttachment, ChatMessage, ChatSource, ChatUiMessage, ChatArtifact } from '@/types/chat';
+import type { ChatAttachment, ChatMessage, ChatUiMessage, ChatArtifact } from '@/types/chat';
 import { artifactContextOptions, artifactToAttachment } from './artifactContextOptions';
 import { buildContextOptions, type ContextOption } from './contextOptions';
 

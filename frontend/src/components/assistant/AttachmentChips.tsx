@@ -20,14 +20,6 @@ export const AttachmentChips: React.FC<AttachmentChipsProps> = ({
 
   return (
     <Box sx={{ px: 2, py: 1, display: 'flex', flexWrap: 'wrap', gap: 1, borderTop: '1px solid #e0e0e0', flexShrink: 0 }}>
-      {userProfileId && (
-        <Chip
-          icon={<DescriptionIcon />}
-          label={userProfileId === 'default_user' ? 'Demo CV' : userProfileId}
-          size="small"
-          onClick={() => onOpenResume(userProfileId)}
-        />
-      )}
       {attachments.map((attachment, index) => (
         <Chip
           key={`${attachment.type}-${attachment.label}`}

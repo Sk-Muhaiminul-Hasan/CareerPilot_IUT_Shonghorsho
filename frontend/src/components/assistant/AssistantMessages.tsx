@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
-import type { ChatSource, ChatUiMessage } from '@/types/chat';
+import { Box, Stack, Typography } from '@mui/material';
 import type { StoredArtifact } from '@/store/useArtifactStore';
 import { AssistantMarkdown } from './AssistantMarkdown';
 import { InlineArtifacts } from './InlineArtifacts';
@@ -9,7 +8,6 @@ interface AssistantMessagesProps {
   messages: ChatUiMessage[];
   isTyping: boolean;
   scrollRef: React.RefObject<HTMLDivElement>;
-  onOpenSource: (source: ChatSource) => void;
   regeneratingArtifactId?: string | null;
   onRegenerateArtifact: (artifact: StoredArtifact) => void;
 }
@@ -79,7 +77,6 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
   messages,
   isTyping,
   scrollRef,
-  onOpenSource,
   regeneratingArtifactId,
   onRegenerateArtifact,
 }) => (
@@ -185,34 +182,7 @@ export const AssistantMessages: React.FC<AssistantMessagesProps> = ({
             >
               <AssistantMarkdown text={msg.text} invert={false} />
 
-               {/* Source chips */}
-               {msg.sources && msg.sources.length > 0 && (
-                 <Stack
-                   direction="row"
-                   spacing={0.5}
-                   sx={{ mt: 1.25, flexWrap: 'wrap', gap: 0.5 }}
-                 >
-                   {msg.sources.slice(0, 3).map((source) => (
-                     <Tooltip key={source.id} title={source.text}>
-                       <Chip
-                         size="small"
-                         label={source.id}
-                         onClick={() => onOpenSource(source)}
-                         sx={{
-                           backgroundColor: 'rgba(0,74,198,0.08)',
-                           color: '#004ac6',
-                           fontWeight: 600,
-                           fontSize: '0.7rem',
-                           height: 22,
-                           '&:hover': { backgroundColor: 'rgba(0,74,198,0.16)' },
-                         }}
-                       />
-                     </Tooltip>
-                   ))}
-                 </Stack>
-               )}
-
-                 {msg.artifacts && msg.artifacts.length > 0 && (
+              {msg.artifacts && msg.artifacts.length > 0 && (
                   <InlineArtifacts
                     artifacts={msg.artifacts as StoredArtifact[]}
                     regeneratingArtifactId={regeneratingArtifactId}
