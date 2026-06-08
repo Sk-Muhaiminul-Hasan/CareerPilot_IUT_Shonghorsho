@@ -49,7 +49,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 import type { Goal, Roadmap, RoadmapPhase, RoadmapTask } from '@/types/dashboard';
-import { useGoals, useCompletedGoals, useRoadmap, useCompleteTaskMutation } from '@/hooks/useDashboard';
+import { useGoals, useCompletedGoals, useRoadmap, useCompleteTaskMutation, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
 import { useAppStore } from '@/store/useAppStore';
 import {
   createGoal,
@@ -61,8 +61,6 @@ import {
   completeRoadmapTask,
 } from '@/services/dashboardService';
 import MermaidChart from './MermaidChart';
-
-const DASHBOARD_KEY = ['dashboard'] as const;
 
 /** Gradient colors per goal variant. */
 const BAR_GRADIENT: Record<Goal['colorVariant'], string> = {
@@ -670,10 +668,11 @@ export default function GoalsView() {
   const roadmapPercent = focusedRoadmap ? Math.round(focusedRoadmap.meta.progressPercent) : defaultRoadmapPercent;
   const skillsAdded = (completedGoals ?? []).filter((g) => g.category === 'learning').length;
 
+  // ✅ MERGED: invalidate() from home_page_with_auth for goals/completed/weekly-progress
+  // + CALENDAR_KEY from wasi-not-final so calendar also refreshes
   async function invalidate() {
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals-completed'] });
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'weekly-progress'] });
+    await queryClient.invalidateQueries({ queryKey: GOALS_KEY });
+    await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
   }
 
   async function handleSubmitGoal() {
@@ -699,6 +698,7 @@ export default function GoalsView() {
     setColorVariant('primary');
     setDueDate('');
     setPriority('Medium');
+    // ✅ MERGED: invalidates goals + calendar in one call
     await invalidate();
     setIsSubmitting(false);
   }
@@ -1059,7 +1059,7 @@ export default function GoalsView() {
           </CardContent>
         </Card>
 
-        {/* Skills Learned card (derived from learning goals) */}
+        {/* Skills Learned card */}
         <Card sx={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)' }}>
           <CardContent sx={{ p: '20px !important' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>

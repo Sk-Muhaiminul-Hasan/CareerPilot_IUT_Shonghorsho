@@ -10,6 +10,10 @@ interface AssistantMessagesProps {
   onOpenSource: (source: ChatSource) => void;
 }
 
+// ✅ KEPT: wasi-not-final full styled version
+// toolcall version discarded — it was missing BotAvatar, proper layout,
+// and had incomplete user bubble logic
+
 /** Animated typing indicator — three bouncing dots */
 const TypingDots: React.FC = () => (
   <Box

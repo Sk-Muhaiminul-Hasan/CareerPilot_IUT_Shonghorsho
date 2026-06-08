@@ -15,7 +15,6 @@ class Resume(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
-        default="default_user",
         index=True,
     )
 

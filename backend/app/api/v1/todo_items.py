@@ -48,13 +48,16 @@ async def create_todo(
     summary="List to-do items",
 )
 async def list_todos(
+    user_id: str = Depends(get_current_user),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=100, description="Items per page"),
-    status: str | None = Query(default=None, description="Filter by status: todo | in_progress | done | cancelled"),
+    status: str | None = Query(
+        default=None, description="Filter by status: todo | in_progress | done | cancelled"
+    ),
     goal_id: str | None = Query(default=None, description="Filter by parent goal ID"),
 ) -> TodoItemListResponse:
     """List to-do items sorted by priority (high first) then due_date."""
-    return await todo_service.list_todos(page, page_size, status, goal_id)
+    return await todo_service.list_todos(user_id, page, page_size, status, goal_id)
 
 
 @router.get(
@@ -62,9 +65,12 @@ async def list_todos(
     response_model=TodoItemResponse,
     summary="Get a to-do item",
 )
-async def get_todo(todo_id: str) -> TodoItemResponse:
+async def get_todo(
+    todo_id: str,
+    user_id: str = Depends(get_current_user),
+) -> TodoItemResponse:
     """Get a single to-do item by ID. Returns 404 if not found."""
-    return await todo_service.get_todo(todo_id)
+    return await todo_service.get_todo(todo_id, user_id)
 
 
 @router.patch(
@@ -75,11 +81,12 @@ async def get_todo(todo_id: str) -> TodoItemResponse:
 async def update_todo(
     todo_id: str,
     data: TodoItemUpdate,
+    user_id: str = Depends(get_current_user),
 ) -> TodoItemResponse:
     """Partially update a to-do item. Only supplied fields are changed.
     Setting is_completed=true also sets status='done' automatically.
     """
-    todo = await todo_service.update_todo(todo_id, data)
+    todo = await todo_service.update_todo(todo_id, user_id, data)
     logger.info("todo_updated", todo_id=todo_id)
     return todo
 
@@ -89,7 +96,10 @@ async def update_todo(
     status_code=204,
     summary="Delete a to-do item",
 )
-async def delete_todo(todo_id: str) -> None:
+async def delete_todo(
+    todo_id: str,
+    user_id: str = Depends(get_current_user),
+) -> None:
     """Delete a to-do item by ID. Returns 404 if not found."""
-    await todo_service.delete_todo(todo_id)
+    await todo_service.delete_todo(todo_id, user_id)
     logger.info("todo_deleted", todo_id=todo_id)

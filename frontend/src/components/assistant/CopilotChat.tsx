@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { Box } from '@mui/material';
+import { Box, Drawer } from '@mui/material';
 
 import { useChatStore } from '@/store/useChatStore';
 
@@ -12,6 +12,7 @@ import { ChatComposer } from './ChatComposer';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { MentionMenu } from './MentionMenu';
 import { useCopilotChatController } from './useCopilotChatController';
+import { ArtifactWorkspace } from './ArtifactWorkspace';
 
 export const CopilotChat: React.FC = () => {
   const chat = useCopilotChatController();
@@ -52,6 +53,9 @@ export const CopilotChat: React.FC = () => {
 
   if (!chat.isOpen) return null;
 
+  const showWorkspace = Boolean(chat.activeArtifact);
+  const drawerWidth = showWorkspace ? Math.max(880, sidebarWidth + 520) : sidebarWidth;
+
   return (
     <Box
       sx={{
@@ -59,14 +63,14 @@ export const CopilotChat: React.FC = () => {
         top: 0,
         right: 0,
         bottom: 0,
-        width: sidebarWidth,
+        width: drawerWidth,
         zIndex: (theme) => theme.zIndex.drawer,
         display: 'flex',
         flexDirection: 'row',
         // Slide-in transition
         animation: 'copilot-slide-in 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
         '@keyframes copilot-slide-in': {
-          from: { transform: `translateX(${sidebarWidth}px)` },
+          from: { transform: `translateX(${drawerWidth}px)` },
           to: { transform: 'translateX(0)' },
         },
       }}
@@ -91,90 +95,111 @@ export const CopilotChat: React.FC = () => {
             inset: '0 -4px',
           },
         }}
-        aria-label="Resize chat sidebar"
-        role="separator"
-        aria-orientation="vertical"
       />
-
-      {/* ── Panel body ─────────────────────────────────────────────────────── */}
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#f8f9ff',
-          boxShadow: '-8px 0 28px rgba(11, 28, 48, 0.12)',
-          borderLeft: '1px solid #c3c6d7',
-          overflow: 'hidden',
+      <Drawer
+        anchor="right"
+        open={chat.isOpen}
+        variant="persistent"
+        PaperProps={{
+          sx: {
+            width: drawerWidth,
+            display: 'flex',
+            flexDirection: 'row',
+            backgroundColor: '#f8f9ff',
+            boxShadow: '-8px 0 28px rgba(11, 28, 48, 0.12)',
+            borderLeft: '1px solid #c3c6d7',
+            transition: 'width 0.2s cubic-bezier(0, 0, 0.2, 1)',
+          },
         }}
       >
-        <AssistantDrawerHeader
-          activeJobId={chat.activeJobId}
-          historyOpen={chat.historyOpen}
-          onClose={chat.closeChat}
-          onNewChat={chat.startNewChat}
-          onToggleHistory={() => chat.setHistoryOpen((current) => !current)}
-        />
-        <ChatHistoryPanel
-          open={chat.historyOpen}
-          sessions={chat.sessions}
-          activeSessionId={chat.activeSessionId}
-          onSelect={chat.selectSession}
-          onDelete={chat.deleteSession}
-        />
-        <AssistantMessages
-          messages={chat.messages}
-          isTyping={chat.isTyping}
-          scrollRef={chat.scrollRef}
-          onOpenSource={chat.openSource}
-        />
-        <ArtifactPanel
-          artifacts={chat.artifacts}
-          regeneratingArtifactId={chat.regeneratingArtifactId}
-          onUpdateArtifact={chat.updateArtifact}
-          onRemoveArtifact={chat.removeArtifact}
-          onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}
-        />
-        <AttachmentChips
-          attachments={chat.attachments}
-          userProfileId={chat.userProfileId}
-          onOpenResume={chat.openResumeContext}
-          onRemove={chat.removeAttachment}
-        />
-        <ChatComposer
-          input={chat.input}
-          inputRef={chat.inputRef}
-          isTyping={chat.isTyping}
-          jobDescription={chat.jobDescription}
-          shouldShowJobDescription={chat.shouldShowJobDescription}
-          onInputChange={chat.handleInputChange}
-          onInputKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              void chat.handleSendMessage();
-            }
+        {/* Left Pane: Artifact Workspace (Visible only when an artifact is open) */}
+        {showWorkspace && chat.activeArtifact && (
+          <Box
+            sx={{
+              flex: 1,
+              height: '100%',
+              borderRight: '1px solid #c3c6d7',
+              display: { xs: 'block', md: 'block' },
+              width: { xs: '100%', md: 'calc(100% - 420px)' },
+            }}
+          >
+            <ArtifactWorkspace
+              artifact={chat.activeArtifact}
+              regeneratingArtifactId={chat.regeneratingArtifactId}
+              onUpdateArtifact={chat.updateArtifact}
+              onRemoveArtifact={chat.removeArtifact}
+              onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}
+              onClose={() => chat.setActiveArtifactId(null)}
+            />
+          </Box>
+        )}
+
+        {/* Right Pane: Chat Interface */}
+        <Box
+          sx={{
+            width: 420,
+            minWidth: 420,
+            height: '100%',
+            display: { xs: showWorkspace ? 'none' : 'flex', md: 'flex' },
+            flexDirection: 'column',
           }}
-          onJobDescriptionChange={chat.setJobDescription}
-          onOpenContextMenu={chat.setMenuAnchor}
-          onOpenMentionSearch={chat.openMentionSearch}
-          onSend={() => void chat.handleSendMessage()}
-          contextOptions={chat.contextOptions}
-          onSelectContextOption={chat.selectContextOption}
-        />
-        <AssistantContextMenu
-          anchorEl={chat.menuAnchor}
-          options={chat.contextOptions}
-          onSelect={chat.selectContextOption}
-          onClose={() => chat.setMenuAnchor(null)}
-        />
-        <MentionMenu
-          anchorEl={chat.mentionAnchor}
-          query={chat.mentionQuery}
-          options={chat.contextOptions}
-          onSelect={chat.selectMention}
-          onClose={chat.closeMentionMenu}
-        />
-      </Box>
+        >
+          <AssistantDrawerHeader
+            activeJobId={chat.activeJobId}
+            historyOpen={chat.historyOpen}
+            onClose={chat.closeChat}
+            onNewChat={chat.startNewChat}
+            onToggleHistory={() => chat.setHistoryOpen((current) => !current)}
+          />
+          <ChatHistoryPanel
+            open={chat.historyOpen}
+            sessions={chat.sessions}
+            activeSessionId={chat.activeSessionId}
+            onSelect={chat.selectSession}
+            onDelete={chat.deleteSession}
+          />
+          <AssistantMessages
+            messages={chat.messages}
+            isTyping={chat.isTyping}
+            scrollRef={chat.scrollRef}
+            onOpenSource={chat.openSource}
+          />
+          <ArtifactPanel
+            artifacts={chat.artifacts}
+            regeneratingArtifactId={chat.regeneratingArtifactId}
+            onUpdateArtifact={chat.updateArtifact}
+            onRemoveArtifact={chat.removeArtifact}
+            onRegenerateArtifact={(artifact) => void chat.regenerateArtifact(artifact)}
+            onOpenArtifact={(id) => chat.setActiveArtifactId(id)}
+          />
+          <AttachmentChips
+            attachments={chat.attachments}
+            userProfileId={chat.userProfileId}
+            onOpenResume={chat.openResumeContext}
+            onRemove={chat.removeAttachment}
+          />
+          <ChatComposer
+            input={chat.input}
+            inputRef={chat.inputRef}
+            isTyping={chat.isTyping}
+            jobDescription={chat.jobDescription}
+            shouldShowJobDescription={chat.shouldShowJobDescription}
+            onInputChange={chat.handleInputChange}
+            onInputKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void chat.handleSendMessage();
+              }
+            }}
+            onJobDescriptionChange={chat.setJobDescription}
+            onOpenContextMenu={chat.setMenuAnchor}
+            onOpenMentionSearch={chat.openMentionSearch}
+            onSend={() => void chat.handleSendMessage()}
+            contextOptions={chat.contextOptions}
+            onSelectContextOption={chat.selectContextOption}
+          />
+        </Box>
+      </Drawer>
     </Box>
   );
 };

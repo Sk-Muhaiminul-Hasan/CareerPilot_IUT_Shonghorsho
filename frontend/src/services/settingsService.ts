@@ -13,6 +13,12 @@ export async function updateSettings(update: SettingsUpdate): Promise<Settings> 
   return data;
 }
 
+/** Update plan (premium). */
+export async function updatePlan(isPremium: boolean): Promise<Settings> {
+  const { data } = await api.patch<Settings>('/settings/plan', { is_premium: isPremium });
+  return data;
+}
+
 /** List configured LLM providers and their status. */
 export async function getLLMProviders(): Promise<LLMProviderStatus[]> {
   const { data } = await api.get<LLMProviderStatus[]>('/settings/llm-providers');

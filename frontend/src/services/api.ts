@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { ApiError } from '@/types/api';
 import { useAuthStore } from '@/store/useAuthStore';
+import { supabase } from '@/lib/supabase';
 
 /** Pre-configured Axios instance pointing at the backend API. */
 const api = axios.create({
@@ -12,9 +13,10 @@ const api = axios.create({
 });
 
 /** Attach a unique trace-id header and bearer token to every outgoing request. */
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   config.headers['X-Trace-Id'] = crypto.randomUUID();
-  const token = useAuthStore.getState().token;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

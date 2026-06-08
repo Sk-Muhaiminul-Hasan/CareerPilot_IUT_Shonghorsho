@@ -16,6 +16,26 @@ import type {
 import api from './api';
 
 // ---------------------------------------------------------------------------
+// ✅ MERGED: Date helpers from merge-test branch
+// ---------------------------------------------------------------------------
+
+export function toLocalMidnight(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+export function toDateStringFromBackend(datetimeStr: string | null | undefined): string {
+  if (!datetimeStr) return '';
+  const dateObj = new Date(datetimeStr);
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
 // Goals
 // ---------------------------------------------------------------------------
 
@@ -172,9 +192,11 @@ export async function getCalendarEvents(): Promise<CalendarEvent[]> {
   try {
     const { data } = await api.get<{ items: any[] }>('/calendar/');
     return data.items.map((backendEvent) => {
-      const dateObj = new Date(backendEvent.event_date);
-      const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      // ✅ MERGED: use toDateStringFromBackend helper from merge-test
+      const dateStr = toDateStringFromBackend(backendEvent.event_date);
+
       let timeStr: string | undefined = undefined;
+      const dateObj = new Date(backendEvent.event_date);
       if (!backendEvent.all_day) {
         timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       }
@@ -203,14 +225,13 @@ export async function createCalendarEvent(
   try {
     const payload = {
       title,
-      event_date: eventDate.toISOString(),
+      event_date: toLocalMidnight(eventDate),
       event_type: 'task',
       all_day: true,
       description: description || undefined,
     };
     const { data } = await api.post('/calendar/', payload);
-    const dateObj = new Date(data.event_date);
-    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    const dateStr = toDateStringFromBackend(data.event_date);
     return {
       id: data.id,
       title: data.title,

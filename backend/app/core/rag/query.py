@@ -9,7 +9,8 @@ from app.config.settings import get_settings
 
 def _get_sync_connection_string() -> str:
     url = get_settings().database_url_sync or get_settings().database_url
-    return url.replace("+asyncpg", "").replace("+psycopg2", "")
+    from app.db.session import clean_sync_database_url
+    return clean_sync_database_url(url)
 
 
 def _run_query(query: str, k: int, filter: dict | None) -> list[dict[str, Any]]:

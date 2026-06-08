@@ -7,7 +7,9 @@ import type {
   ResumeListResponse,
   ResumeContent,
   ResumeContentUpdate,
+  ResumeRawResponse,
 } from '@/types/resume';
+
 
 /** Authenticated download of a resume as PDF or DOCX. */
 export async function downloadResume(
@@ -69,6 +71,16 @@ export async function listResumes(): Promise<ResumeListResponse> {
   return data;
 }
 
+/** Upload a raw resume file. */
+export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await api.post<ResumeUploadResponse>('/resumes/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 /** Generate a job-tailored resume from a base resume. */
 export async function generateResume(request: ResumeGenerateRequest): Promise<Resume> {
   const { data } = await api.post<Resume>('/resumes/generate', request);
@@ -119,3 +131,50 @@ export function getDownloadUrl(resumeId: string, format: 'pdf' | 'docx' = 'pdf')
       const baseURL = api.defaults.baseURL ?? '/api/v1';
       return `${baseURL}/resumes/${resumeId}/download?format=${format}`;
     }
+
+/** List only user-uploaded base resumes. */
+export async function listUploadedResumes(): Promise<ResumeListResponse> {
+  const { data } = await api.get<ResumeListResponse>('/resumes/uploaded');
+  return data;
+}
+
+/** List only AI-generated tailored resumes. */
+export async function listTailoredResumes(): Promise<ResumeListResponse> {
+  const { data } = await api.get<ResumeListResponse>('/resumes/tailored');
+  return data;
+}
+
+/** Delete a resume. */
+export async function deleteResume(resumeId: string): Promise<{ status: string; message: string }> {
+  const { data } = await api.delete<{ status: string; message: string }>(`/resumes/${resumeId}`);
+  return data;
+}
+
+/** Create a new resume version from text. */
+export async function createResumeFromText(request: {
+  name: string;
+  type?: string;
+  template_id?: string;
+  content_text: string;
+}): Promise<Resume> {
+  const { data } = await api.post<Resume>('/resumes/', request);
+  return data;
+}
+
+/** Get the raw text representation of a resume. */
+export async function getResumeRaw(resumeId: string): Promise<ResumeRawResponse> {
+  const { data } = await api.get<ResumeRawResponse>(`/resumes/${resumeId}/raw`);
+  return data;
+}
+
+/** Update the raw text of a resume. */
+export async function updateResumeRaw(
+  resumeId: string,
+  rawText: string,
+): Promise<ResumeRawResponse> {
+  const { data } = await api.put<ResumeRawResponse>(`/resumes/${resumeId}/raw`, {
+    raw_text: rawText,
+  });
+  return data;
+}
+

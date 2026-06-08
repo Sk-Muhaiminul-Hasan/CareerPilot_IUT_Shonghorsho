@@ -61,6 +61,7 @@ class SettingsResponse(BaseModel):
     extraction_api_key: str | None = None
 
     onboarding_complete: bool = False
+    is_premium: bool = False
 
     platforms_enabled: list[str] = Field(
         default_factory=lambda: ["linkedin", "indeed", "glassdoor"],
@@ -97,6 +98,7 @@ class SettingsUpdate(BaseModel):
     extraction_api_key: str | None = None
 
     onboarding_complete: bool | None = None
+    is_premium: bool | None = None
 
     platforms_enabled: list[str] | None = None
     candidate_profile: CandidateProfileSchema | None = None

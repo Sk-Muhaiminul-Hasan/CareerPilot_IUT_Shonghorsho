@@ -1,8 +1,10 @@
 """User settings API routes with database persistence."""
 
 import os
+
 import structlog
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -49,6 +51,33 @@ async def update_settings(
     await db.refresh(settings)
 
     logger.info("settings_updated", changed_fields=list(update_data.keys()))
+    return SettingsResponse.model_validate(settings)
+
+
+class PlanUpdate(BaseModel):
+    """Minimal body for plan-only updates."""
+
+    is_premium: bool
+
+
+@router.patch(
+    "/plan",
+    response_model=SettingsResponse,
+    summary="Update plan (premium)",
+)
+async def patch_plan(
+    plan: PlanUpdate,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> SettingsResponse:
+    """Toggle premium plan for the current user."""
+    settings = await get_or_create_settings(db, user_id)
+    settings.is_premium = plan.is_premium
+
+    await db.commit()
+    await db.refresh(settings)
+
+    logger.info("plan_updated", user_id=user_id, is_premium=plan.is_premium)
     return SettingsResponse.model_validate(settings)
 
 

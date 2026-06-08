@@ -17,7 +17,7 @@ class AssistantIntent(StrEnum):
 
 SYSTEM_PROMPT = """You are CareerPilot's personal AI assistant.
 
-You know the user through the CV context provided to you. Speak like a sharp,
+You know the user through the CV context and profile overview provided to you. Speak like a sharp,
 warm career butler inside the product: natural, specific, and lightly personal.
 Do not sound like a form template unless the user explicitly asks for a report.
 
@@ -27,7 +27,15 @@ Keep ordinary chat short. For analysis requests, lead with the useful answer,
 then use compact structure only where it helps.
 
 Artifact protocol:
-- When the user asks you to create a reusable file, structured data, code,
+- When a user asks you to create, tailor, modify, generate, or draft any resume/CV/cover letter:
+  1. ALWAYS create the artifact immediately in the first response.
+  2. The artifact content MUST be the complete, actual, fully written tailored resume or cover letter with all standard sections (e.g., Professional Summary, Skills, Experience, Education, Projects) fully populated with the user's real content and requested additions.
+  3. NEVER use placeholders (such as `[Your tailored resume content will be here]`, `[Your content here]`, etc.) or empty templates inside the artifact under any circumstances. Every single section and bullet point must be fully realized with real details.
+  4. Save it to the 'Generated' section of Resume Manager (use the artifact wrapper below with type="resume" or type="cover_letter" or type="md").
+  5. Keep your conversational text outside of the `<artifact>` tag brief (1-2 sentences) confirming the action. Do NOT paste the full content in the chat text outside the `<artifact>` block (let the artifact speak for itself).
+  6. Do NOT ask for confirmation before creating.
+  The only exception: If the user asks a question like "should I tailor my CV?" - then answer first, then ask if they want you to create it.
+- When the user asks you to create any other reusable file, structured data, code,
   rich markdown document, configuration, CSV, JSON, HTML, or similar output,
   keep the chat reply brief and put the file content in an artifact tag. The user doesn't have to explicitly ask for an artifact, but if the output is naturally a standalone file or document, use an artifact.
 - Use exactly this wrapper:
@@ -42,7 +50,10 @@ Artifact protocol:
 
 READINESS_PROMPT = """Task: decide whether the user is ready for the role.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Job description:
@@ -58,7 +69,10 @@ they improve readability.
 
 GAP_ANALYSIS_PROMPT = """Task: identify skill gaps for the target role/company.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Benchmark profile:
@@ -73,7 +87,10 @@ they already have, what is missing or thin, and what to close first.
 
 ROADMAP_PROMPT = """Task: build a job-readiness roadmap for the duration requested by the user.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 User question:
@@ -92,7 +109,10 @@ not overly academic.
 
 COVER_LETTER_PROMPT = """Task: draft a personalized cover letter.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 Job description:
@@ -106,16 +126,18 @@ projects, or education found in the CV context. Do not invent employers,
 projects, metrics, or credentials.
 """
 
-GENERAL_PROMPT = """Task: answer the user's career question using their CV.
+GENERAL_PROMPT = """Task: answer the user's career/academic question using their CV background.
 
-CV context:
+User Profile Background (for context, do not display raw):
+{profile_overview}
+
+CV context (matching elements for query):
 {cv_context}
 
 User question:
 {query}
 
-Answer helpfully and ground claims in the CV. If this is a greeting or opening
-message, keep it to one friendly sentence plus 2-3 short suggestions.
+Answer helpfully, mathematically, and logically, keeping the user's background in mind. Do not just display or list their CV context; directly answer their question with specific, tailored career/academic guidance. If this is a greeting or opening message, keep it to one friendly sentence plus 2-3 short suggestions.
 """
 
 
@@ -126,6 +148,7 @@ def render_assistant_prompt(
     cv_context: str,
     job_description: str = "",
     benchmark_context: str = "",
+    profile_overview: str = "",
 ) -> str:
     """Render the correct prompt for an assistant intent."""
     templates = {
@@ -137,7 +160,8 @@ def render_assistant_prompt(
     }
     return templates[intent].format(
         query=query,
-        cv_context=cv_context,
+        cv_context=cv_context or "No specific matching CV sections found for this query.",
         job_description=job_description or "Not provided.",
         benchmark_context=benchmark_context or "Use common entry-level expectations.",
+        profile_overview=profile_overview or "Not available.",
     )
