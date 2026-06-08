@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { AssistantMessage } from '@/components/assistant/AssistantMessages';
-import type { ChatAttachment } from '@/types/chat';
+import type { ChatAttachment, ChatUiMessage } from '@/types/chat';
 
 const SIDEBAR_MIN = 280;
 const SIDEBAR_MAX = 560;
@@ -19,7 +18,7 @@ interface ChatStore {
   userProfileId: string | null;
 
   // Conversation state — persisted so it survives route changes
-  messages: AssistantMessage[];
+  messages: ChatUiMessage[];
   input: string;
   attachments: ChatAttachment[];
   jobDescription: string;
@@ -35,7 +34,7 @@ interface ChatStore {
   closeChat: () => void;
   setSidebarWidth: (width: number) => void;
 
-  setMessages: (messages: AssistantMessage[] | ((prev: AssistantMessage[]) => AssistantMessage[])) => void;
+  setMessages: (messages: ChatUiMessage[] | ((prev: ChatUiMessage[]) => ChatUiMessage[])) => void;
   setInput: (input: string) => void;
   setAttachments: (attachments: ChatAttachment[] | ((prev: ChatAttachment[]) => ChatAttachment[])) => void;
   setJobDescription: (description: string) => void;
@@ -52,7 +51,7 @@ export const useChatStore = create<ChatStore>()(
       activeJobId: null,
       userProfileId: null,
 
-      messages: [{ sender: 'assistant', text: "Hey, I'm here." }],
+      messages: [{ id: 'init', sender: 'assistant', text: "Hey, I'm here.", createdAt: new Date().toISOString() }],
       input: '',
       attachments: [],
       jobDescription: '',

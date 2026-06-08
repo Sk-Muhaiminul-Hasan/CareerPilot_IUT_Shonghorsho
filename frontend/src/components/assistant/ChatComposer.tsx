@@ -80,53 +80,51 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onInputKeyDown,
   onJobDescriptionChange,
   onSend,
-}) => (
-  <Box
-    sx={{
-      p: 1.5,
-      borderTop: '1px solid #c3c6d7',
-      backgroundColor: '#ffffff',
-      boxShadow: '0 -2px 12px rgba(11, 28, 48, 0.04)',
-      flexShrink: 0,
-    }}
-  >
-    <Stack spacing={1}>
-      {shouldShowJobDescription && (
-        <TextField
-          fullWidth
-          multiline
-          minRows={3}
-          maxRows={6}
-          size="small"
-          placeholder="Paste job description..."
-          value={jobDescription}
-          onChange={(event) => onJobDescriptionChange(event.target.value)}
-          sx={textFieldSx}
-        />
-      )}
-      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-        <Tooltip title="Add context">
-          <IconButton size="small" onClick={(event) => onOpenContextMenu(event.currentTarget)} sx={iconButtonSx}>
-            <AddIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Mention context">
-          <IconButton size="small" onClick={onOpenMentionSearch} sx={iconButtonSx}>
-            <AlternateEmailIcon />
-          </IconButton>
-        </Tooltip>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Ask me anything..."
-          value={input}
-          inputRef={inputRef}
-          onChange={onInputChange}
-          onKeyDown={onInputKeyDown}
-          sx={textFieldSx}
-        />
-        <Tooltip title={isTyping ? 'Sending...' : 'Send'}>
-          <span>
+  contextOptions = [],
+  onSelectContextOption,
+}) => {
+  const [menuAnchor, setMenuAnchor] = React.useState<HTMLElement | null>(null);
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setMenuAnchor(event.currentTarget);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleSelect = (option: ContextOption) => {
+    onSelectContextOption?.(option);
+    handleCloseMenu();
+  };
+
+  return (
+    <Box
+      sx={{
+        p: 1.5,
+        borderTop: '1px solid #c3c6d7',
+        backgroundColor: '#ffffff',
+        boxShadow: '0 -2px 12px rgba(11, 28, 48, 0.04)',
+      }}
+    >
+      <Stack spacing={1}>
+        {shouldShowJobDescription && (
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={6}
+            size="small"
+            placeholder="Paste job description..."
+            value={jobDescription}
+            onChange={(event) => onJobDescriptionChange(event.target.value)}
+            sx={textFieldSx}
+          />
+        )}
+
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          {/* Single "+" button that opens the compact context popover */}
+          <Tooltip title="Add context">
             <IconButton
               size="small"
               onClick={handleOpenMenu}
