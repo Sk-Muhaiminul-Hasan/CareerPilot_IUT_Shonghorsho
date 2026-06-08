@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import traceback
 from datetime import datetime, timedelta
 
 import structlog
@@ -95,7 +96,10 @@ async def _create_todo_for_job(
         logger.warning(
             "nudge.todo_creation_failed",
             job_id=job.id,
+            job_title=job.title,
+            job_company=job.company,
             error=str(exc),
+            traceback=traceback.format_exc(),
         )
         return None
 

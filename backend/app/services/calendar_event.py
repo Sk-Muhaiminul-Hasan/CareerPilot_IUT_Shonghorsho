@@ -28,6 +28,7 @@ async def create_event(data: CalendarEventCreate) -> CalendarEventResponse:
         end_date = end_date.replace(tzinfo=None)
     async with AsyncSessionLocal() as db, db.begin():
         record = CalendarEvent(
+            user_id=data.user_id,
             application_id=data.application_id,
             title=data.title,
             description=data.description,

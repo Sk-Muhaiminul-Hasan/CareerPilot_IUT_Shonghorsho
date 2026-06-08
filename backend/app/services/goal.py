@@ -1,6 +1,7 @@
 """Career goal service — all operations now async SQLAlchemy DB queries."""
 
 import asyncio
+import traceback
 from datetime import UTC, datetime
 
 import structlog
@@ -42,6 +43,7 @@ async def _create_calendar_deadline(
 
         await create_event(
             CalendarEventCreate(
+                user_id=user_id,
                 title=f"Goal deadline: {title}",
                 event_date=due_date,
                 event_type=EventTypeEnum.DEADLINE,
@@ -52,6 +54,7 @@ async def _create_calendar_deadline(
             "goal.calendar_deadline_failed",
             goal_id=goal_id,
             error=str(exc),
+            traceback=traceback.format_exc(),
         )
 
 
