@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.core.llm.prompts.assistant import SYSTEM_PROMPT, AssistantIntent, render_assistant_prompt
 from app.models.job import Job
 from app.services.artifact_builder import build_artifacts
@@ -21,9 +22,7 @@ from app.services.assistant_support import (
     source_payload,
 )
 from app.services.rag_service import RAGService
-
-if TYPE_CHECKING:
-    from app.core.llm.client import LLMClient
+from app.services.settings_helper import get_or_create_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -34,6 +33,7 @@ async def process_chat_query(
     *,
     db: AsyncSession,
     query: str,
+    user_id: str = "default_user",
     resume_id: str | None = None,
     job_id: str | None = None,
     job_description: str | None = None,
@@ -87,10 +87,14 @@ async def process_chat_query(
             from app.core.llm.client import LLMClient
 
             llm_client = LLMClient()
+        user_cfg = UserLLMConfig.from_settings(
+            await get_or_create_settings(db, user_id)
+        )
         response = await llm_client.complete(
             prompt=prompt,
             system_prompt=SYSTEM_PROMPT,
             purpose=f"assistant_{intent.value}",
+            user_settings=user_cfg,
         )
         answer = response.content.strip()
         metadata: dict[str, Any] = {
@@ -132,6 +136,7 @@ async def process_chat_query(
 async def generate_assistant_stream(
     db: AsyncSession,
     message: str,
+    user_id: str = "default_user",
     job_id: str | None = None,
     profile_id: str | None = None,
     job_description: str | None = None,
@@ -139,6 +144,7 @@ async def generate_assistant_stream(
     """Compatibility SSE generator for clients that still expect SSE."""
     response = await process_chat_query(
         db=db,
+        user_id=user_id,
         query=message,
         resume_id=profile_id,
         job_id=job_id,
