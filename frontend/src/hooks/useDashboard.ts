@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as dashboardService from '@/services/dashboardService';
 
 import { useQuery } from '@tanstack/react-query';
@@ -45,3 +45,40 @@ export function useWeeklyProgress() {
   });
 }
 
+/** Fetch the existing roadmap for a goal (loads lazily when goalId is provided). */
+export function useRoadmap(goalId: string | null) {
+  return useQuery({
+    queryKey: [...DASHBOARD_KEY, 'roadmap', goalId],
+    queryFn: () => dashboardService.getRoadmap(goalId!),
+    enabled: !!goalId,
+    staleTime: 30_000,
+    retry: false, // 404 means no roadmap yet — don't retry
+  });
+}
+
+/** Fetch dashboard progress for all active goals with roadmaps. */
+export function useDashboardProgress() {
+  return useQuery({
+    queryKey: [...DASHBOARD_KEY, 'dashboard-progress'],
+    queryFn: () => dashboardService.getDashboardProgress(),
+    staleTime: 60_000,
+  });
+}
+
+/** Mutation to complete a roadmap task and automatically refresh all related dashboard data. */
+export function useCompleteTaskMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) => dashboardService.completeRoadmapTask(taskId),
+    onSuccess: () => {
+      // Invalidate dashboard progress widget
+      queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'dashboard-progress'] });
+      // Invalidate any loaded roadmap queries so flowcharts update
+      queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'roadmap'] });
+      // Invalidate active/completed goals list
+      queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+      queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals-completed'] });
+      queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'weekly-progress'] });
+    },
+  });
+}

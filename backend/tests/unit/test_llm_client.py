@@ -113,6 +113,7 @@ class TestCompleteFallback:
 
             # First call fails, configure fallback
             client._llm.fallback_providers = ["groq"]
+            client._llm.groq_api_key.get_secret_value.return_value = "sk-groq-test"
             mock_litellm.acompletion = AsyncMock(
                 side_effect=[api_error("fail"), mock_response]
             )

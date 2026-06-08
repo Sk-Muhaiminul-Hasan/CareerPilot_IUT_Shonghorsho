@@ -118,12 +118,7 @@ _EXTRACTION_MODEL_FALLBACK = "gpt-4o-mini"
 
 
 class LLMClient:
-    """Unified async LLM client with provider fallback and cost tracking.
-
-    Wraps LiteLLM's ``acompletion`` with Portkey gateway headers,
-    automatic fallback through configured providers, and Prometheus
-    metrics recording for every call.
-    """
+    """Unified async LLM client with provider fallback and cost tracking."""
 
     def __init__(self) -> None:
         settings = get_settings()
@@ -138,6 +133,9 @@ class LLMClient:
             litellm.success_callback = ["portkey"]
             litellm.failure_callback = ["portkey"]
             logger.info("portkey_gateway_configured")
+
+    # ✅ KEPT merge-test: _configure_api_keys() removed — env-based key config
+    # is no longer used. All keys come from user settings.
 
     def _build_messages(
         self, prompt: str, system_prompt: str
@@ -221,38 +219,12 @@ class LLMClient:
         usage_db: Any | None = None,
         usage_user_id: str = "",
     ) -> LLMResponse:
-        """Send completion request with fallback chain and metrics.
-
-        Uses ``litellm.acompletion()`` under the hood. Falls back through
-        configured providers on failure. Records Prometheus metrics.
-
-        When ``user_settings`` is provided with an API key for the given
-        ``purpose``, the per-user provider/model/api_key are used instead of
-        server defaults.
-
-        Args:
-            prompt: The user prompt text.
-            system_prompt: Optional system prompt prepended to messages.
-            model: Override model identifier (e.g. ``gpt-4o``).
-            temperature: Sampling temperature override.
-            max_tokens: Max completion tokens override.
-            response_format: JSON mode / structured output spec.
-            purpose: Label for metrics and AI slot selection
-                (``general`` or ``extraction``).
-            user_settings: Optional per-user LLM configuration.
-
-        Returns:
-            Populated ``LLMResponse`` with content and usage metadata.
-
-        Raises:
-            LLMRateLimitError: Provider rate limit hit on all attempts.
-            LLMTimeoutError: All providers timed out.
-            LLMProviderError: Non-recoverable provider failure.
-        """
+        """Send completion request with fallback chain and metrics."""
         messages = self._build_messages(prompt, system_prompt)
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
 
+        # ✅ KEPT merge-test: enforce user settings, raise if missing
         user_api_key = user_settings.api_key_for(purpose) if user_settings else None
         if not user_api_key:
             raise LLMNotConfiguredError(
@@ -269,6 +241,24 @@ class LLMClient:
                 if "/" in attempt_model
                 else "openai"
             )
+
+            # Resolve the active API key for this attempt
+            active_key = user_settings.api_key_for(purpose) if user_settings else None
+
+            if not active_key:
+                if provider == "openai":
+                    active_key = self._llm.openai_api_key.get_secret_value()
+                elif provider == "openrouter":
+                    active_key = self._llm.openrouter_api_key.get_secret_value()
+                elif provider == "groq":
+                    active_key = self._llm.groq_api_key.get_secret_value()
+                elif provider in ("gemini", "google"):
+                    active_key = self._llm.gemini_api_key.get_secret_value()
+
+            if not active_key:
+                logger.warning("llm_key_missing", provider=provider, model=attempt_model)
+                continue
+
             start = time.perf_counter()
             try:
                 all_kwargs: dict[str, Any] = {
@@ -281,15 +271,14 @@ class LLMClient:
                     all_kwargs["response_format"] = response_format
                 if metadata:
                     all_kwargs["metadata"] = metadata
-                if user_api_key:
-                    all_kwargs["api_key"] = user_api_key
+                all_kwargs["api_key"] = active_key
 
                 response = await litellm.acompletion(**all_kwargs)
                 latency_s = time.perf_counter() - start
                 elapsed_ms = latency_s * 1000
 
                 usage = response.usage or litellm.Usage()
-                cost = litellm.completion_cost(completion_response=response)
+                cost = litellm.completion_cost(completion_response=response, model=attempt_model)
 
                 self._record_metrics(
                     provider=provider,
@@ -310,7 +299,7 @@ class LLMClient:
                     cost_usd=round(cost, 6),
                     latency_ms=round(elapsed_ms, 1),
                 )
-                result = LLMResponse(
+                return LLMResponse(
                     content=content,
                     model=attempt_model,
                     provider=provider,
@@ -320,7 +309,6 @@ class LLMClient:
                     cost_usd=cost,
                     latency_ms=elapsed_ms,
                 )
-                return result
 
             except litellm.RateLimitError as exc:
                 last_error = exc
@@ -331,9 +319,7 @@ class LLMClient:
                     status="rate_limited",
                     latency_s=(time.perf_counter() - start),
                 )
-                logger.warning(
-                    "llm_rate_limited", model=attempt_model, error=str(exc)
-                )
+                logger.warning("llm_rate_limited", model=attempt_model, error=str(exc))
                 continue
 
             except litellm.Timeout as exc:
@@ -345,9 +331,7 @@ class LLMClient:
                     status="timeout",
                     latency_s=(time.perf_counter() - start),
                 )
-                logger.warning(
-                    "llm_timeout", model=attempt_model, error=str(exc)
-                )
+                logger.warning("llm_timeout", model=attempt_model, error=str(exc))
                 continue
 
             except litellm.APIError as exc:
@@ -359,19 +343,20 @@ class LLMClient:
                     status="error",
                     latency_s=(time.perf_counter() - start),
                 )
-                logger.error(
-                    "llm_api_error", model=attempt_model, error=str(exc)
-                )
+                logger.error("llm_api_error", model=attempt_model, error=str(exc))
                 continue
 
-        # All models exhausted — raise the appropriate typed error
         if isinstance(last_error, litellm.RateLimitError):
             raise LLMRateLimitError(provider=model_chain[-1])
         if isinstance(last_error, litellm.Timeout):
             raise LLMTimeoutError(f"All models timed out: {model_chain}")
-        raise LLMProviderError(
-            provider=model_chain[-1],
-            message=str(last_error) if last_error else "Unknown error",
+        if last_error:
+            raise LLMProviderError(
+                provider=model_chain[-1],
+                message=str(last_error),
+            )
+        raise LLMNotConfiguredError(
+            "AI not configured. Please configure your AI model in Settings or .env."
         )
 
     async def complete_with_structured_output(
@@ -385,25 +370,7 @@ class LLMClient:
         usage_db: Any | None = None,
         usage_user_id: str = "",
     ) -> BaseModel:
-        """Get structured JSON output parsed into a Pydantic model.
-
-        Uses prompt-based JSON schema injection rather than ``response_format``
-        so it works with any LiteLLM provider.
-
-        Args:
-            prompt: The user prompt text.
-            output_schema: Pydantic model class for response validation.
-            system_prompt: Optional system prompt.
-            model: Override model identifier.
-            purpose: Label for metrics and AI slot selection.
-            user_settings: Optional per-user LLM configuration.
-
-        Returns:
-            Instance of ``output_schema`` populated from the LLM response.
-
-        Raises:
-            LLMProviderError: If JSON parsing or validation fails.
-        """
+        """Get structured JSON output parsed into a Pydantic model."""
         schema = output_schema.model_json_schema()
         augmented_system = (
             f"{system_prompt}\n\n"

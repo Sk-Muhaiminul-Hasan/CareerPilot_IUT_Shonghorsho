@@ -2,16 +2,20 @@
 
 Endpoints
 ---------
-POST   /goals/                       Create a goal
-GET    /goals/                       List goals (paginated, optional filters)
-GET    /goals/{goal_id}              Get a single goal
-PATCH  /goals/{goal_id}              Partially update a goal
-PUT    /goals/{goal_id}/progress     Update only the current progress value
-DELETE /goals/{goal_id}              Delete a goal
+POST   /goals/                             Create a goal
+GET    /goals/                             List goals (paginated, optional filters)
+GET    /goals/dashboard-progress           Dashboard progress widget data
+GET    /goals/{goal_id}                    Get a single goal
+PATCH  /goals/{goal_id}                   Partially update a goal
+PUT    /goals/{goal_id}/progress          Update only the current progress value
+DELETE /goals/{goal_id}                   Delete a goal
+POST   /goals/{goal_id}/generate-roadmap  Generate AI roadmap for a goal
+GET    /goals/{goal_id}/roadmap           Retrieve existing roadmap
+PATCH  /goals/roadmap-tasks/{id}/complete Mark a roadmap task as complete
 """
 
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_current_user
 from app.config.constants import DEFAULT_PAGE_SIZE
@@ -22,10 +26,21 @@ from app.schemas.goal import (
     GoalResponse,
     GoalUpdate,
 )
+from app.schemas.roadmap import (
+    DashboardProgressResponse,
+    RoadmapResponse,
+    RoadmapTaskCompleteResponse,
+)
 from app.services import goal as goal_service
+from app.services import roadmap as roadmap_service
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Goal CRUD (existing — unchanged)
+# ---------------------------------------------------------------------------
 
 
 @router.post(
@@ -60,13 +75,60 @@ async def list_goals(
     category: str | None = Query(
         default=None,
         description=(
-            "Filter by category: applications | learning | "
-            "networking | interview_prep | other"
+            # ✅ KEPT home_page_auth_backup — cleaner single string
+            "Filter by category: applications | learning | networking | interview_prep | other"
         ),
     ),
 ) -> GoalListResponse:
     """List goals sorted by status (active first) then progress descending."""
     return await goal_service.list_goals(user_id, page, page_size, status, category)
+
+
+# ---------------------------------------------------------------------------
+# Roadmap dashboard-progress — MUST come before /{goal_id} to avoid conflict
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/dashboard-progress",
+    response_model=DashboardProgressResponse,
+    summary="Goal roadmap progress for the dashboard widget",
+)
+async def get_dashboard_progress(
+    user_id: str = Depends(get_current_user),
+) -> DashboardProgressResponse:
+    """Return all active goals' roadmap progress and nudge messages for the dashboard widget."""
+    return await roadmap_service.get_dashboard_progress(user_id)
+
+
+# ---------------------------------------------------------------------------
+# Roadmap task completion — MUST come before /{goal_id} to avoid conflict
+# ---------------------------------------------------------------------------
+
+
+@router.patch(
+    "/roadmap-tasks/{roadmap_task_id}/complete",
+    response_model=RoadmapTaskCompleteResponse,
+    summary="Mark a roadmap task as complete",
+)
+async def complete_roadmap_task(
+    roadmap_task_id: str,
+    _user_id: str = Depends(get_current_user),
+) -> RoadmapTaskCompleteResponse:
+    """Mark a roadmap task as complete, update the linked TodoItem, recompute progress.
+    Triggers AI re-plan if user is more than 15% behind expected pace.
+    """
+    from app.core.exceptions import RecordNotFoundError
+
+    try:
+        return await roadmap_service.complete_task(roadmap_task_id)
+    except RecordNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Goal CRUD (existing — unchanged)
+# ---------------------------------------------------------------------------
 
 
 @router.get(
@@ -131,3 +193,55 @@ async def delete_goal(
     """Delete a goal by ID. Returns 404 if not found."""
     await goal_service.delete_goal(goal_id, user_id)
     logger.info("goal_deleted", goal_id=goal_id)
+
+
+# ---------------------------------------------------------------------------
+# Roadmap generation and retrieval
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{goal_id}/generate-roadmap",
+    response_model=RoadmapResponse,
+    status_code=201,
+    summary="Generate AI roadmap for a goal",
+)
+async def generate_roadmap(
+    goal_id: str,
+    user_id: str = Depends(get_current_user),
+) -> RoadmapResponse:
+    """Call the AI to generate a structured career roadmap for the given goal.
+    Persists RoadmapPhase, TodoItem (Task), RoadmapTask, and RoadmapMeta rows.
+    Replaces any existing roadmap for this goal.
+    """
+    from app.core.exceptions import RecordNotFoundError
+
+    try:
+        result = await roadmap_service.generate_roadmap(goal_id, user_id)
+        logger.info("roadmap_generated", goal_id=goal_id)
+        return result
+    except RecordNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("roadmap_generation_failed", goal_id=goal_id, error=str(exc))
+        raise HTTPException(status_code=500, detail=f"Roadmap generation failed: {exc}") from exc
+
+
+@router.get(
+    "/{goal_id}/roadmap",
+    response_model=RoadmapResponse,
+    summary="Get existing roadmap for a goal",
+)
+async def get_roadmap(
+    goal_id: str,
+    _user_id: str = Depends(get_current_user),
+) -> RoadmapResponse:
+    """Return the previously generated roadmap for the given goal.
+    Returns 404 if no roadmap has been generated yet.
+    """
+    from app.core.exceptions import RecordNotFoundError
+
+    try:
+        return await roadmap_service.get_roadmap(goal_id)
+    except RecordNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

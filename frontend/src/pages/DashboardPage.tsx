@@ -31,6 +31,7 @@ import UpcomingEvents from '@/components/dashboard/UpcomingEvents';
 import CalendarView from '@/components/dashboard/CalendarView';
 import GoalsView from '@/components/dashboard/GoalsView';
 import TrackerView from '@/components/dashboard/TrackerView';
+import GoalProgressWidget from '@/components/dashboard/GoalProgressWidget';
 
 type DashTab = 'overview' | 'tracker' | 'calendar' | 'goals';
 
@@ -231,6 +232,11 @@ function DashboardPage() {
                 />
               </Grid>
             </Grid>
+
+            {/* Row 4: Roadmap Progress widget (only shown if goals have roadmaps) */}
+            <Box sx={{ mt: 2.5 }}>
+              <GoalProgressWidget onManageGoals={() => setActiveTab('goals')} />
+            </Box>
           </>
         )}
 
