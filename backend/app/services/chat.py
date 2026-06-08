@@ -20,6 +20,7 @@ from app.services.assistant_support import (
     format_attachments,
     format_cv_context,
     source_payload,
+    extract_profile_overview,
 )
 from app.services.rag_service import RAGService
 from app.services.settings_helper import get_or_create_settings
@@ -29,10 +30,26 @@ logger = structlog.get_logger(__name__)
 MISSING_CV_MESSAGE = "Please upload your CV first in the Resume section."
 
 
+# In-memory cache for CV Context to avoid querying DB/RAG on every message in a session
+# Keys: (session_id, resume_id) -> CVContext
+_session_cv_cache: dict[tuple[str, str], Any] = {}
+
+
+def clear_session_cv_cache(resume_id: str | None = None) -> None:
+    """Clear cached CV contexts, optionally for a specific resume_id."""
+    global _session_cv_cache
+    if resume_id:
+        keys_to_delete = [k for k in _session_cv_cache.keys() if k[1] == resume_id]
+        for k in keys_to_delete:
+            _session_cv_cache.pop(k, None)
+    else:
+        _session_cv_cache.clear()
+
+
 async def process_chat_query(
     *,
     db: AsyncSession,
-    user_id: str,
+    user_id: str,  # ✅ required, no default — removed duplicate optional param
     query: str,
     resume_id: str | None = None,
     job_id: str | None = None,
@@ -41,6 +58,7 @@ async def process_chat_query(
     attachments: list[dict[str, Any]] | None = None,
     rag_service: RAGService | None = None,
     llm_client: LLMClient | None = None,
+    session_id: str | None = None,  # ✅ kept from toolcall
 ) -> dict[str, Any]:
     """Process a Pillar 3 assistant query and return a JSON-safe response."""
     normalized_query = query.strip()
@@ -58,13 +76,21 @@ async def process_chat_query(
             "metadata": {"needs_job_description": True},
         }
 
+    global _session_cv_cache
+    base_cv = None
+    cache_key = (session_id or "", resume_id or "")
+    if session_id and resume_id and cache_key in _session_cv_cache:
+        base_cv = _session_cv_cache[cache_key]
+        logger.info("using_cached_cv_for_session", session_id=session_id, resume_id=resume_id)
+
     rag = rag_service or RAGService()
-    cv = (
-        await rag.get_full_cv_text(db, resume_id)
-        if intent == AssistantIntent.COVER_LETTER
-        else await rag.retrieve_relevant_chunks(db, normalized_query, resume_id=resume_id)
-    )
-    if cv is None:
+    if base_cv is None:
+        base_cv = await rag.get_full_cv_text(db, resume_id)
+        if base_cv is not None and session_id and resume_id:
+            _session_cv_cache[cache_key] = base_cv
+            logger.info("cached_cv_for_session", session_id=session_id, resume_id=resume_id)
+
+    if base_cv is None:
         return {
             "answer": MISSING_CV_MESSAGE,
             "intent": intent.value,
@@ -73,23 +99,35 @@ async def process_chat_query(
             "metadata": {"needs_resume": True},
         }
 
+    # Always retrieve query-specific chunks on every message using the cached base_cv
+    if intent == AssistantIntent.COVER_LETTER:
+        cv = base_cv
+    else:
+        cv = await rag.retrieve_relevant_chunks(
+            db, normalized_query, resume_id=resume_id, base_cv=base_cv
+        )
+        if cv is None:
+            cv = base_cv
+
     benchmark = benchmark_context(normalized_query, intent)
+    profile_overview = extract_profile_overview(base_cv.full_text)
     prompt = render_assistant_prompt(
         intent=intent,
         query=_query_with_attachments(conversational_query, attached_context),
         cv_context=format_cv_context(cv),
         job_description=job_context,
         benchmark_context=benchmark,
+        profile_overview=profile_overview,
     )
+
+    # Resolve user settings/keys
+    settings_record = await get_or_create_settings(db, user_id)
+    user_cfg = UserLLMConfig.from_settings(settings_record)
 
     try:
         if llm_client is None:
-            from app.core.llm.client import LLMClient
-
             llm_client = LLMClient()
-        user_cfg = UserLLMConfig.from_settings(
-            await get_or_create_settings(db, user_id)
-        )
+        # ✅ MERGED: wasi-not-final wins — user_cfg is the correctly resolved config
         response = await llm_client.complete(
             prompt=prompt,
             system_prompt=SYSTEM_PROMPT,
@@ -125,6 +163,40 @@ async def process_chat_query(
         }
 
     answer, artifacts = prepare_assistant_output(intent, raw_answer, normalized_query)
+
+    # Automatically save generated resume/CV artifacts to the Resume database table
+    from app.models.resume import Resume
+    for artifact in artifacts:
+        is_resume_art = (
+            artifact.get("type") in ("resume", "tailored_resume")
+            or "resume" in str(artifact.get("title", "")).lower()
+            or "cv" in str(artifact.get("title", "")).lower()
+            or "resume" in str(artifact.get("filename", "")).lower()
+            or "cv" in str(artifact.get("filename", "")).lower()
+        )
+        if is_resume_art and not artifact.get("data", {}).get("resume_id"):
+            try:
+                base_id = resume_id or (cv.resume_id if cv else None)
+                tailored = Resume(
+                    name=artifact.get("title") or f"Tailored - {cv.resume_name if cv else 'Resume'}",
+                    type="tailored",
+                    base_resume_id=base_id,
+                    job_id=job_id,
+                    template_id="modern",
+                    content_text=artifact.get("content", ""),
+                    user_id=user_id,  # ✅ FIXED: removed "default_user" fallback
+                )
+                db.add(tailored)
+                await db.commit()
+                await db.refresh(tailored)
+
+                if "data" not in artifact or artifact["data"] is None:
+                    artifact["data"] = {}
+                artifact["data"]["resume_id"] = str(tailored.id)
+                logger.info("saved_chat_resume_to_db", resume_id=str(tailored.id))
+            except Exception as e:
+                logger.error("failed_to_save_chat_resume_to_db", error=str(e))
+
     return {
         "answer": answer,
         "intent": intent.value,

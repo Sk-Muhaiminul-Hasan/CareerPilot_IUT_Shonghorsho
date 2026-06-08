@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.constants import EMBEDDING_DIMENSION
 from app.core.matching.vector_store import VectorStore
 from app.models.resume import Resume
-from app.services.rag_fallbacks import demo_context, lexical_context, section_chunks
+from app.services.rag_fallbacks import demo_context, lexical_context, section_chunks, get_cleaned_query_terms, rank_text_chunks
 from app.services.rag_types import CVChunk, CVContext
 
 logger = structlog.get_logger(__name__)
@@ -46,8 +46,70 @@ class RAGService:
         query: str,
         resume_id: str | None = None,
         top_k: int = DEFAULT_TOP_K,
+        base_cv: CVContext | None = None,
     ) -> CVContext | None:
         """Resolve a resume, ensure its index exists, and retrieve chunks."""
+        if base_cv is not None:
+            if base_cv.is_demo:
+                return demo_context(query, top_k)
+
+            try:
+                metadata_path = self._metadata_path(self._index_name(base_cv.resume_id))
+                metadata = self._read_metadata(metadata_path)
+                results = await self.vector_store.search(
+                    self._index_name(base_cv.resume_id), query, top_k=top_k
+                )
+                if metadata is not None:
+                    chunks_by_id = {chunk["id"]: chunk for chunk in metadata["chunks"]}
+                    chunks = [
+                        CVChunk(
+                            id=str(result["id"]),
+                            text=str(chunks_by_id.get(result["id"], {}).get("text", "")),
+                            rank=int(result["rank"]),
+                            score=float(result["score"]),
+                        )
+                        for result in results
+                        if result["id"] in chunks_by_id
+                    ]
+                    # Filter and re-score based on content words to make vector search query-aware
+                    chunks = [c for c in chunks if c.text.strip()]
+                    query_terms = get_cleaned_query_terms(query)
+                    if query_terms:
+                        filtered_chunks = []
+                        for c in chunks:
+                            words = {re.sub(r'[^\w\-]', '', w).strip() for w in c.text.lower().split()}
+                            overlap = query_terms & words
+                            score = len(overlap) / len(query_terms)
+                            if score > 0.0:
+                                filtered_chunks.append(
+                                    CVChunk(id=c.id, text=c.text, rank=c.rank, score=score)
+                                )
+                        chunks = filtered_chunks
+                    else:
+                        chunks = []
+
+                    return CVContext(
+                        resume_id=base_cv.resume_id,
+                        resume_name=base_cv.resume_name,
+                        chunks=chunks,
+                        full_text=base_cv.full_text,
+                        is_demo=base_cv.is_demo,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "cached_cv_vector_retrieval_failed_using_lexical",
+                    resume_id=base_cv.resume_id,
+                    error=str(exc),
+                )
+            
+            return CVContext(
+                resume_id=base_cv.resume_id,
+                resume_name=base_cv.resume_name,
+                chunks=rank_text_chunks(base_cv.full_text, query, top_k),
+                full_text=base_cv.full_text,
+                is_demo=base_cv.is_demo,
+            )
+
         resume = await self._resolve_resume(db, resume_id)
         if resume is None or not (resume.content_text or "").strip():
             return demo_context(query, top_k)
@@ -76,6 +138,23 @@ class RAGService:
             for result in results
             if result["id"] in chunks_by_id
         ]
+        
+        # Filter and re-score vector search results to be query-aware
+        chunks = [c for c in chunks if c.text.strip()]
+        query_terms = get_cleaned_query_terms(query)
+        if query_terms:
+            filtered_chunks = []
+            for c in chunks:
+                words = {re.sub(r'[^\w\-]', '', w).strip() for w in c.text.lower().split()}
+                overlap = query_terms & words
+                score = len(overlap) / len(query_terms)
+                if score > 0.0:
+                    filtered_chunks.append(
+                        CVChunk(id=c.id, text=c.text, rank=c.rank, score=score)
+                    )
+            chunks = filtered_chunks
+        else:
+            chunks = []
 
         return CVContext(
             resume_id=resume.id,

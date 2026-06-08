@@ -9,16 +9,19 @@ export interface StoredArtifact extends ChatArtifact {
 
 interface ArtifactStore {
   artifacts: StoredArtifact[];
+  activeArtifactId: string | null;
   addArtifacts: (items: ChatArtifact[]) => void;
   updateArtifact: (artifactId: string, content: string) => void;
   removeArtifact: (artifactId: string) => void;
   clearArtifacts: () => void;
+  setActiveArtifactId: (id: string | null) => void;
 }
 
 export const useArtifactStore = create<ArtifactStore>()(
   persist(
     (set) => ({
       artifacts: [],
+      activeArtifactId: null,
       addArtifacts: (items) => {
         if (items.length === 0) return;
         const stamp = Date.now();
@@ -37,6 +40,7 @@ export const useArtifactStore = create<ArtifactStore>()(
       removeArtifact: (artifactId) =>
         set((state) => ({
           artifacts: state.artifacts.filter((artifact) => artifact.id !== artifactId),
+          activeArtifactId: state.activeArtifactId === artifactId ? null : state.activeArtifactId,
         })),
       updateArtifact: (artifactId, content) =>
         set((state) => ({
@@ -44,7 +48,8 @@ export const useArtifactStore = create<ArtifactStore>()(
             artifact.id === artifactId ? { ...artifact, content } : artifact,
           ),
         })),
-      clearArtifacts: () => set({ artifacts: [] }),
+      clearArtifacts: () => set({ artifacts: [], activeArtifactId: null }),
+      setActiveArtifactId: (id) => set({ activeArtifactId: id }),
     }),
     { name: 'careerpilot-artifacts' },
   ),

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# ✅ MERGED: LLMNotConfiguredError from wasi-not-final (needed for 428 handling)
 from app.api.deps import get_current_user, get_db
 from app.core.llm.client import LLMNotConfiguredError
 from app.schemas.chat import ChatRequest, ChatResponse
@@ -16,6 +17,7 @@ async def assistant_chat(
     user_id: str = Depends(get_current_user),
 ) -> dict:
     """Return a JSON assistant response for non-streaming clients."""
+    # ✅ MERGED: 428 error handling from wasi-not-final + session_id from toolcall
     try:
         return await process_chat_query(
             db=db,
@@ -28,6 +30,7 @@ async def assistant_chat(
                 message.model_dump() for message in payload.conversation_history
             ],
             attachments=[attachment.model_dump() for attachment in payload.attachments],
+            session_id=payload.session_id,  # ✅ kept from toolcall
         )
     except LLMNotConfiguredError:
         raise HTTPException(
