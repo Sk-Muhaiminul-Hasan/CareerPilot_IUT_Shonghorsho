@@ -12,6 +12,15 @@ export function useGoals() {
   });
 }
 
+/** Fetch the user's completed goals. */
+export function useCompletedGoals() {
+  return useQuery({
+    queryKey: [...DASHBOARD_KEY, 'goals-completed'],
+    queryFn: () => dashboardService.getCompletedGoals(),
+    staleTime: 60_000,
+  });
+}
+
 /** Fetch upcoming calendar events. */
 export function useCalendarEvents() {
   return useQuery({
@@ -21,7 +30,7 @@ export function useCalendarEvents() {
   });
 }
 
-/** Fetch weekly progress snapshot. */
+/** Fetch weekly progress snapshot — derived from completed goals. */
 export function useWeeklyProgress() {
   return useQuery({
     queryKey: [...DASHBOARD_KEY, 'weekly-progress'],
@@ -29,3 +38,4 @@ export function useWeeklyProgress() {
     staleTime: 30_000,
   });
 }
+

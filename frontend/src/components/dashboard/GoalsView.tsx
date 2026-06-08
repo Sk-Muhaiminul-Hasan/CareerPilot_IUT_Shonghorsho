@@ -1,9 +1,11 @@
 /**
  * Full-page goal management view for the Dashboard "Goals" tab.
- * Shows active goals with progress bars, a "Create New Goal" form,
- * and recently completed goals.
- *
- * Data comes from useGoals() — swap dashboardService.ts for real API calls.
+ * Features:
+ * – Active goals with progress bars, Mark as Done, and Delete actions.
+ * – Create / Edit goal form (category includes "learning" so completions count as skills).
+ * – Roadmap progress bar showing % of all goals completed.
+ * – Real completed goals list from API with "skill" badge for learning goals.
+ * – Current streak card driven by completed goal count.
  */
 import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
@@ -18,8 +20,12 @@ import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
+import LinearProgress from '@mui/material/LinearProgress';
+import Skeleton from '@mui/material/Skeleton';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+
 import BriefcaseIcon from '@mui/icons-material/WorkOutline';
 import GroupIcon from '@mui/icons-material/Group';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -27,13 +33,15 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StarIcon from '@mui/icons-material/Star';
-import Skeleton from '@mui/material/Skeleton';
+import SchoolIcon from '@mui/icons-material/School';
+import MapIcon from '@mui/icons-material/Map';
 
 import type { Goal } from '@/types/dashboard';
-import { useGoals } from '@/hooks/useDashboard';
-import { createGoal, updateGoal } from '@/services/dashboardService';
+import { useGoals, useCompletedGoals } from '@/hooks/useDashboard';
+import { createGoal, updateGoal, completeGoal, deleteGoalById } from '@/services/dashboardService';
 
 const DASHBOARD_KEY = ['dashboard'] as const;
 
@@ -50,21 +58,42 @@ const VARIANT_COLORS: Record<Goal['colorVariant'], string> = {
   tertiary: '#943700',
 };
 
-/** Icon and label per goal type (derived from colorVariant for demo). */
+/** Icon per goal type. */
 const GOAL_META = [
-  { icon: <BriefcaseIcon />, tag: 'Priority: High', tagColor: '#004ac6', tagBg: '#dbe1ff' },
-  { icon: <GroupIcon />, tag: 'Habit', tagColor: '#712ae2', tagBg: '#eaddff' },
-  { icon: <PsychologyIcon />, tag: 'Learning', tagColor: '#943700', tagBg: '#ffdbcd' },
+  { icon: <BriefcaseIcon /> },
+  { icon: <GroupIcon /> },
+  { icon: <PsychologyIcon /> },
 ];
 
-function GoalCard({ goal, index, onEdit }: { goal: Goal; index: number; onEdit: (goal: Goal) => void }) {
+const CATEGORY_LABEL: Record<string, string> = {
+  applications: 'Applications',
+  learning: 'Learning',
+  networking: 'Networking',
+  interview_prep: 'Interview Prep',
+  other: 'Other',
+};
+
+function GoalCard({
+  goal,
+  index,
+  onEdit,
+  onComplete,
+  onDelete,
+}: {
+  goal: Goal;
+  index: number;
+  onEdit: (goal: Goal) => void;
+  onComplete: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
   const progress = goal.target > 0 ? Math.min((goal.current / goal.target) * 100, 100) : 0;
   const isOngoing = goal.dueLabel === 'Ongoing';
   const meta = GOAL_META[index % GOAL_META.length]!;
   const priorityColors: Record<string, string> = { High: '#dd2c00', Medium: '#f57c00', Low: '#2e7d32' };
+  const isLearning = goal.category === 'learning';
 
   return (
-    <Card sx={{ height: '100%' }}>
+    <Card sx={{ height: '100%', position: 'relative', overflow: 'visible' }}>
       <CardContent sx={{ p: '24px !important', display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Header row */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -78,33 +107,47 @@ function GoalCard({ goal, index, onEdit }: { goal: Goal; index: number; onEdit: 
           >
             {meta.icon}
           </Box>
-          <Chip
-            label={goal.priority}
-            size="small"
-            sx={{
-              bgcolor: `${priorityColors[goal.priority] || '#666'}22`,
-              color: priorityColors[goal.priority] || '#666',
-              fontWeight: 700,
-              fontSize: '0.68rem',
-            }}
-          />
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <Chip
+              label={goal.priority}
+              size="small"
+              sx={{
+                bgcolor: `${priorityColors[goal.priority] || '#666'}22`,
+                color: priorityColors[goal.priority] || '#666',
+                fontWeight: 700,
+                fontSize: '0.68rem',
+              }}
+            />
+            {isLearning && (
+              <Tooltip title="Completing this will count as a skill added">
+                <Chip
+                  icon={<SchoolIcon sx={{ fontSize: '12px !important' }} />}
+                  label="Skill"
+                  size="small"
+                  sx={{ bgcolor: '#eaddff', color: '#712ae2', fontWeight: 700, fontSize: '0.68rem' }}
+                />
+              </Tooltip>
+            )}
+          </Box>
         </Box>
 
-        {/* Title */}
+        {/* Title + edit */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
           <Typography variant="subtitle1" fontWeight={700} color="text.primary" sx={{ flex: 1 }}>
             {goal.title}
           </Typography>
-          <IconButton size="small" onClick={() => onEdit(goal)} sx={{ ml: 1 }}>
+          <IconButton size="small" onClick={() => onEdit(goal)} sx={{ ml: 0.5 }}>
             <EditIcon fontSize="small" />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flex: 1 }}>
-          Target: {goal.target} {isOngoing ? '(ongoing)' : `items`}
+
+        {/* Category tag */}
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+          {CATEGORY_LABEL[goal.category] ?? goal.category} · Target: {goal.target} {isOngoing ? '(ongoing)' : 'items'}
         </Typography>
 
         {/* Progress */}
-        <Box sx={{ mb: 1 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.75 }}>
             <Typography variant="body2" fontWeight={600} color="text.primary">
               {isOngoing ? 'In Progress' : `${goal.current} / ${goal.target}`}
@@ -113,7 +156,7 @@ function GoalCard({ goal, index, onEdit }: { goal: Goal; index: number; onEdit: 
               {isOngoing ? '—' : `${Math.round(progress)}%`}
             </Typography>
           </Box>
-          <Box sx={{ height: 12, borderRadius: 9999, bgcolor: '#e5eeff', overflow: 'hidden' }}>
+          <Box sx={{ height: 10, borderRadius: 9999, bgcolor: '#e5eeff', overflow: 'hidden' }}>
             <Box
               sx={{
                 width: `${isOngoing ? 20 : progress}%`,
@@ -126,27 +169,66 @@ function GoalCard({ goal, index, onEdit }: { goal: Goal; index: number; onEdit: 
           </Box>
         </Box>
 
-        {/* Footer */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.5 }}>
-          <AccessTimeIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-          <Typography variant="caption" color="text.secondary">
-            {isOngoing ? 'Ongoing goal' : `Due: ${goal.dueLabel}`}
-          </Typography>
+        {/* Footer: due + actions */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AccessTimeIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
+            <Typography variant="caption" color="text.secondary">
+              {isOngoing ? 'Ongoing' : `Due: ${goal.dueLabel}`}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Mark as completed">
+              <IconButton
+                size="small"
+                onClick={() => onComplete(goal.id)}
+                sx={{
+                  color: '#1a7f4b',
+                  bgcolor: '#dcfce7',
+                  borderRadius: 1.5,
+                  '&:hover': { bgcolor: '#bbf7d0' },
+                  width: 30,
+                  height: 30,
+                }}
+              >
+                <DoneAllIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete goal">
+              <IconButton
+                size="small"
+                onClick={() => onDelete(goal.id)}
+                sx={{
+                  color: '#dd2c00',
+                  bgcolor: '#fff1ef',
+                  borderRadius: 1.5,
+                  '&:hover': { bgcolor: '#ffddd9' },
+                  width: 30,
+                  height: 30,
+                }}
+              >
+                <DeleteIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
       </CardContent>
     </Card>
   );
 }
 
-/** Mock recently completed goals — replace with API data when available. */
-const COMPLETED_GOALS = [
-  { id: 'c1', title: 'Updated Resume (V2.1)', completedAt: 'Completed Sep 12, 2023' },
-  { id: 'c2', title: 'Informational Interviews', completedAt: 'Completed Sep 08, 2023' },
-];
+/** Format completed_at date to a human label. */
+function formatCompletedAt(iso: string | null): string {
+  if (!iso) return 'Recently completed';
+  const d = new Date(iso);
+  return `Completed ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+}
 
 export default function GoalsView() {
   const { data: goals, isLoading } = useGoals();
+  const { data: completedGoals, isLoading: completedLoading } = useCompletedGoals();
   const queryClient = useQueryClient();
+
   const [goalTitle, setGoalTitle] = useState('');
   const [category, setCategory] = useState('applications');
   const [colorVariant, setColorVariant] = useState('primary');
@@ -154,6 +236,18 @@ export default function GoalsView() {
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  const activeCount = goals?.length ?? 0;
+  const completedCount = completedGoals?.length ?? 0;
+  const totalGoals = activeCount + completedCount;
+  const roadmapPercent = totalGoals > 0 ? Math.round((completedCount / totalGoals) * 100) : 0;
+  const skillsAdded = (completedGoals ?? []).filter((g) => g.category === 'learning').length;
+
+  async function invalidate() {
+    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals-completed'] });
+    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'weekly-progress'] });
+  }
 
   async function handleSubmitGoal() {
     if (!goalTitle.trim()) return;
@@ -178,14 +272,24 @@ export default function GoalsView() {
     setColorVariant('primary');
     setDueDate('');
     setPriority('Medium');
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
+    await invalidate();
     setIsSubmitting(false);
+  }
+
+  async function handleComplete(id: string) {
+    await completeGoal(id);
+    await invalidate();
+  }
+
+  async function handleDelete(id: string) {
+    await deleteGoalById(id);
+    await invalidate();
   }
 
   function handleEdit(goal: Goal) {
     setEditingGoal(goal);
     setGoalTitle(goal.title);
-    setCategory('applications');
+    setCategory(goal.category ?? 'applications');
     setColorVariant(goal.colorVariant);
     setDueDate(goal.dueDate || '');
     setPriority(goal.priority ?? 'Medium');
@@ -203,15 +307,77 @@ export default function GoalsView() {
   return (
     <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
       {/* ── Left: Current goals ──────────────────────────── */}
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
         {/* Stats bar */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
           <Typography variant="h6" fontWeight={700} color="text.primary">
             Current Goals
           </Typography>
-          <Chip label="3 Active" size="small" sx={{ bgcolor: '#e5eeff', color: '#004ac6', fontWeight: 700 }} />
-          <Chip label="2 Paused" size="small" sx={{ bgcolor: '#f1f5f9', color: '#737686', fontWeight: 600 }} />
+          <Chip
+            label={`${activeCount} Active`}
+            size="small"
+            sx={{ bgcolor: '#e5eeff', color: '#004ac6', fontWeight: 700 }}
+          />
+          <Chip
+            label={`${completedCount} Completed`}
+            size="small"
+            sx={{ bgcolor: '#dcfce7', color: '#1a7f4b', fontWeight: 700 }}
+          />
+          {skillsAdded > 0 && (
+            <Chip
+              icon={<SchoolIcon sx={{ fontSize: '14px !important' }} />}
+              label={`${skillsAdded} Skill${skillsAdded !== 1 ? 's' : ''} Learned`}
+              size="small"
+              sx={{ bgcolor: '#eaddff', color: '#712ae2', fontWeight: 700 }}
+            />
+          )}
         </Box>
+
+        {/* Roadmap progress bar */}
+        <Card sx={{ mb: 2.5, background: 'linear-gradient(135deg, #0b1c30 0%, #1e3a5f 100%)' }}>
+          <CardContent sx={{ p: '20px !important' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MapIcon sx={{ color: '#bc4800', fontSize: 20 }} />
+                <Typography variant="subtitle2" fontWeight={700} color="white">
+                  Career Roadmap Progress
+                </Typography>
+              </Box>
+              <Typography
+                variant="h5"
+                fontWeight={800}
+                sx={{ color: roadmapPercent >= 50 ? '#34d399' : '#f59e0b', lineHeight: 1 }}
+              >
+                {roadmapPercent}%
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={roadmapPercent}
+              sx={{
+                height: 10,
+                borderRadius: 9999,
+                bgcolor: 'rgba(255,255,255,0.15)',
+                '& .MuiLinearProgress-bar': {
+                  background: roadmapPercent >= 50
+                    ? 'linear-gradient(90deg, #059669 0%, #34d399 100%)'
+                    : 'linear-gradient(90deg, #b45309 0%, #f59e0b 100%)',
+                  borderRadius: 9999,
+                },
+              }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                {completedCount} of {totalGoals} goals completed
+              </Typography>
+              {skillsAdded > 0 && (
+                <Typography variant="caption" sx={{ color: '#d2bbff', fontWeight: 600 }}>
+                  🎓 {skillsAdded} skill{skillsAdded !== 1 ? 's' : ''} added
+                </Typography>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
 
         {/* Goal cards grid */}
         <Box
@@ -229,12 +395,26 @@ export default function GoalsView() {
                     <Skeleton variant="rounded" width={44} height={44} sx={{ borderRadius: 2, mb: 2 }} />
                     <Skeleton variant="text" width="80%" />
                     <Skeleton variant="text" width="60%" />
-                    <Skeleton variant="rounded" height={12} sx={{ borderRadius: 9999, mt: 2 }} />
+                    <Skeleton variant="rounded" height={10} sx={{ borderRadius: 9999, mt: 2 }} />
                   </CardContent>
                 </Card>
               ))
+            : (goals ?? []).length === 0 ? (
+                <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 6 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No active goals. Create one below to start tracking! 🚀
+                  </Typography>
+                </Box>
+              )
             : (goals ?? []).map((goal, i) => (
-                <GoalCard key={goal.id} goal={goal} index={i} onEdit={handleEdit} />
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  index={i}
+                  onEdit={handleEdit}
+                  onComplete={handleComplete}
+                  onDelete={handleDelete}
+                />
               ))}
         </Box>
 
@@ -289,7 +469,7 @@ export default function GoalsView() {
                   onChange={(e) => setCategory(e.target.value)}
                 >
                   <MenuItem value="applications">Applications</MenuItem>
-                  <MenuItem value="learning">Learning</MenuItem>
+                  <MenuItem value="learning">Learning 🎓 (counts as skill)</MenuItem>
                   <MenuItem value="networking">Networking</MenuItem>
                   <MenuItem value="interview_prep">Interview Prep</MenuItem>
                   <MenuItem value="other">Other</MenuItem>
@@ -302,9 +482,9 @@ export default function GoalsView() {
                   label="Color"
                   onChange={(e) => setColorVariant(e.target.value)}
                 >
-                  <MenuItem value="primary">Primary</MenuItem>
-                  <MenuItem value="secondary">Secondary</MenuItem>
-                  <MenuItem value="tertiary">Tertiary</MenuItem>
+                  <MenuItem value="primary">Primary (Blue)</MenuItem>
+                  <MenuItem value="secondary">Secondary (Purple)</MenuItem>
+                  <MenuItem value="tertiary">Tertiary (Orange)</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -342,7 +522,7 @@ export default function GoalsView() {
       </Box>
 
       {/* ── Right: Streak + Completed ─────────────────────── */}
-      <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* Streak card */}
         <Card>
           <CardContent sx={{ p: '20px !important' }}>
@@ -351,14 +531,33 @@ export default function GoalsView() {
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1 }}>
               <Typography sx={{ fontSize: '3rem', fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
-                14
+                {completedCount}
               </Typography>
               <Typography sx={{ fontSize: '2rem' }}>🔥</Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary">Top 5% of users</Typography>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#1a7f4b' }}>+2 today</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {completedCount === 0
+                ? 'Complete your first goal to start your streak!'
+                : `${completedCount} goal${completedCount !== 1 ? 's' : ''} achieved total`}
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* Skills Learned card (derived from learning goals) */}
+        <Card sx={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)' }}>
+          <CardContent sx={{ p: '20px !important' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <SchoolIcon sx={{ color: '#d2bbff', fontSize: 20 }} />
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Skills Learned
+              </Typography>
             </Box>
+            <Typography sx={{ fontSize: '2.5rem', fontWeight: 800, color: 'white', lineHeight: 1 }}>
+              {String(skillsAdded).padStart(2, '0')}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+              from completed learning goals
+            </Typography>
           </CardContent>
         </Card>
 
@@ -367,51 +566,80 @@ export default function GoalsView() {
           <CardContent sx={{ p: '20px !important' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Typography variant="subtitle1" fontWeight={700}>Recently Completed</Typography>
-              <Button variant="text" size="small" sx={{ color: '#004ac6', textTransform: 'none', fontSize: '0.78rem' }}>
-                View Archive
-              </Button>
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-              {COMPLETED_GOALS.map((g) => (
-                <Box
-                  key={g.id}
-                  sx={{
-                    display: 'flex', gap: 1.5, alignItems: 'center',
-                    p: 1.25, borderRadius: 2, border: '1px solid #e2e8f0',
-                    bgcolor: '#f8f9ff',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 36, height: 36, borderRadius: 2,
-                      bgcolor: '#dcfce7', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <CheckCircleIcon sx={{ color: '#1a7f4b', fontSize: 20 }} />
+              {completedLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Box key={i} sx={{ display: 'flex', gap: 1.5, alignItems: 'center', p: 1.25, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 2, flexShrink: 0 }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Skeleton variant="text" width="80%" />
+                      <Skeleton variant="text" width="60%" />
+                    </Box>
                   </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap color="text.primary">
-                      {g.title}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {g.completedAt}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label="Done"
-                    size="small"
-                    sx={{ bgcolor: '#dcfce7', color: '#1a7f4b', fontWeight: 700, fontSize: '0.68rem' }}
-                  />
+                ))
+              ) : (completedGoals ?? []).length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    No completed goals yet. Mark a goal as done to see it here! ✅
+                  </Typography>
                 </Box>
-              ))}
+              ) : (
+                (completedGoals ?? []).slice(0, 5).map((g) => {
+                  const isLearning = g.category === 'learning';
+                  return (
+                    <Box
+                      key={g.id}
+                      sx={{
+                        display: 'flex', gap: 1.5, alignItems: 'center',
+                        p: 1.25, borderRadius: 2, border: '1px solid #e2e8f0',
+                        bgcolor: '#f8f9ff',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 36, height: 36, borderRadius: 2,
+                          bgcolor: isLearning ? '#eaddff' : '#dcfce7',
+                          display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isLearning
+                          ? <SchoolIcon sx={{ color: '#712ae2', fontSize: 18 }} />
+                          : <CheckCircleIcon sx={{ color: '#1a7f4b', fontSize: 18 }} />}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap color="text.primary">
+                          {g.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatCompletedAt(g.completedAt)}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={isLearning ? 'Skill' : 'Done'}
+                        size="small"
+                        sx={{
+                          bgcolor: isLearning ? '#eaddff' : '#dcfce7',
+                          color: isLearning ? '#712ae2' : '#1a7f4b',
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Box>
+                  );
+                })
+              )}
 
               <Divider sx={{ my: 0.5 }} />
               <Box sx={{ textAlign: 'center', py: 1, px: 1.5, borderRadius: 2, border: '1.5px dashed #c3c6d7' }}>
                 <Typography variant="caption" color="text.secondary">
-                  You've reached 12 milestones this month! 🎉
+                  {completedCount > 0
+                    ? `🎉 ${completedCount} milestone${completedCount !== 1 ? 's' : ''} achieved!`
+                    : 'Your completed goals will appear here.'}
                 </Typography>
               </Box>
             </Box>

@@ -12,23 +12,16 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
+import Button from '@mui/material/Button';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import BoltIcon from '@mui/icons-material/Bolt';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BusinessIcon from '@mui/icons-material/Business';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import SendIcon from '@mui/icons-material/Send';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
 import { useApplications } from '@/hooks/useApplications';
-import { useTodos, useCreateTodo, useUpdateTodo, useDeleteTodo } from '@/hooks/useTodos';
 import type { Application } from '@/types/application';
 
 /** Map application statuses to Kanban columns. */
@@ -134,6 +127,11 @@ function KanbanColumn({
   apps: Application[];
   loading: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const showLimit = 4;
+  const hasMore = apps.length > showLimit;
+  const displayedApps = isExpanded ? apps : apps.slice(0, showLimit);
+
   return (
     <Box
       sx={{
@@ -199,72 +197,127 @@ function KanbanColumn({
             </Typography>
           </Box>
         ) : (
-          apps.map((app) => <ApplicationCard key={app.id} app={app} />)
+          <>
+            {displayedApps.map((app) => (
+              <ApplicationCard key={app.id} app={app} />
+            ))}
+            {hasMore && (
+              <Button
+                onClick={() => setIsExpanded(!isExpanded)}
+                variant="text"
+                size="small"
+                fullWidth
+                sx={{
+                  mt: 1,
+                  mb: 1.5,
+                  color: '#004ac6',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderRadius: 2.5,
+                  bgcolor: '#e5eeff',
+                  py: 0.75,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: '#004ac6',
+                    color: '#ffffff',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 4px 12px rgba(0,74,198,0.15)',
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                  },
+                }}
+              >
+                {isExpanded ? 'Show Less' : `View More (${apps.length - showLimit} more)`}
+              </Button>
+            )}
+          </>
         )}
       </Box>
     </Box>
   );
 }
 
-/** Bottom stat cards matching the application tracker design. */
+/** Top stat cards matching the application tracker design. */
 function TrackerStats({ apps }: { apps: Application[] }) {
-  const applied = apps.filter((a) => ['applied', 'applying'].includes(a.status)).length;
-  const interviews = apps.filter((a) => a.status === 'interview').length;
+  const applied = apps.filter((a) => ['applied', 'applying'].includes(a.status.toLowerCase())).length;
+  const interviews = apps.filter((a) => ['interview'].includes(a.status.toLowerCase())).length;
+  const offers = apps.filter((a) => ['offer'].includes(a.status.toLowerCase())).length;
   const responseRate = apps.length > 0 ? Math.round(((applied + interviews) / apps.length) * 100) : 0;
 
+  const cardStyle = {
+    borderRadius: 3,
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 2px 8px rgba(0,74,198,0.04)',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 6px 20px rgba(0,74,198,0.08)',
+    },
+  };
+
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mt: 3 }}>
-      <Card>
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
+      {/* Applied */}
+      <Card sx={cardStyle}>
         <CardContent sx={{ p: '16px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#e5eeff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <TrendingUpIcon sx={{ fontSize: 18, color: '#004ac6' }} />
+            <SendIcon sx={{ fontSize: 18, color: '#004ac6' }} />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">Response Rate</Typography>
-            <Typography variant="h6" fontWeight={800} color="text.primary">{responseRate}%</Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight={500}>Applied</Typography>
+            <Typography variant="h6" fontWeight={800} color="text.primary">{applied}</Typography>
           </Box>
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Interviewing */}
+      <Card sx={cardStyle}>
         <CardContent sx={{ p: '16px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#eaddff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BoltIcon sx={{ fontSize: 18, color: '#712ae2' }} />
+          <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#e5eeff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AccessTimeIcon sx={{ fontSize: 18, color: '#004ac6' }} />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">Active Streak</Typography>
-            <Typography variant="h6" fontWeight={800} color="text.primary">12 Days</Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight={500}>Interviewing</Typography>
+            <Typography variant="h6" fontWeight={800} color="text.primary">{interviews}</Typography>
           </Box>
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Offers Received */}
+      <Card sx={cardStyle}>
         <CardContent sx={{ p: '16px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#ffdbcd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AccessTimeIcon sx={{ fontSize: 18, color: '#943700' }} />
+          <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: '#e5eeff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <EmojiEventsIcon sx={{ fontSize: 18, color: '#004ac6' }} />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">Next Interview</Typography>
-            <Typography variant="h6" fontWeight={800} color="text.primary">
-              {interviews > 0 ? 'Tomorrow' : 'None yet'}
-            </Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight={500}>Offers Received</Typography>
+            <Typography variant="h6" fontWeight={800} color="text.primary">{offers}</Typography>
           </Box>
         </CardContent>
       </Card>
 
+      {/* Response Rate (Gradient) */}
       <Card
         sx={{
-          background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #004ac6 0%, #002d80 100%)',
           border: 'none',
+          boxShadow: '0 4px 12px rgba(0,74,198,0.15)',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 24px rgba(0,74,198,0.25)',
+          },
         }}
       >
         <CardContent sx={{ p: '16px !important', display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BoltIcon sx={{ fontSize: 18, color: '#fff' }} />
+            <TrendingUpIcon sx={{ fontSize: 18, color: '#fff' }} />
           </Box>
           <Box>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>AI Insights</Typography>
-            <Typography variant="h6" fontWeight={800} color="#fff">3 Tips Ready</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>Response Rate</Typography>
+            <Typography variant="h6" fontWeight={800} color="#fff">{responseRate}%</Typography>
           </Box>
         </CardContent>
       </Card>
@@ -275,44 +328,6 @@ function TrackerStats({ apps }: { apps: Application[] }) {
 export default function TrackerView() {
   const { data: page1, isLoading } = useApplications(1, 100);
   const allApps = page1?.items ?? [];
-
-  const { data: todos = [] } = useTodos('todo');
-  const { data: doneTodos = [] } = useTodos('done');
-  const createTodo = useCreateTodo();
-  const completeTodo = useUpdateTodo();
-  const removeTodo = useDeleteTodo();
-
-  const [newTitle, setNewTitle] = useState('');
-  const [newDueDate, setNewDueDate] = useState('');
-  const [newPriority, setNewPriority] = useState<1 | 2 | 3>(2);
-
-  const pendingTodos = todos
-    .slice()
-    .sort((a, b) => b.priority - a.priority);
-  const allTodos = [...pendingTodos, ...doneTodos];
-
-  async function handleAddTodo() {
-    if (!newTitle.trim()) return;
-    await createTodo.mutateAsync({
-      title: newTitle.trim(),
-      due_date: newDueDate || undefined,
-      priority: newPriority,
-    });
-    setNewTitle('');
-    setNewDueDate('');
-    setNewPriority(2);
-  }
-
-  async function handleToggleTodo(todoId: string, isCompleted: boolean) {
-    await completeTodo.mutateAsync({
-      id: todoId,
-      data: { is_completed: isCompleted ? false : true },
-    });
-  }
-
-  async function handleDeleteTodo(todoId: string) {
-    await removeTodo.mutateAsync(todoId);
-  }
 
   // Distribute apps into columns
   const columnApps = COLUMN_CONFIG.map((col) => {
@@ -325,6 +340,9 @@ export default function TrackerView() {
 
   return (
     <Box>
+      {/* Top stats */}
+      <TrackerStats apps={allApps} />
+
       {/* Kanban board */}
       <Box
         sx={{
@@ -334,130 +352,13 @@ export default function TrackerView() {
           pb: 1,
           alignItems: 'flex-start',
           minHeight: 400,
+          mt: 3,
         }}
       >
         {columnApps.map(({ config, apps }) => (
           <KanbanColumn key={config.label} config={config} apps={apps} loading={isLoading} />
         ))}
       </Box>
-
-      {/* Todo List */}
-      <Card sx={{ mt: 3 }}>
-        <CardContent sx={{ p: '20px !important' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography variant="subtitle1" fontWeight={700}>Todo List</Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
-            <TextField
-              label="New Task"
-              placeholder="Add a to-do..."
-              size="small"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              sx={{ flex: 1 }}
-            />
-            <TextField
-              label="Due Date"
-              type="date"
-              size="small"
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 160 }}
-            />
-            <FormControl size="small" sx={{ width: 120 }}>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                value={newPriority}
-                label="Priority"
-                onChange={(e) => setNewPriority(Number(e.target.value) as 1 | 2 | 3)}
-              >
-                <MenuItem value={1}>Low</MenuItem>
-                <MenuItem value={2}>Medium</MenuItem>
-                <MenuItem value={3}>High</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={handleAddTodo}
-              disabled={!newTitle.trim() || createTodo.isPending}
-              sx={{ bgcolor: '#004ac6', '&:hover': { bgcolor: '#003b9e' } }}
-            >
-              Add
-            </Button>
-          </Box>
-
-          {allTodos.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No todos yet. Add one above to stay on track.
-            </Typography>
-          ) : (
-            allTodos.map((todo) => (
-              <Box
-                key={todo.id}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  py: 1,
-                  px: 1.25,
-                  borderRadius: 1,
-                  '&:not(:last-child)': { borderBottom: '1px solid #f1f5f9' },
-                }}
-              >
-                <IconButton
-                  size="small"
-                  onClick={() => handleToggleTodo(todo.id, todo.isCompleted)}
-                  sx={{
-                    color: todo.isCompleted ? '#1a7f4b' : '#c3c6d7',
-                  }}
-                >
-                  <CheckCircleIcon sx={{ fontSize: 20 }} />
-                </IconButton>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 500,
-                      textDecoration: todo.isCompleted ? 'line-through' : 'none',
-                      color: todo.isCompleted ? 'text.disabled' : 'text.primary',
-                    }}
-                  >
-                    {todo.title}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 0.25 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {todo.dueDate ? new Date(todo.dueDate).toLocaleDateString() : 'No due date'}
-                    </Typography>
-                    <Chip
-                      label={todo.priority === 3 ? 'High' : todo.priority === 2 ? 'Medium' : 'Low'}
-                      size="small"
-                      sx={{
-                        height: 18,
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        bgcolor: todo.priority === 3 ? '#fde8e8' : todo.priority === 2 ? '#fff4db' : '#e5eeff',
-                        color: todo.priority === 3 ? '#dc2626' : todo.priority === 2 ? '#b45309' : '#004ac6',
-                      }}
-                    />
-                  </Box>
-                </Box>
-                <IconButton
-                  size="small"
-                  onClick={() => handleDeleteTodo(todo.id)}
-                  sx={{ color: '#737686' }}
-                >
-                  <DeleteIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Box>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Bottom stats */}
-      <TrackerStats apps={allApps} />
     </Box>
   );
 }

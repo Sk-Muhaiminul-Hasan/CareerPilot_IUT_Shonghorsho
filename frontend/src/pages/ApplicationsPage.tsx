@@ -16,10 +16,6 @@ import { useAppStore } from '@/store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 
 const STATUS_TABS = [
-  { label: 'All', value: undefined },
-  { label: 'Pending Review', value: 'pending_review' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Applying', value: 'applying' },
   { label: 'Applied', value: 'applied' },
   { label: 'Interview', value: 'interview' },
   { label: 'Offer', value: 'offer' },

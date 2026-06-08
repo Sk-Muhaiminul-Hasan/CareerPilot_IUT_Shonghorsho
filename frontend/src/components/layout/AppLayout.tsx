@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
@@ -87,27 +88,6 @@ function AppLayout() {
           </Box>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            <IconButton
-              aria-label="Toggle Career Copilot"
-              onClick={toggleCopilotChat}
-              sx={{
-                p: 0.75,
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
-                boxShadow: '0 4px 12px rgba(0, 74, 198, 0.25)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                '&:hover': {
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 16px rgba(113, 42, 226, 0.35)',
-                },
-              }}
-            >
-              <img
-                src="/Auto_using_laptop-removebg-preview.png"
-                alt="Career Copilot"
-                style={{ width: 24, height: 24, objectFit: 'contain' }}
-              />
-            </IconButton>
             {user?.email && (
               <Typography
                 variant="body2"
@@ -170,6 +150,62 @@ function AppLayout() {
 
       {/* Global Career Copilot chat sidebar */}
       <CopilotChat />
+
+      {/* Floating chat toggle — bottom-right, Sider-style */}
+      {!isChatOpen && (
+        <Tooltip title="Career Copilot" placement="left">
+          <Box
+            onClick={toggleCopilotChat}
+            aria-label="Open Career Copilot"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleCopilotChat(); }}
+            sx={{
+              position: 'fixed',
+              bottom: 28,
+              right: 24,
+              zIndex: (theme) => theme.zIndex.drawer + 1,
+              width: 52,
+              height: 52,
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+              boxShadow: '0 6px 20px rgba(0, 74, 198, 0.40)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+              '&:hover': {
+                transform: 'translateY(-3px) scale(1.06)',
+                boxShadow: '0 10px 28px rgba(113, 42, 226, 0.45)',
+              },
+              '&:active': {
+                transform: 'translateY(0) scale(0.97)',
+              },
+              // Pulse ring animation
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: -4,
+                borderRadius: '18px',
+                background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+                opacity: 0.3,
+                animation: 'copilot-pulse 2.4s ease-in-out infinite',
+              },
+              '@keyframes copilot-pulse': {
+                '0%, 100%': { transform: 'scale(1)', opacity: 0.3 },
+                '50%': { transform: 'scale(1.18)', opacity: 0 },
+              },
+            }}
+          >
+            <img
+              src="/Auto_using_laptop-removebg-preview.png"
+              alt="Career Copilot"
+              style={{ width: 28, height: 28, objectFit: 'contain', position: 'relative' }}
+            />
+          </Box>
+        </Tooltip>
+      )}
     </Box>
   );
 }
