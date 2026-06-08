@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+import os
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
@@ -143,6 +144,9 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
         """Allow cors_origins to be parsed from both JSON arrays and comma-separated lists."""
+        allowed_origins = os.getenv("ALLOWED_ORIGINS")
+        if allowed_origins:
+            v = allowed_origins
         if isinstance(v, str):
             v = v.strip()
             if v.startswith("[") and v.endswith("]"):

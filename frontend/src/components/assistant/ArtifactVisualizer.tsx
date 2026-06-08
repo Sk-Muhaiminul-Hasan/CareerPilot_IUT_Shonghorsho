@@ -192,7 +192,7 @@ export function ArtifactVisualizer({ artifact }: { artifact: StoredArtifact }) {
     const text = artifact.content;
     const match = text.match(/\b(\d{1,3})%/i) || text.match(/\bscore:\s*(\d{1,3})/i);
     if (match) {
-      const score = parseInt(match[1], 10);
+      const score = parseInt(match[1] as string, 10);
       if (score >= 0 && score <= 100) return score;
     }
     // Fallback default scores if none found in content
@@ -240,7 +240,7 @@ export function ArtifactVisualizer({ artifact }: { artifact: StoredArtifact }) {
               <Typography variant="overline" sx={{ letterSpacing: 2, color: 'rgba(255,255,255,0.6)', fontWeight: 800, display: 'block' }}>
                 {artifact.type === 'readiness_report' ? 'AUTOMATED READINESS VERDICT' : 'AI SKILL GAP ASSESSMENT'}
               </Typography>
-              <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 900, letterSpacing: -0.5, noWrap: false }}>
+              <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 900, letterSpacing: -0.5 }}>
                 {artifact.title}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.8)', maxWidth: '520px', lineHeight: 1.5 }}>

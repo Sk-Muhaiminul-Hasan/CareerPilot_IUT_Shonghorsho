@@ -55,7 +55,7 @@ function ApplyModal({ open, jobTitle, company, jobUrl, onClose, onConfirm }: App
   useEffect(() => {
     if (open && resumes.length > 0 && !selectedResumeId) {
       const baseResume = resumes.find((r) => r.type === 'base');
-      setSelectedResumeId(baseResume?.id ?? resumes[0].id);
+      setSelectedResumeId(baseResume?.id ?? resumes[0]!.id);
     }
     if (!open) {
       setSelectedMode('review');

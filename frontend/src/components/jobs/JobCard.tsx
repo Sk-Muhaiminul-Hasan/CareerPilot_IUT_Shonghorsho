@@ -9,7 +9,6 @@ import Tooltip from '@mui/material/Tooltip';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import StarIcon from '@mui/icons-material/Star';
-import EventIcon from '@mui/icons-material/Event';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
 import { useChatStore } from '@/store/useChatStore';
@@ -33,17 +32,6 @@ function getWorkTypeChip(workType: string): { label: string; color: 'success' | 
     default:
       return null;
   }
-}
-
-function formatDeadline(iso: string): string {
-  // Backend returns ISO-8601 (e.g. "2026-07-12T00:00:00" or "2026-07-12").
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 function JobCard({ job, onViewDetails, onApply }: JobCardProps) {

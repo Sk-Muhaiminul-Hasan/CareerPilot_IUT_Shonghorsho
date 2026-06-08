@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useContext, createContext, useEffect, useRef } from 'react';
+import { useCallback, useContext, createContext, useEffect } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { JobEnrichedMessage } from '@/types/websocket';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export type SharedWebSocketContextValue = {

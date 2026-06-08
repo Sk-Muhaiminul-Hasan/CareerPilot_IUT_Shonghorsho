@@ -88,7 +88,7 @@ export default function CalendarView() {
 
   function eventsOnDay(date: Date) {
     return events.filter((e) => {
-      const [y, m, d] = e.date.split('-').map(Number);
+      const [y, m, d] = e.date.split('-').map(Number) as [number, number, number];
       return isSameDay(new Date(y, m - 1, d), date);
     });
   }

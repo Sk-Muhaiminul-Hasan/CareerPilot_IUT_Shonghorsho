@@ -19,7 +19,7 @@ interface AppStoreState {
 
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
-  showNotification: (message: string, severity?: Notification['severity']) => void;
+  showNotification: (message: string, severity?: Notification['severity'], autoHideDuration?: number | null) => void;
   clearNotification: () => void;
   setWsConnected: (connected: boolean) => void;
   setFocusedGoalId: (id: string | null) => void;

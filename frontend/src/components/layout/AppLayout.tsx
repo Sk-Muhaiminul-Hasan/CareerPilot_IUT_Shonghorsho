@@ -70,7 +70,28 @@ function AppLayout() {
             <MenuIcon />
           </IconButton>
 
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box
+            onClick={() => navigate('/dashboard')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') navigate('/dashboard');
+            }}
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+                borderRadius: 1,
+              },
+            }}
+          >
             <Box
               sx={{
                 width: 32,

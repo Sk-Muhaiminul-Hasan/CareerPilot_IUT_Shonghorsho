@@ -38,7 +38,6 @@ const EMPTY_PROFILE: CandidateProfile = {
   location: '',
   linkedin_url: '',
   github_url: '',
-  title: '',
   summary: '',
   skills: [],
   experience: [],

@@ -25,7 +25,7 @@ const APPLY_MODE_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<
   string,
-  { color: 'default' | 'warning' | 'info' | 'success' | 'error'; icon: React.ReactElement }
+  { color: 'default' | 'warning' | 'info' | 'success' | 'error'; icon: React.ReactNode }
 > = {
   queued: { color: 'default', icon: <HourglassEmptyIcon fontSize="small" /> },
   pending_review: { color: 'warning', icon: <HourglassEmptyIcon fontSize="small" /> },
@@ -65,20 +65,19 @@ function ApplicationCard({
     icon: <HourglassEmptyIcon fontSize="small" />,
   };
 
-  const displayTitle = application.job_title || application.job_id.slice(0, 8);
-  const displayLabel = application.job_company
-    ? `${displayTitle} @ ${application.job_company}`
-    : displayTitle;
-  const cardDate = formatCardDate(application.created_at);
-
   const handleCardClick = () => {
     if (onClick) onClick(application.id);
   };
 
-  const handleStatusChange = (event: { target: { value: unknown } }) => {
-    const newStatus = event.target.value as string;
+  const handleStatusChange = (event: { target: { value: string } }) => {
+    const newStatus = event.target.value;
     if (onUpdateStatus) onUpdateStatus(application.id, newStatus);
   };
+
+  const displayTitle = application.job_title || application.job_id.slice(0, 8);
+  const displayLabel = application.job_company
+    ? `${displayTitle} @ ${application.job_company}`
+    : displayTitle;
 
   return (
     <Card sx={onClick ? { cursor: 'pointer' } : undefined} onClick={handleCardClick}>
@@ -106,7 +105,7 @@ function ApplicationCard({
           </Box>
 
           <Chip
-            icon={statusConf.icon}
+            icon={statusConf.icon as React.ReactElement}
             label={application.status.charAt(0).toUpperCase() + application.status.slice(1)}
             color={statusConf.color}
             size="small"
@@ -135,13 +134,22 @@ function ApplicationCard({
 
       <CardActions sx={{ px: 2, pb: 2 }}>
         {application.status === 'pending_review' && onApprove && (
-          <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); onApprove(application.id); }}>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={(event) => {
+              event.stopPropagation();
+              onApprove(application.id);
+            }}
+          >
             Approve
           </Button>
         )}
         {onUpdateStatus && (
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id={`status-select-${application.id}`} shrink>Status</InputLabel>
+            <InputLabel id={`status-select-${application.id}`} shrink>
+              Status
+            </InputLabel>
             <Select
               labelId={`status-select-${application.id}`}
               label="Status"

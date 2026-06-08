@@ -49,7 +49,7 @@ function ScheduledSearchesCard() {
   const handleCreate = useCallback(async () => {
     setError(null);
     const trimmedQuery = query.trim();
-    const trimmedLocation = location.trim() || undefined;
+    const trimmedLocation = location.trim() || null;
 
     const payload: ScheduledSearchCreate = {
       query: trimmedQuery,

@@ -15,10 +15,8 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import LogoutIcon from '@mui/icons-material/Logout';
 
 import { useAppStore } from '@/store/useAppStore';
-import { useAuthStore } from '@/store/useAuthStore';
 
 export const DRAWER_WIDTH = 240;
 
@@ -42,12 +40,23 @@ function DrawerContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
-  const logout = useAuthStore((s) => s.logout);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Logo area */}
       <Box
+        onClick={() => {
+          navigate('/dashboard');
+          setSidebarOpen(false);
+        }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            navigate('/dashboard');
+            setSidebarOpen(false);
+          }
+        }}
         sx={{
           px: 2.5,
           py: 2.5,
@@ -55,6 +64,15 @@ function DrawerContent() {
           alignItems: 'center',
           gap: 1.25,
           borderBottom: '1px solid #e2e8f0',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'background-color 0.15s',
+          '&:hover': { backgroundColor: '#f8fafc' },
+          '&:focus-visible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: -2,
+          },
         }}
       >
         <Box
@@ -142,20 +160,6 @@ function DrawerContent() {
           );
         })}
         <Divider sx={{ my: 1 }} />
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => {
-              logout();
-              navigate('/login', { replace: true });
-            }}
-            sx={{ borderRadius: 1 }}
-          >
-            <ListItemIcon sx={{ minWidth: 40 }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Logout" />
-          </ListItemButton>
-        </ListItem>
       </List>
     </Box>
   );

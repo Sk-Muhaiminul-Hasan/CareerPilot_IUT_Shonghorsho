@@ -10,7 +10,7 @@ export function useTodos(status?: string, goalId?: string) {
   });
 }
 
-export function useCreateTodo(status?: string, goalId?: string) {
+export function useCreateTodo(_status?: string, goalId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { title: string; due_date?: string; priority?: 1 | 2 | 3 }) =>
@@ -22,7 +22,7 @@ export function useCreateTodo(status?: string, goalId?: string) {
   });
 }
 
-export function useUpdateTodo(status?: string, goalId?: string) {
+export function useUpdateTodo(_status?: string, _goalId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: { is_completed?: boolean } }) =>
@@ -34,7 +34,7 @@ export function useUpdateTodo(status?: string, goalId?: string) {
   });
 }
 
-export function useDeleteTodo(status?: string, goalId?: string) {
+export function useDeleteTodo(_status?: string, _goalId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => todoService.deleteTodo(id),
