@@ -3,6 +3,7 @@
 import io
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import httpx
 import structlog
@@ -209,7 +210,40 @@ async def download_resume(
 
     storage_path = resume.file_path_pdf if format == "pdf" else resume.file_path_docx
     if not storage_path:
-        raise HTTPException(status_code=404, detail="Resume file not found")
+        logger.info("resume_file_not_found_triggering_dynamic_generation", resume_id=resume_id, format=format)
+        from app.core.documents.generator import DocumentGenerator
+        from app.services.resume import _build_resume_data_from_text
+        
+        resume_data = _build_resume_data_from_text(resume.content_text or "")
+        resume_data["user_id"] = user_id
+        
+        generator = DocumentGenerator(
+            llm_client=None,
+            upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
+                bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
+            ),
+        )
+        
+        doc = await generator.generate_resume(
+            resume_data=resume_data,
+            job_description="",
+            template_name=resume.template_id or "modern",
+            formats=[format],
+        )
+        
+        if format == "pdf" and doc.pdf_path:
+            resume.file_path_pdf = doc.pdf_path
+            storage_path = doc.pdf_path
+        elif format == "docx" and doc.docx_path:
+            resume.file_path_docx = doc.docx_path
+            storage_path = doc.docx_path
+            
+        if storage_path:
+            await db.commit()
+            await db.refresh(resume)
+            logger.info("resume_file_generated_and_saved", resume_id=resume_id, format=format, path=storage_path)
+        else:
+            raise HTTPException(status_code=404, detail="Failed to dynamically generate resume file")
 
     bucket = "generated" if resume.type in ("tailored", "optimized") else "resumes"
     signed_url = await storage_client.get_signed_url(bucket, storage_path)
@@ -351,3 +385,82 @@ async def extract_profile_from_resume(
         skills=skills,
         certifications=certifications,
     )
+
+
+@router.get(
+    "/templates",
+    summary="List available resume templates",
+)
+async def list_resume_templates() -> list[dict[str, Any]]:
+    """List all available resume templates (default and user-uploaded)."""
+    templates_dir = Path("templates/resume")
+    if not templates_dir.exists():
+        return []
+    
+    results = []
+    for path in templates_dir.iterdir():
+        if path.is_dir():
+            name = path.name
+            formats = []
+            if (path / "template.html").exists():
+                formats.append("html")
+            if (path / "template.md").exists():
+                formats.append("md")
+            if (path / "template.docx").exists():
+                formats.append("docx")
+            
+            results.append({
+                "id": name,
+                "name": name.replace("_", " ").title(),
+                "formats": formats or ["html"],
+            })
+    return results
+
+
+@router.post(
+    "/templates/upload",
+    summary="Upload a custom resume template",
+)
+async def upload_resume_template(
+    name: str,
+    file: UploadFile,
+) -> dict[str, Any]:
+    """Upload a custom resume template (.html, .md, or .docx) and register it."""
+    base_dir = Path("templates/resume")
+    base_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Slugify the name to prevent directory traversal or invalid characters
+    import re
+    slug_name = re.sub(r"[^a-zA-Z0-9_-]+", "_", name.lower()).strip("_")
+    if not slug_name:
+        raise HTTPException(status_code=400, detail="Invalid template name")
+        
+    template_dir = base_dir / slug_name
+    template_dir.mkdir(parents=True, exist_ok=True)
+    
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix in (".html", ".htm"):
+        target_name = "template.html"
+    elif suffix in (".md", ".markdown"):
+        target_name = "template.md"
+    elif suffix == ".docx":
+        target_name = "template.docx"
+    elif suffix in (".css",):
+        target_name = "style.css"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported template file extension. Must be .html, .md, or .docx"
+        )
+        
+    target_path = template_dir / target_name
+    content = await file.read()
+    with open(target_path, "wb") as f:
+        f.write(content)
+        
+    return {
+        "status": "success",
+        "template_id": slug_name,
+        "filename": target_name,
+        "message": f"Successfully uploaded template '{name}' as '{slug_name}'"
+    }

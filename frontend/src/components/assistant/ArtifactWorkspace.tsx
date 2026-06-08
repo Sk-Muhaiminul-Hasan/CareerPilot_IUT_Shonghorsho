@@ -15,10 +15,14 @@ import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveIcon from '@mui/icons-material/Save';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { ArtifactVisualizer } from './ArtifactVisualizer';
 import type { StoredArtifact } from '@/store/useArtifactStore';
-import { downloadArtifact } from '@/utils/artifactFiles';
+import { downloadArtifact, downloadArtifactAsPdf } from '@/utils/artifactFiles';
+import { updateResumeContent } from '@/services/resumeService';
+import { useAppStore } from '@/store/useAppStore';
 
 interface ArtifactWorkspaceProps {
   artifact: StoredArtifact;
@@ -39,6 +43,7 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
 }) => {
   const [draft, setDraft] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Sync draft when artifact content changes (e.g. on load or regeneration)
   useEffect(() => {
@@ -50,9 +55,24 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
     await navigator.clipboard.writeText(artifact.content);
   };
 
-  const handleSave = () => {
-    onUpdateArtifact(artifact.id, draft);
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      onUpdateArtifact(artifact.id, draft);
+      const resumeId = artifact.data?.resume_id as string | undefined;
+      if (resumeId) {
+        await updateResumeContent(resumeId, { content_text: draft });
+        useAppStore.getState().showNotification('Resume content successfully synced to Resume Section!', 'success');
+      } else {
+        useAppStore.getState().showNotification('Artifact saved successfully!', 'success');
+      }
+    } catch (err: any) {
+      console.error('Failed to sync edited resume back to Resume section:', err);
+      useAppStore.getState().showNotification('Successfully updated workspace copy, but failed to sync to database.', 'warning');
+    } finally {
+      setIsSaving(false);
+      setIsEditing(false);
+    }
   };
 
   const handleDelete = () => {
@@ -96,9 +116,14 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
               <ContentCopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Download file">
+          <Tooltip title="Download original format">
             <IconButton size="small" onClick={() => downloadArtifact(artifact)}>
               <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Download as PDF">
+            <IconButton size="small" onClick={() => downloadArtifactAsPdf(artifact)}>
+              <PictureAsPdfIcon fontSize="small" style={{ color: '#d32f2f' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Regenerate with AI">
@@ -115,11 +140,12 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
             <Button
               size="small"
               variant="contained"
-              startIcon={<SaveIcon />}
+              startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
               onClick={handleSave}
+              disabled={isSaving}
               sx={{ ml: 1, borderRadius: 2 }}
             >
-              Save
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           ) : (
             <Button

@@ -171,6 +171,40 @@ async def process_chat_query(
         }
 
     answer, artifacts = prepare_assistant_output(intent, raw_answer, normalized_query)
+
+    # Automatically save generated resume/CV artifacts to the Resume database table
+    from app.models.resume import Resume
+    for artifact in artifacts:
+        is_resume_art = (
+            artifact.get("type") in ("resume", "tailored_resume")
+            or "resume" in str(artifact.get("title", "")).lower()
+            or "cv" in str(artifact.get("title", "")).lower()
+            or "resume" in str(artifact.get("filename", "")).lower()
+            or "cv" in str(artifact.get("filename", "")).lower()
+        )
+        if is_resume_art and not artifact.get("data", {}).get("resume_id"):
+            try:
+                base_id = resume_id or (cv.resume_id if cv else None)
+                tailored = Resume(
+                    name=artifact.get("title") or f"Tailored - {cv.resume_name if cv else 'Resume'}",
+                    type="tailored",
+                    base_resume_id=base_id,
+                    job_id=job_id,
+                    template_id="modern",  # default
+                    content_text=artifact.get("content", ""),
+                    user_id=user_id or "default_user",
+                )
+                db.add(tailored)
+                await db.commit()
+                await db.refresh(tailored)
+                
+                if "data" not in artifact or artifact["data"] is None:
+                    artifact["data"] = {}
+                artifact["data"]["resume_id"] = str(tailored.id)
+                logger.info("saved_chat_resume_to_db", resume_id=str(tailored.id))
+            except Exception as e:
+                logger.error("failed_to_save_chat_resume_to_db", error=str(e))
+
     return {
         "answer": answer,
         "intent": intent.value,

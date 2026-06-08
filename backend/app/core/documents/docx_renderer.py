@@ -89,6 +89,24 @@ class DOCXRenderer:
         """Synchronous DOCX generation for resumes."""
         from docx import Document
         from docx.shared import Pt
+        from docxtpl import DocxTemplate
+
+        # If a custom docxtpl template exists, use it!
+        docx_template_file = Path("templates") / "resume" / template_name / "template.docx"
+        if docx_template_file.exists():
+            try:
+                doc = DocxTemplate(str(docx_template_file))
+                doc.render(context)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                doc.save(str(output_path))
+                logger.info(
+                    "docx_template_rendered",
+                    template=template_name,
+                    output=str(output_path),
+                )
+                return output_path
+            except Exception as exc:
+                logger.warning("docx_template_render_failed_falling_back", error=str(exc))
 
         try:
             doc = Document()

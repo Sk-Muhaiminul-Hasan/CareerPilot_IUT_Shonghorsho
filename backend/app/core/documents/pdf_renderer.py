@@ -104,15 +104,33 @@ class PDFRenderer:
             )
 
         html_file = template_dir / "template.html"
-        if not html_file.exists():
+        md_file = template_dir / "template.md"
+
+        if html_file.exists():
+            env = Environment(loader=FileSystemLoader(str(template_dir)))
+            template = env.get_template("template.html")
+            html_content = template.render(**context)
+        elif md_file.exists():
+            import markdown
+            env = Environment(loader=FileSystemLoader(str(template_dir)))
+            template = env.get_template("template.md")
+            md_content = template.render(**context)
+            html_body = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Resume</title>
+</head>
+<body>
+{html_body}
+</body>
+</html>"""
+        else:
             raise TemplateError(
                 template_name,
-                f"template.html not found in {template_dir}",
+                f"No template.html or template.md found in {template_dir}",
             )
-
-        env = Environment(loader=FileSystemLoader(str(template_dir)))
-        template = env.get_template("template.html")
-        html_content = template.render(**context)
 
         # Load template CSS if present
         css_path = template_dir / "style.css"
