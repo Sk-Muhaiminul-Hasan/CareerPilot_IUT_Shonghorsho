@@ -58,6 +58,7 @@ def test_classify_intent_examples() -> None:
 async def test_process_chat_query_returns_grounded_response(db_session) -> None:
     response = await process_chat_query(
         db=db_session,
+        user_id="test_user",
         query="Am I ready for this data engineer role?",
         job_description="Need Python, SQL, Spark, and Airflow.",
         rag_service=FakeRAGService(_context()),  # type: ignore[arg-type]
@@ -73,6 +74,7 @@ async def test_process_chat_query_returns_grounded_response(db_session) -> None:
 async def test_process_chat_query_asks_for_resume_when_missing(db_session) -> None:
     response = await process_chat_query(
         db=db_session,
+        user_id="test_user",
         query="Build me a 3-month roadmap",
         rag_service=FakeRAGService(None),  # type: ignore[arg-type]
         llm_client=FakeLLMClient(),  # type: ignore[arg-type]
@@ -85,6 +87,7 @@ async def test_process_chat_query_asks_for_resume_when_missing(db_session) -> No
 async def test_process_chat_query_asks_for_jd_when_required(db_session) -> None:
     response = await process_chat_query(
         db=db_session,
+        user_id="test_user",
         query="Draft a cover letter for this job posting",
         rag_service=FakeRAGService(_context()),  # type: ignore[arg-type]
         llm_client=FakeLLMClient(),  # type: ignore[arg-type]

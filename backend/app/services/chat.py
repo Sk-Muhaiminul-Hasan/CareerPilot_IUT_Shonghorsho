@@ -32,8 +32,8 @@ MISSING_CV_MESSAGE = "Please upload your CV first in the Resume section."
 async def process_chat_query(
     *,
     db: AsyncSession,
+    user_id: str,
     query: str,
-    user_id: str = "default_user",
     resume_id: str | None = None,
     job_id: str | None = None,
     job_description: str | None = None,
@@ -135,8 +135,8 @@ async def process_chat_query(
 
 async def generate_assistant_stream(
     db: AsyncSession,
+    user_id: str,
     message: str,
-    user_id: str = "default_user",
     job_id: str | None = None,
     profile_id: str | None = None,
     job_description: str | None = None,
