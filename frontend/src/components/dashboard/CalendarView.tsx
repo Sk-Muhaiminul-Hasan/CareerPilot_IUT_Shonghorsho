@@ -25,10 +25,12 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 
 import type { CalendarEvent } from '@/types/dashboard';
-import { useCalendarEvents } from '@/hooks/useDashboard';
+// ✅ MERGED: CALENDAR_KEY from wasi-not-final + updateCalendarEvent/deleteCalendarEvent
+//    from home_page_with_auth (needed for toggle complete + delete buttons)
+//    Removed local DASHBOARD_KEY constant — use imported CALENDAR_KEY everywhere
+import { useCalendarEvents, CALENDAR_KEY } from '@/hooks/useDashboard';
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/services/dashboardService';
 
-const DASHBOARD_KEY = ['dashboard'] as const;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -48,8 +50,6 @@ const EVENT_CHIP_COLOR: Record<CalendarEvent['type'], { bg: string; color: strin
   session: { bg: '#e5eeff', color: '#004ac6' },
   task: { bg: '#dcfce7', color: '#1a7f4b' },
 };
-
-
 
 /** Build a 6-row × 7-col calendar grid for the given month/year. */
 function buildCalendarGrid(year: number, month: number): (Date | null)[][] {
@@ -82,13 +82,15 @@ export default function CalendarView() {
   const queryClient = useQueryClient();
   const { data: events = [] } = useCalendarEvents();
 
-  // Priority for Quick Add
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Normal'>('Normal');
 
   const grid = buildCalendarGrid(viewYear, viewMonth);
 
   function eventsOnDay(date: Date) {
-    return events.filter((e) => isSameDay(new Date(e.date), date));
+    return events.filter((e) => {
+      const [y, m, d] = e.date.split('-').map(Number);
+      return isSameDay(new Date(y, m - 1, d), date);
+    });
   }
 
   function prevMonth() {
@@ -108,8 +110,10 @@ export default function CalendarView() {
       eventDate.setHours(12, 0, 0, 0);
       await createCalendarEvent(quickAdd.trim(), eventDate, priority);
       setQuickAdd('');
+      // ✅ MERGED: kept setPriority reset from home_page_with_auth
+      //           + CALENDAR_KEY from wasi-not-final (replaces stale DASHBOARD_KEY)
       setPriority('Normal');
-      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     } catch {
       // error already logged in service
     } finally {
@@ -120,7 +124,8 @@ export default function CalendarView() {
   async function handleToggleComplete(eventId: string, isCompleted: boolean) {
     try {
       await updateCalendarEvent(eventId, { is_completed: isCompleted });
-      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+      // ✅ FIXED: was [...DASHBOARD_KEY, 'events'] — now uses CALENDAR_KEY
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     } catch (error) {
       console.error('Failed to toggle completion:', error);
     }
@@ -129,7 +134,8 @@ export default function CalendarView() {
   async function handleDeleteEvent(eventId: string) {
     try {
       await deleteCalendarEvent(eventId);
-      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+      // ✅ FIXED: was [...DASHBOARD_KEY, 'events'] — now uses CALENDAR_KEY
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     } catch (error) {
       console.error('Failed to delete event:', error);
     }
@@ -455,7 +461,7 @@ export default function CalendarView() {
           </CardContent>
         </Card>
 
-        {/* Today's events count from main events list */}
+        {/* Today's events count */}
         {todayEvents.length > 0 && (
           <Card>
             <CardContent sx={{ p: '16px !important' }}>

@@ -7,6 +7,22 @@
 import type { Goal, CalendarEvent, WeeklyProgress } from '@/types/dashboard';
 import api from './api';
 
+export function toLocalMidnight(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+export function toDateStringFromBackend(datetimeStr: string | null | undefined): string {
+  if (!datetimeStr) return '';
+  const dateObj = new Date(datetimeStr);
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+}
+
 /** Fetch the user's active career goals. */
 export async function getGoals(): Promise<Goal[]> {
   try {
@@ -19,6 +35,7 @@ export async function getGoals(): Promise<Goal[]> {
       dueLabel: backendGoal.due_label || 'Ongoing',
       dueDate: backendGoal.due_date || null,
       colorVariant: backendGoal.color_variant,
+      // ✅ KEPT from home_page_with_auth — proper TS cast + all required fields
       priority: (backendGoal.priority as Goal['priority']) || 'Medium',
       status: backendGoal.status ?? 'active',
       category: backendGoal.category ?? 'other',
@@ -59,10 +76,10 @@ export async function getCalendarEvents(): Promise<CalendarEvent[]> {
   try {
     const { data } = await api.get<{ items: any[] }>('/calendar/');
     return data.items.map((backendEvent) => {
-      const dateObj = new Date(backendEvent.event_date);
-      const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+      const dateStr = toDateStringFromBackend(backendEvent.event_date);
 
       let timeStr: string | undefined = undefined;
+      const dateObj = new Date(backendEvent.event_date);
       if (!backendEvent.all_day) {
         timeStr = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       }
@@ -87,11 +104,8 @@ export async function getCalendarEvents(): Promise<CalendarEvent[]> {
 export async function getWeeklyProgress(): Promise<WeeklyProgress> {
   try {
     const completed = await getCompletedGoals();
-    // Skills added = completed learning-category goals
     const skillsAdded = completed.filter((g) => g.category === 'learning').length;
-    // Streak = total completed goals (each completion counts as a day of progress)
     const streakDays = completed.length;
-    // Roadmap: percentage of goals completed out of all goals (active + completed)
     const activeData = await api.get<{ total: number }>('/goals/?status=active');
     const totalGoals = (activeData.data?.total ?? 0) + completed.length;
     const roadmapPercent = totalGoals > 0 ? Math.round((completed.length / totalGoals) * 100) : 0;
@@ -107,14 +121,13 @@ export async function createCalendarEvent(title: string, eventDate: Date, descri
   try {
     const payload = {
       title,
-      event_date: eventDate.toISOString(),
+      event_date: toLocalMidnight(eventDate),
       event_type: 'task',
       all_day: true,
       description: description || undefined,
     };
     const { data } = await api.post('/calendar/', payload);
-    const dateObj = new Date(data.event_date);
-    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    const dateStr = toDateStringFromBackend(data.event_date);
     return {
       id: data.id,
       title: data.title,
@@ -195,7 +208,6 @@ export async function createGoal(data: {
       category: resp.category ?? 'other',
       completedAt: resp.completed_at || null,
     };
-
   } catch (error) {
     console.error('Failed to create goal:', error);
     return null;
@@ -257,4 +269,3 @@ export async function deleteGoalById(id: string): Promise<boolean> {
     return false;
   }
 }
-

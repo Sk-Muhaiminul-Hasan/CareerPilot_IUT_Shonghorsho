@@ -40,10 +40,10 @@ import SchoolIcon from '@mui/icons-material/School';
 import MapIcon from '@mui/icons-material/Map';
 
 import type { Goal } from '@/types/dashboard';
-import { useGoals, useCompletedGoals } from '@/hooks/useDashboard';
+// ✅ MERGED: useCompletedGoals from home_page_with_auth + CALENDAR_KEY/GOALS_KEY from wasi-not-final
+import { useGoals, useCompletedGoals, CALENDAR_KEY, GOALS_KEY } from '@/hooks/useDashboard';
+// ✅ MERGED: completeGoal + deleteGoalById from home_page_with_auth (needed for buttons)
 import { createGoal, updateGoal, completeGoal, deleteGoalById } from '@/services/dashboardService';
-
-const DASHBOARD_KEY = ['dashboard'] as const;
 
 /** Gradient colors per goal variant. */
 const BAR_GRADIENT: Record<Goal['colorVariant'], string> = {
@@ -243,10 +243,11 @@ export default function GoalsView() {
   const roadmapPercent = totalGoals > 0 ? Math.round((completedCount / totalGoals) * 100) : 0;
   const skillsAdded = (completedGoals ?? []).filter((g) => g.category === 'learning').length;
 
+  // ✅ MERGED: invalidate() from home_page_with_auth for goals/completed/weekly-progress
+  // + CALENDAR_KEY from wasi-not-final so calendar also refreshes
   async function invalidate() {
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals'] });
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'goals-completed'] });
-    await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'weekly-progress'] });
+    await queryClient.invalidateQueries({ queryKey: GOALS_KEY });
+    await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
   }
 
   async function handleSubmitGoal() {
@@ -272,6 +273,7 @@ export default function GoalsView() {
     setColorVariant('primary');
     setDueDate('');
     setPriority('Medium');
+    // ✅ MERGED: invalidates goals + calendar in one call
     await invalidate();
     setIsSubmitting(false);
   }
@@ -543,7 +545,7 @@ export default function GoalsView() {
           </CardContent>
         </Card>
 
-        {/* Skills Learned card (derived from learning goals) */}
+        {/* Skills Learned card */}
         <Card sx={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)' }}>
           <CardContent sx={{ p: '20px !important' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>

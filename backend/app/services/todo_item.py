@@ -40,9 +40,11 @@ async def create_todo(data: TodoItemCreate, user_id: str | None = None) -> TodoI
         return TodoItemResponse.model_validate(record)
 
 
-async def get_todo(todo_id: str) -> TodoItemResponse:
+async def get_todo(todo_id: str, user_id: str) -> TodoItemResponse:
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        result = await db.execute(
+            select(TodoItem).where(TodoItem.id == todo_id, TodoItem.user_id == user_id)
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)
@@ -50,19 +52,20 @@ async def get_todo(todo_id: str) -> TodoItemResponse:
 
 
 async def list_todos(
+    user_id: str,
     page: int = 1,
     page_size: int = 20,
     status: str | None = None,
     goal_id: str | None = None,
 ) -> TodoItemListResponse:
     async with AsyncSessionLocal() as db:
-        query = select(TodoItem)
+        query = select(TodoItem).where(TodoItem.user_id == user_id)
         if status:
             query = query.where(TodoItem.status == status)
         if goal_id:
             query = query.where(TodoItem.goal_id == goal_id)
 
-        count_q = select(TodoItem.id)
+        count_q = select(TodoItem.id).where(TodoItem.user_id == user_id)
         if status:
             count_q = count_q.where(TodoItem.status == status)
         if goal_id:
@@ -88,10 +91,13 @@ async def list_todos(
 
 async def update_todo(
     todo_id: str,
+    user_id: str,
     data: TodoItemUpdate,
 ) -> TodoItemResponse:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        result = await db.execute(
+            select(TodoItem).where(TodoItem.id == todo_id, TodoItem.user_id == user_id)
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)
@@ -124,9 +130,11 @@ async def update_todo(
         return TodoItemResponse.model_validate(record)
 
 
-async def delete_todo(todo_id: str) -> None:
+async def delete_todo(todo_id: str, user_id: str) -> None:
     async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        result = await db.execute(
+            select(TodoItem).where(TodoItem.id == todo_id, TodoItem.user_id == user_id)
+        )
         record = result.scalar_one_or_none()
         if not record:
             raise RecordNotFoundError("TodoItem", todo_id)
