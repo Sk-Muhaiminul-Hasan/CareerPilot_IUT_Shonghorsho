@@ -69,6 +69,16 @@ export async function listResumes(): Promise<ResumeListResponse> {
   return data;
 }
 
+/** Upload a raw resume file. */
+export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await api.post<ResumeUploadResponse>('/resumes/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 /** Generate a job-tailored resume from a base resume. */
 export async function generateResume(request: ResumeGenerateRequest): Promise<Resume> {
   const { data } = await api.post<Resume>('/resumes/generate', request);
