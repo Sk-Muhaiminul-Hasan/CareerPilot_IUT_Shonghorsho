@@ -12,6 +12,33 @@ export function useResumes() {
   });
 }
 
+/** Fetch only user-uploaded base resumes. */
+export function useUploadedResumes() {
+  return useQuery({
+    queryKey: [...RESUMES_KEY, 'uploaded'],
+    queryFn: () => resumeService.listUploadedResumes(),
+  });
+}
+
+/** Fetch only tailored resumes. */
+export function useTailoredResumes() {
+  return useQuery({
+    queryKey: [...RESUMES_KEY, 'tailored'],
+    queryFn: () => resumeService.listTailoredResumes(),
+  });
+}
+
+/** Delete a resume by ID. */
+export function useDeleteResume() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (resumeId: string) => resumeService.deleteResume(resumeId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: RESUMES_KEY });
+    },
+  });
+}
+
 /** Fetch parsed text for one resume. */
 export function useResumeContent(resumeId: string | null) {
   return useQuery({
@@ -74,3 +101,42 @@ export function useUpdateResumeContent() {
     },
   });
 }
+
+/** Create a new resume version from text. */
+export function useCreateResumeFromText() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: {
+      name: string;
+      type?: string;
+      template_id?: string;
+      content_text: string;
+    }) => resumeService.createResumeFromText(request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: RESUMES_KEY });
+    },
+  });
+}
+
+/** Fetch raw resume text and metadata. */
+export function useResumeRaw(resumeId: string | null) {
+  return useQuery({
+    queryKey: [...RESUMES_KEY, 'raw', resumeId],
+    queryFn: () => resumeService.getResumeRaw(resumeId ?? ''),
+    enabled: Boolean(resumeId),
+  });
+}
+
+/** Update raw resume text. */
+export function useUpdateResumeRaw() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ resumeId, rawText }: { resumeId: string; rawText: string }) =>
+      resumeService.updateResumeRaw(resumeId, rawText),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: RESUMES_KEY });
+      void queryClient.invalidateQueries({ queryKey: [...RESUMES_KEY, 'raw', data.id] });
+    },
+  });
+}
+

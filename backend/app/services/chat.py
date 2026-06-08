@@ -100,7 +100,13 @@ async def process_chat_query(
         }
 
     # Always retrieve query-specific chunks on every message using the cached base_cv
-    if intent == AssistantIntent.COVER_LETTER:
+    # For cover letters or resume/CV tailoring/generation requests, use the full CV text so that the LLM has all sections available
+    is_tailor_or_generate = (
+        intent == AssistantIntent.COVER_LETTER
+        or any(term in normalized_query.lower() for term in ("tailor", "generate", "create", "draft", "modify"))
+        and any(term in normalized_query.lower() for term in ("resume", "cv", "cover letter", "coverletter"))
+    )
+    if is_tailor_or_generate:
         cv = base_cv
     else:
         cv = await rag.retrieve_relevant_chunks(
@@ -164,27 +170,42 @@ async def process_chat_query(
 
     answer, artifacts = prepare_assistant_output(intent, raw_answer, normalized_query)
 
-    # Automatically save generated resume/CV artifacts to the Resume database table
+    # Automatically save generated resume/CV or cover letter artifacts to the Resume database table
     from app.models.resume import Resume
     for artifact in artifacts:
+        art_type = artifact.get("type")
+        art_title = str(artifact.get("title", "")).lower()
+        art_filename = str(artifact.get("filename", "")).lower()
+
         is_resume_art = (
-            artifact.get("type") in ("resume", "tailored_resume")
-            or "resume" in str(artifact.get("title", "")).lower()
-            or "cv" in str(artifact.get("title", "")).lower()
-            or "resume" in str(artifact.get("filename", "")).lower()
-            or "cv" in str(artifact.get("filename", "")).lower()
+            art_type in ("resume", "tailored_resume")
+            or "resume" in art_title
+            or "cv" in art_title
+            or "resume" in art_filename
+            or "cv" in art_filename
         )
-        if is_resume_art and not artifact.get("data", {}).get("resume_id"):
+        is_cover_letter_art = (
+            art_type == "cover_letter"
+            or "cover letter" in art_title
+            or "coverletter" in art_title
+            or "cover_letter" in art_filename
+            or "coverletter" in art_filename
+        )
+
+        if (is_resume_art or is_cover_letter_art) and not artifact.get("data", {}).get("resume_id"):
             try:
                 base_id = resume_id or (cv.resume_id if cv else None)
+                db_type = "cover_letter" if is_cover_letter_art else "tailored"
+                name_prefix = "Cover Letter" if is_cover_letter_art else "Tailored"
+
                 tailored = Resume(
-                    name=artifact.get("title") or f"Tailored - {cv.resume_name if cv else 'Resume'}",
-                    type="tailored",
+                    name=artifact.get("title") or f"{name_prefix} - {cv.resume_name if cv else 'Resume'}",
+                    type=db_type,
                     base_resume_id=base_id,
                     job_id=job_id,
                     template_id="modern",
                     content_text=artifact.get("content", ""),
-                    user_id=user_id,  # ✅ FIXED: removed "default_user" fallback
+                    user_id=user_id,
                 )
                 db.add(tailored)
                 await db.commit()
@@ -193,9 +214,9 @@ async def process_chat_query(
                 if "data" not in artifact or artifact["data"] is None:
                     artifact["data"] = {}
                 artifact["data"]["resume_id"] = str(tailored.id)
-                logger.info("saved_chat_resume_to_db", resume_id=str(tailored.id))
+                logger.info("saved_chat_doc_to_db", resume_id=str(tailored.id), doc_type=db_type)
             except Exception as e:
-                logger.error("failed_to_save_chat_resume_to_db", error=str(e))
+                logger.error("failed_to_save_chat_doc_to_db", error=str(e))
 
     return {
         "answer": answer,

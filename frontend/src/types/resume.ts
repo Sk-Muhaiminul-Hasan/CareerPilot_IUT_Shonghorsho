@@ -71,3 +71,16 @@ export interface ResumeListResponse {
   items: Resume[];
   total: number;
 }
+
+export interface ResumeRawResponse {
+  id: string;
+  raw_text: string;
+  filename: string;
+  created_at: string;
+  versions: any[];
+}
+
+export interface ResumeRawUpdateRequest {
+  raw_text: string;
+}
+

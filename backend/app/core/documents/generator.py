@@ -47,6 +47,7 @@ class GeneratedDocument(BaseModel):
     pdf_path: str | None = None
     docx_path: str | None = None
     tailored_data: dict[str, Any] | None = None
+    content_text: str | None = None
 
 
 class DocumentGenerator:
@@ -207,6 +208,7 @@ class DocumentGenerator:
         return GeneratedDocument(
             document_id=doc_id, type="cover_letter", template=template.value,
             pdf_path=pdf_path, docx_path=docx_path,
+            content_text=content,
         )
 
     async def _upload_generated(

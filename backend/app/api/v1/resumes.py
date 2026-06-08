@@ -9,9 +9,11 @@ import httpx
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
+from app.models.resume import Resume
 from app.core.exceptions import RecordNotFoundError
 from app.core.llm.client import LLMNotConfiguredError
 from app.core.storage import storage as storage_client
@@ -39,6 +41,75 @@ ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+
+class ResumeCreateRequest(BaseModel):
+    name: str
+    type: str = "base"
+    template_id: str = "modern"
+    content_text: str
+
+
+class ResumeRawResponse(BaseModel):
+    id: str
+    raw_text: str
+    filename: str
+    created_at: str
+    versions: list[dict[str, Any]] = []
+
+
+class ResumeRawUpdateRequest(BaseModel):
+    raw_text: str
+
+
+@router.post(
+    "/",
+    response_model=ResumeResponse,
+    status_code=201,
+    summary="Create a new resume version from text",
+)
+async def create_resume_from_text(
+    request: ResumeCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> ResumeResponse:
+    """Create a new resume from text (e.g., when saving an edited version)."""
+    # Parse the content text to build initial metadata if needed
+    from app.core.documents.generator import DocumentGenerator
+    from app.services.resume import _build_resume_data_from_text
+    
+    resume_data = _build_resume_data_from_text(request.content_text)
+    resume_data["user_id"] = user_id
+    
+    # Generate files on-the-fly for this new resume
+    generator = DocumentGenerator(
+        llm_client=None,
+        upload_file=lambda bucket, path, file_bytes, content_type: storage_client.upload_file(
+            bucket=bucket, path=path, file_bytes=file_bytes, content_type=content_type,
+        ),
+    )
+    
+    doc = await generator.generate_resume(
+        resume_data=resume_data,
+        job_description="",
+        template_name=request.template_id,
+        formats=["pdf", "docx"],
+    )
+    
+    new_resume = Resume(
+        name=request.name,
+        type=request.type,
+        template_id=request.template_id,
+        file_path_pdf=doc.pdf_path,
+        file_path_docx=doc.docx_path,
+        content_text=request.content_text,
+        user_id=user_id,
+    )
+    db.add(new_resume)
+    await db.commit()
+    await db.refresh(new_resume)
+    
+    return ResumeResponse.model_validate(new_resume)
+
 
 MIME_PDF = "application/pdf"
 MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -98,6 +169,36 @@ async def list_resumes(
 
 
 @router.get(
+    "/uploaded",
+    response_model=ResumeListResponse,
+    summary="List all uploaded base resumes",
+)
+async def list_uploaded_resumes(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> ResumeListResponse:
+    """List all user-uploaded base resumes."""
+    all_resumes = await resume_service.list_resumes(db, user_id)
+    filtered = [r for r in all_resumes.items if r.type == "base"]
+    return ResumeListResponse(items=filtered, total=len(filtered))
+
+
+@router.get(
+    "/tailored",
+    response_model=ResumeListResponse,
+    summary="List all tailored and optimized resumes",
+)
+async def list_tailored_resumes(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> ResumeListResponse:
+    """List all AI-generated tailored and optimized resumes."""
+    all_resumes = await resume_service.list_resumes(db, user_id)
+    filtered = [r for r in all_resumes.items if r.type in ("tailored", "optimized", "cover_letter")]
+    return ResumeListResponse(items=filtered, total=len(filtered))
+
+
+@router.get(
     "/{resume_id}/content",
     response_model=ResumeContentResponse,
     summary="Get parsed resume text",
@@ -128,6 +229,11 @@ async def update_resume_content(
     """Update parsed resume text until Pillar 2 owns richer editing."""
     resume = await resume_service.get_resume(db, resume_id)
     resume.content_text = request.content_text
+    
+    # Reset compiled files so they get regenerated on download with new text
+    resume.file_path_pdf = None
+    resume.file_path_docx = None
+    
     await db.commit()
     await db.refresh(resume)
     clear_session_cv_cache(resume_id)
@@ -136,6 +242,79 @@ async def update_resume_content(
         name=resume.name,
         content_text=resume.content_text or "",
     )
+@router.get(
+    "/{resume_id}/raw",
+    response_model=ResumeRawResponse,
+    summary="Get resume raw text",
+)
+async def get_resume_raw(
+    resume_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> ResumeRawResponse:
+    """Get the raw text of a resume."""
+    resume = await resume_service.get_resume(db, resume_id, user_id)
+    
+    if resume.file_path_pdf:
+        filename = Path(resume.file_path_pdf).name
+    elif resume.file_path_docx:
+        filename = Path(resume.file_path_docx).name
+    else:
+        filename = f"{resume.name}.pdf"
+        
+    created_at_str = resume.created_at.isoformat() if resume.created_at else ""
+    
+    return ResumeRawResponse(
+        id=resume.id,
+        raw_text=resume.content_text or "",
+        filename=filename,
+        created_at=created_at_str,
+        versions=[],
+    )
+
+
+@router.put(
+    "/{resume_id}/raw",
+    response_model=ResumeRawResponse,
+    summary="Update resume raw text",
+)
+async def update_resume_raw(
+    resume_id: str,
+    request: ResumeRawUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> ResumeRawResponse:
+    """Update the raw text of a resume."""
+    resume = await resume_service.get_resume(db, resume_id, user_id)
+    resume.content_text = request.raw_text
+    
+    # Reset compiled files so they get regenerated on download with new text
+    resume.file_path_pdf = None
+    resume.file_path_docx = None
+    
+    db.add(resume)
+    await db.commit()
+    await db.refresh(resume)
+    
+    clear_session_cv_cache(resume_id)
+    
+    if resume.file_path_pdf:
+        filename = Path(resume.file_path_pdf).name
+    elif resume.file_path_docx:
+        filename = Path(resume.file_path_docx).name
+    else:
+        filename = f"{resume.name}.pdf"
+        
+    created_at_str = resume.created_at.isoformat() if resume.created_at else ""
+    
+    return ResumeRawResponse(
+        id=resume.id,
+        raw_text=resume.content_text or "",
+        filename=filename,
+        created_at=created_at_str,
+        versions=[],
+    )
+
 
 
 @router.post(
@@ -464,3 +643,17 @@ async def upload_resume_template(
         "filename": target_name,
         "message": f"Successfully uploaded template '{name}' as '{slug_name}'"
     }
+
+
+@router.delete(
+    "/{resume_id}",
+    summary="Delete a resume",
+)
+async def delete_resume(
+    resume_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Delete a resume by ID, removing its files from storage and record from DB."""
+    await resume_service.delete_resume(db, resume_id, user_id)
+    return {"status": "success", "message": "Resume successfully deleted"}

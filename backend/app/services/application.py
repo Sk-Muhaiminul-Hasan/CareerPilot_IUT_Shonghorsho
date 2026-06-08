@@ -357,6 +357,24 @@ async def generate_cover_letter(
         usage_user_id=user_id,
     )
 
+    # Save generated cover letter into Resume database table so it propagates to Generated category in Resume Manager
+    try:
+        cover_letter_record = Resume(
+            name=f"Cover Letter - {job.company or 'Job'} - {job.title or 'Role'}",
+            type="cover_letter",
+            base_resume_id=app.resume_id,
+            job_id=app.job_id,
+            template_id="modern",
+            file_path_pdf=doc.pdf_path,
+            file_path_docx=doc.docx_path,
+            content_text=doc.content_text or "",
+            user_id=user_id,
+        )
+        db.add(cover_letter_record)
+        logger.info("saving_cover_letter_to_resume_table", job_id=app.job_id)
+    except Exception as e:
+        logger.error("failed_to_save_cover_letter_to_resume_table", error=str(e))
+
     app.cover_letter_path = doc.pdf_path or doc.docx_path
     await db.commit()
     await db.refresh(app)

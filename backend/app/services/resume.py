@@ -815,3 +815,28 @@ async def optimize_resume(
         new_score=optimized.ats_score,
     )
     return ResumeResponse.model_validate(optimized)
+
+
+async def delete_resume(db: AsyncSession, resume_id: str, user_id: str = "default_user") -> None:
+    """Delete a resume by ID, removing its files from storage and record from DB."""
+    resume = await get_resume(db, resume_id, user_id)
+    
+    # Try deleting the PDF file from storage
+    if resume.file_path_pdf:
+        try:
+            bucket = "generated" if resume.type in ("tailored", "optimized") else "resumes"
+            await storage_client.delete_file(bucket, resume.file_path_pdf)
+        except Exception as exc:
+            logger.warning("storage_pdf_delete_failed_during_resume_deletion", resume_id=resume_id, error=str(exc))
+            
+    # Try deleting the DOCX file from storage
+    if resume.file_path_docx:
+        try:
+            bucket = "generated" if resume.type in ("tailored", "optimized") else "resumes"
+            await storage_client.delete_file(bucket, resume.file_path_docx)
+        except Exception as exc:
+            logger.warning("storage_docx_delete_failed_during_resume_deletion", resume_id=resume_id, error=str(exc))
+            
+    await db.delete(resume)
+    await db.commit()
+    logger.info("resume_deleted_from_db", resume_id=resume_id, user_id=user_id)
