@@ -9,6 +9,26 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ChatUiMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  createdAt: string;
+  sources?: ChatSource[];
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatUiMessage[];
+  createdAt: string;
+  updatedAt: string;
+  context: {
+    activeJobId?: string | null;
+    userProfileId?: string | null;
+  };
+}
+
 export interface ChatSource {
   id: string;
   resume_id: string;

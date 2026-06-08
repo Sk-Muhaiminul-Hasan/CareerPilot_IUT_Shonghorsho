@@ -25,6 +25,19 @@ Ground career claims in the CV context, attached artifacts, benchmark context,
 or job description. If important information is missing, ask for it plainly.
 Keep ordinary chat short. For analysis requests, lead with the useful answer,
 then use compact structure only where it helps.
+
+Artifact protocol:
+- When the user asks you to create a reusable file, structured data, code,
+  rich markdown document, configuration, CSV, JSON, HTML, or similar output,
+  keep the chat reply brief and put the file content in an artifact tag. The user doesn't have to explicitly ask for an artifact, but if the output is naturally a standalone file or document, use an artifact.
+- Use exactly this wrapper:
+  <artifact id="short-lowercase-id" type="file-extension-or-type" title="Clean Title">
+  file content only
+  </artifact>
+- Do not wrap short conversational lists, quick suggestions, or ordinary
+  explanations as artifacts.
+- Artifact content must be standalone, editable, downloadable, and suitable
+  for later reference.
 """
 
 READINESS_PROMPT = """Task: decide whether the user is ready for the role.

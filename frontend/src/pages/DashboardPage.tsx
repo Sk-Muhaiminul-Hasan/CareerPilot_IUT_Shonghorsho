@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import Typography from '@mui/material/Typography';
-﻿import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
@@ -22,7 +21,6 @@ import { useDashboardStats, useApplicationFunnel } from '@/hooks/useAnalytics';
 import { useApplications } from '@/hooks/useApplications';
 import { useNudge, useNudgeAIError } from '@/hooks/useNudge';
 import { useJobStore } from '@/store/useJobStore';
-import ListItemButton from '@mui/material/ListItemButton';
 import { useNavigate } from 'react-router-dom';
 import { useGoals, useCalendarEvents, useWeeklyProgress } from '@/hooks/useDashboard';
 
@@ -94,13 +92,6 @@ function DashboardPage() {
     navigate('/jobs');
     openDetail(jobId);
   }, [navigate, openDetail]);
-
-  const handleAppClick = useCallback(
-    (appId: string) => {
-      navigate(`/applications/${appId}`);
-    },
-    [navigate],
-  );
 
   const { title, subtitle } = TAB_TITLES[activeTab];
 

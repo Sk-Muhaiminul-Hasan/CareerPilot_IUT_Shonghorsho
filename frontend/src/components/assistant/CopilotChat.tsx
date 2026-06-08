@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Box, Chip, Drawer, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import WorkIcon from '@mui/icons-material/Work';
 
@@ -8,65 +8,126 @@ import { sendChatMessage } from '@/services/chatService';
 import { useArtifactStore } from '@/store/useArtifactStore';
 import { useChatStore } from '@/store/useChatStore';
 import type { ChatAttachment, ChatMessage, ChatSource } from '@/types/chat';
-import { AssistantContextMenu } from './AssistantContextMenu';
-import { AssistantMessages, type AssistantMessage } from './AssistantMessages';
+
+import { AssistantMessages } from './AssistantMessages';
 import { AttachmentChips } from './AttachmentChips';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ChatComposer } from './ChatComposer';
+import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { MentionMenu } from './MentionMenu';
-import { artifactContextOptions } from './artifactContextOptions';
-import { buildContextOptions, type ContextOption } from './contextOptions';
+import { useCopilotChatController } from './useCopilotChatController';
+
+const SIDEBAR_MIN = 280;
+const SIDEBAR_MAX = 560;
 
 export const CopilotChat: React.FC = () => {
-  const { isOpen, activeJobId, userProfileId, closeChat } = useChatStore();
+  const {
+    isOpen,
+    activeJobId,
+    userProfileId,
+    sidebarWidth,
+    messages,
+    input,
+    attachments,
+    jobDescription,
+    showJobDescription,
+    isTyping,
+    greetingLoaded,
+    closeChat,
+    setSidebarWidth,
+    setMessages,
+    setInput,
+    setAttachments,
+    setJobDescription,
+    setShowJobDescription,
+    setIsTyping,
+    setGreetingLoaded,
+  } = useChatStore();
+
   const navigate = useNavigate();
   const location = useLocation();
   const artifacts = useArtifactStore((s) => s.artifacts);
   const addArtifacts = useArtifactStore((s) => s.addArtifacts);
-  const [messages, setMessages] = useState<AssistantMessage[]>([
-    { sender: 'assistant', text: "Hey, I'm here." },
-  ]);
-  const [input, setInput] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [showJobDescription, setShowJobDescription] = useState(false);
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [mentionAnchor, setMentionAnchor] = useState<HTMLElement | null>(null);
-  const [mentionQuery, setMentionQuery] = useState('');
+
+  // Refs that don't need to be persisted
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const greetingLoadedRef = useRef(false);
+  const isDraggingRef = useRef(false);
+
+  // Context options (derived, not persisted)
+  const [mentionAnchor, setMentionAnchor] = React.useState<HTMLElement | null>(null);
+  const [mentionQuery, setMentionQuery] = React.useState('');
 
   const shouldShowJobDescription =
     showJobDescription ||
     Boolean(jobDescription.trim()) ||
     (!activeJobId && /\b(ready|cover letter|posting|job description|role)\b/i.test(input));
+
   const attachedResumeId =
     attachments.find((attachment) => attachment.type === 'resume')?.value || userProfileId;
+
   const contextOptions: ContextOption[] = buildContextOptions({
     activeJobId,
     userProfileId,
     screenPath: location.pathname,
   }).concat(artifactContextOptions(artifacts));
 
+  // Auto-scroll on new messages
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  // Greeting on first open (no active job)
   useEffect(() => {
-    if (!isOpen || activeJobId || greetingLoadedRef.current) return;
-    greetingLoadedRef.current = true;
+    if (!isOpen || activeJobId || greetingLoaded) return;
+    setGreetingLoaded(true);
     void loadPersonalGreeting();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJobId, isOpen]);
 
+  // Automated evaluation when opened with a job
   useEffect(() => {
-    if (isOpen && activeJobId) {
-      greetingLoadedRef.current = true;
+    if (isOpen && activeJobId && !greetingLoaded) {
+      setGreetingLoaded(true);
       void sendAutomatedEvaluation();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJobId, isOpen]);
 
+  // ── Drag-to-resize ──────────────────────────────────────────────────────────
+  const handleDragStart = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      isDraggingRef.current = true;
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+
+      const startX = event.clientX;
+      const startWidth = sidebarWidth;
+
+      const onMouseMove = (e: MouseEvent) => {
+        if (!isDraggingRef.current) return;
+        // Moving left increases width (sidebar anchored on right)
+        const delta = startX - e.clientX;
+        const newWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startWidth + delta));
+        setSidebarWidth(newWidth);
+      };
+
+      const onMouseUp = () => {
+        isDraggingRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    },
+    [sidebarWidth, setSidebarWidth],
+  );
+
+  // ── Chat helpers ─────────────────────────────────────────────────────────────
   const addAttachment = (attachment: ChatAttachment) => {
     setAttachments((current) => {
       if (current.some((item) => item.type === attachment.type && item.label === attachment.label)) {
@@ -74,7 +135,6 @@ export const CopilotChat: React.FC = () => {
       }
       return [...current, attachment];
     });
-    setMenuAnchor(null);
   };
 
   const selectContextOption = (option: ContextOption) => {
@@ -82,9 +142,9 @@ export const CopilotChat: React.FC = () => {
       setShowJobDescription(true);
     }
     if (option.action === 'benchmark_prompt') {
-      setInput((current) =>
-        current.trim()
-          ? `${current.trim()} Compare me against `
+      setInput(
+        input.trim()
+          ? `${input.trim()} Compare me against `
           : 'What skills am I missing compared with ',
       );
       inputRef.current?.focus();
@@ -92,7 +152,6 @@ export const CopilotChat: React.FC = () => {
     if (option.attachment) {
       addAttachment(option.attachment);
     }
-    setMenuAnchor(null);
   };
 
   const recentHistory = (): ChatMessage[] =>
@@ -199,7 +258,7 @@ export const CopilotChat: React.FC = () => {
     const mention = value.match(/(?:^|\s)@([\w -]*)$/);
     setInput(value);
     if (mention) {
-      setMentionQuery(mention[1]);
+      setMentionQuery(mention[1] ?? '');
       setMentionAnchor(inputRef.current);
     } else {
       setMentionAnchor(null);
@@ -207,10 +266,9 @@ export const CopilotChat: React.FC = () => {
   };
 
   const openMentionSearch = () => {
-    setInput((current) => {
-      if (!current || current.endsWith(' ') || current.endsWith('@')) return `${current}@`;
-      return `${current} @`;
-    });
+    setInput(
+      !input || input.endsWith(' ') || input.endsWith('@') ? `${input}@` : `${input} @`,
+    );
     setMentionQuery('');
     setMentionAnchor(inputRef.current);
     inputRef.current?.focus();
@@ -218,7 +276,7 @@ export const CopilotChat: React.FC = () => {
 
   const selectMention = (option: ContextOption) => {
     selectContextOption(option);
-    setInput((current) => current.replace(/(?:^|\s)@[\w -]*$/, ` @${option.insertText} `).trimStart());
+    setInput(input.replace(/(?:^|\s)@[\w -]*$/, ` @${option.insertText} `).trimStart());
     setMentionAnchor(null);
     inputRef.current?.focus();
   };
@@ -235,133 +293,178 @@ export const CopilotChat: React.FC = () => {
     openResumeContext(source.resume_id);
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Drawer
-      anchor="right"
-      open={isOpen}
-      variant="persistent"
-      PaperProps={{
-        sx: {
-          width: 380,
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: sidebarWidth,
+        zIndex: (theme) => theme.zIndex.drawer,
+        display: 'flex',
+        flexDirection: 'row',
+        // Slide-in transition
+        animation: 'copilot-slide-in 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+        '@keyframes copilot-slide-in': {
+          from: { transform: `translateX(${sidebarWidth}px)` },
+          to: { transform: 'translateX(0)' },
+        },
+      }}
+    >
+      {/* ── Resize handle (left edge) ───────────────────────────────────────── */}
+      <Box
+        onMouseDown={handleDragStart}
+        sx={{
+          width: 6,
+          flexShrink: 0,
+          cursor: 'ew-resize',
+          backgroundColor: 'transparent',
+          transition: 'background-color 0.15s',
+          '&:hover': {
+            backgroundColor: 'rgba(0, 74, 198, 0.35)',
+          },
+          // Make the hit-area slightly wider without affecting layout
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: '0 -4px',
+          },
+        }}
+        aria-label="Resize chat sidebar"
+        role="separator"
+        aria-orientation="vertical"
+      />
+
+      {/* ── Panel body ─────────────────────────────────────────────────────── */}
+      <Box
+        sx={{
+          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: '#f8f9ff',
           boxShadow: '-8px 0 28px rgba(11, 28, 48, 0.12)',
           borderLeft: '1px solid #c3c6d7',
-        },
-      }}
-    >
-      <Box
-        sx={{
-          position: 'relative',
-          px: 2.5,
-          py: 2.25,
-          background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
+          overflow: 'hidden',
         }}
       >
+        {/* Header */}
         <Box
           sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 2,
-            backgroundColor: 'rgba(255, 255, 255, 0.18)',
+            position: 'relative',
+            px: 2.5,
+            py: 2.25,
+            background: 'linear-gradient(135deg, #004ac6 0%, #712ae2 100%)',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: 1.5,
             flexShrink: 0,
-            overflow: 'hidden',
-            boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.25)',
           }}
         >
-          <img
-            src="/Auto_using_laptop-removebg-preview.png"
-            alt="Career Copilot"
-            style={{ width: 32, height: 32, objectFit: 'contain' }}
-          />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#ffffff' }}>
-            Career Copilot
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-            Your AI career coach
-          </Typography>
-        </Box>
-        {activeJobId && (
-          <Chip
-            icon={<WorkIcon sx={{ color: '#004ac6 !important' }} />}
-            label="Job"
-            size="small"
+          <Box
             sx={{
-              backgroundColor: '#ffffff',
-              color: '#004ac6',
-              fontWeight: 600,
-              '& .MuiChip-icon': { color: '#004ac6' },
-            }}
-          />
-        )}
-        <Tooltip title="Close">
-          <IconButton
-            onClick={closeChat}
-            size="small"
-            sx={{
-              color: '#ffffff',
-              backgroundColor: 'rgba(255, 255, 255, 0.12)',
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
+              width: 44,
+              height: 44,
+              borderRadius: 2,
+              backgroundColor: 'rgba(255, 255, 255, 0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              overflow: 'hidden',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.25)',
             }}
           >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+            <img
+              src="/Auto_using_laptop-removebg-preview.png"
+              alt="Career Copilot"
+              style={{ width: 32, height: 32, objectFit: 'contain' }}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#ffffff' }}>
+              Career Copilot
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+              Your AI career coach
+            </Typography>
+          </Box>
+          {activeJobId && (
+            <Chip
+              icon={<WorkIcon sx={{ color: '#004ac6 !important' }} />}
+              label="Job"
+              size="small"
+              sx={{
+                backgroundColor: '#ffffff',
+                color: '#004ac6',
+                fontWeight: 600,
+                '& .MuiChip-icon': { color: '#004ac6' },
+              }}
+            />
+          )}
+          <Tooltip title="Close">
+            <IconButton
+              onClick={closeChat}
+              size="small"
+              sx={{
+                color: '#ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <AssistantMessages
+          messages={messages}
+          isTyping={isTyping}
+          scrollRef={scrollRef}
+          onOpenSource={openSource}
+        />
+
+        <ArtifactPanel artifacts={artifacts} />
+
+        <AttachmentChips
+          attachments={attachments}
+          userProfileId={userProfileId}
+          onOpenResume={openResumeContext}
+          onRemove={removeAttachment}
+        />
+
+        <ChatComposer
+          input={input}
+          inputRef={inputRef}
+          isTyping={isTyping}
+          jobDescription={jobDescription}
+          shouldShowJobDescription={shouldShowJobDescription}
+          onInputChange={handleInputChange}
+          onInputKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              void handleSendMessage();
+            }
+          }}
+          onJobDescriptionChange={setJobDescription}
+          onOpenContextMenu={() => {}}
+          onOpenMentionSearch={openMentionSearch}
+          onSend={() => void handleSendMessage()}
+          contextOptions={contextOptions}
+          onSelectContextOption={selectContextOption}
+        />
+        <MentionMenu
+          anchorEl={mentionAnchor}
+          query={mentionQuery}
+          options={contextOptions}
+          onSelect={selectMention}
+          onClose={() => setMentionAnchor(null)}
+        />
       </Box>
-
-      <AssistantMessages messages={messages} isTyping={isTyping} scrollRef={scrollRef} onOpenSource={openSource} />
-
-      <ArtifactPanel artifacts={artifacts} />
-
-      <AttachmentChips
-        attachments={attachments}
-        userProfileId={userProfileId}
-        onOpenResume={openResumeContext}
-        onRemove={removeAttachment}
-      />
-
-      <ChatComposer
-        input={input}
-        inputRef={inputRef}
-        isTyping={isTyping}
-        jobDescription={jobDescription}
-        shouldShowJobDescription={shouldShowJobDescription}
-        onInputChange={handleInputChange}
-        onInputKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            void handleSendMessage();
-          }
-        }}
-        onJobDescriptionChange={setJobDescription}
-        onOpenContextMenu={setMenuAnchor}
-        onOpenMentionSearch={openMentionSearch}
-        onSend={() => void handleSendMessage()}
-      />
-
-      <AssistantContextMenu
-        anchorEl={menuAnchor}
-        options={contextOptions}
-        onSelect={selectContextOption}
-        onClose={() => setMenuAnchor(null)}
-      />
-      <MentionMenu
-        anchorEl={mentionAnchor}
-        query={mentionQuery}
-        options={contextOptions}
-        onSelect={selectMention}
-        onClose={() => setMentionAnchor(null)}
-      />
-    </Drawer>
+    </Box>
   );
 };

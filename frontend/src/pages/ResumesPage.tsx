@@ -1,17 +1,15 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
+import Skeleton from '@mui/material/Skeleton';
+import Tooltip from '@mui/material/Tooltip';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DownloadIcon from '@mui/icons-material/Download';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -19,8 +17,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import SaveIcon from '@mui/icons-material/Save';
 
 import ResumeUpload from '@/components/resumes/ResumeUpload';
-import TemplateSelector from '@/components/resumes/TemplateSelector';
-import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useResumeContent, useResumes, useUpdateResumeContent } from '@/hooks/useResumes';
 import { downloadResume } from '@/services/resumeService';
@@ -30,7 +26,6 @@ import { DEMO_CV_TEXT } from '@/data/demoProfile';
 
 function ResumesPage() {
   const navigate = useNavigate();
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [draftContent, setDraftContent] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: resumeData, isLoading } = useResumes();
@@ -42,10 +37,6 @@ function ResumesPage() {
   const updateContent = useUpdateResumeContent();
   const openChatWithResume = useChatStore((s) => s.openChatWithResume);
   const showNotification = useAppStore((s) => s.showNotification);
-
-  const handleTemplateSelect = useCallback((templateId: string) => {
-    setSelectedTemplate(templateId);
-  }, []);
 
   useEffect(() => {
     if (isDemoSelected) {
@@ -63,7 +54,7 @@ function ResumesPage() {
     setSearchParams({ demo: '1' });
   };
 
-  const useInCopilot = (resumeId: string) => {
+  const handleUseInCopilot = (resumeId: string) => {
     openChatWithResume(resumeId);
     showNotification(
       resumeId === 'default_user' ? 'Demo CV attached to Copilot.' : 'CV attached to Copilot.',
@@ -124,7 +115,7 @@ function ResumesPage() {
               <Button
                 startIcon={<SmartToyIcon />}
                 variant="contained"
-                onClick={() => useInCopilot(isDemoSelected ? 'default_user' : selectedResumeId ?? '')}
+                onClick={() => handleUseInCopilot(isDemoSelected ? 'default_user' : selectedResumeId ?? '')}
               >
                 Use in Copilot
               </Button>
@@ -151,24 +142,40 @@ function ResumesPage() {
           </Paper>
         )}
 
-        <Box sx={{ mt: 4, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Resume Templates
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select a template for generating tailored resumes. Currently selected:{' '}
-            <strong>{selectedTemplate}</strong>
-          </Typography>
-          <TemplateSelector selectedId={selectedTemplate} onSelect={handleTemplateSelect} />
-        </Box>
-
         <Divider sx={{ my: 4 }} />
 
         <Typography variant="h6" gutterBottom>
           Your Resumes
         </Typography>
 
-        {isLoading && <LoadingState message="Loading resumes..." minHeight={200} />}
+        {isLoading && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[1, 2, 3].map((i) => (
+              <Box
+                key={i}
+                sx={{
+                  width: '100%',
+                  height: 90,
+                  borderRadius: 2,
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  px: 2,
+                  backgroundColor: '#ffffff',
+                  overflow: 'hidden',
+                }}
+              >
+                <Skeleton variant="rounded" width={44} height={44} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="45%" sx={{ fontSize: '1rem' }} />
+                  <Skeleton variant="text" width="30%" sx={{ fontSize: '0.75rem' }} />
+                </Box>
+                <Skeleton variant="rounded" width={180} height={32} sx={{ borderRadius: 1.5 }} />
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {!isLoading && resumeData && resumeData.items.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -183,72 +190,123 @@ function ResumesPage() {
         )}
 
         {resumeData && resumeData.items.length > 0 && (
-          <Grid container spacing={2}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {resumeData.items.map((resume) => (
-              <Grid item xs={12} sm={6} md={4} key={resume.id}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <DescriptionIcon color="primary" />
-                      <Typography variant="subtitle1" fontWeight={600} noWrap>
-                        {resume.name}
-                      </Typography>
-                    </Box>
+              <Box
+                key={resume.id}
+                sx={{
+                  width: '100%',
+                  minHeight: 90,
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: selectedResumeId === resume.id ? '#004ac6' : '#e2e8f0',
+                  backgroundColor: selectedResumeId === resume.id ? '#f0f4ff' : '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  px: 2.5,
+                  py: 1.5,
+                  transition: 'border-color 0.15s, background-color 0.15s',
+                  '&:hover': {
+                    borderColor: '#004ac6',
+                    backgroundColor: '#f8faff',
+                  },
+                }}
+              >
+                {/* Icon */}
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 1.5,
+                    backgroundColor: '#eff4ff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <DescriptionIcon sx={{ color: '#004ac6', fontSize: 22 }} />
+                </Box>
 
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                      <Chip label={resume.type} size="small" variant="outlined" />
-                      <Chip label={resume.template_id} size="small" variant="outlined" />
-                    </Box>
-
+                {/* Name + metadata */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 700, color: '#0b1c30', lineHeight: 1.3 }}
+                    noWrap
+                  >
+                    {resume.name}
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+                    <Chip label={resume.type} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.68rem' }} />
+                    <Chip label={resume.template_id} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.68rem' }} />
                     {resume.ats_score != null && (
-                      <Typography variant="body2" color="text.secondary">
-                        ATS Score: {Math.round(resume.ats_score * 100)}%
-                      </Typography>
+                      <Chip
+                        label={`ATS ${Math.round(resume.ats_score * 100)}%`}
+                        size="small"
+                        color={resume.ats_score >= 0.75 ? 'success' : resume.ats_score >= 0.5 ? 'warning' : 'default'}
+                        sx={{ height: 20, fontSize: '0.68rem' }}
+                      />
                     )}
-
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Created: {new Date(resume.created_at).toLocaleDateString()}
+                    <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.68rem' }}>
+                      {new Date(resume.created_at).toLocaleDateString()}
                     </Typography>
-                  </CardContent>
+                  </Stack>
+                </Box>
 
-                  <CardActions sx={{ px: 2, pb: 2, flexWrap: 'wrap' }}>
+                {/* Actions */}
+                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                  <Tooltip title="View / Edit">
                     <Button
                       size="small"
+                      variant="outlined"
                       startIcon={<VisibilityIcon />}
                       onClick={() => selectResume(resume.id)}
+                      sx={{ whiteSpace: 'nowrap' }}
                     >
-                      View/Edit
+                      View
                     </Button>
+                  </Tooltip>
+                  <Tooltip title="Attach to Copilot">
                     <Button
                       size="small"
+                      variant="outlined"
                       startIcon={<SmartToyIcon />}
-                      onClick={() => useInCopilot(resume.id)}
+                      onClick={() => handleUseInCopilot(resume.id)}
+                      sx={{ whiteSpace: 'nowrap' }}
                     >
                       Copilot
                     </Button>
-                    {resume.has_pdf && (
+                  </Tooltip>
+                  {resume.has_pdf && (
+                    <Tooltip title="Download PDF">
                       <Button
                         size="small"
+                        variant="outlined"
                         startIcon={<DownloadIcon />}
                         onClick={() => handleDownload(resume.id, 'pdf')}
                       >
                         PDF
                       </Button>
-                    )}
-                    {resume.has_docx && (
+                    </Tooltip>
+                  )}
+                  {resume.has_docx && (
+                    <Tooltip title="Download DOCX">
                       <Button
                         size="small"
+                        variant="outlined"
                         startIcon={<DownloadIcon />}
                         onClick={() => handleDownload(resume.id, 'docx')}
                       >
                         DOCX
                       </Button>
-                    )}
-                  </CardActions>
-                </Card>
-              </Grid>
+                    </Tooltip>
+                  )}
+                </Stack>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         )}
       </Box>
     </ErrorBoundary>

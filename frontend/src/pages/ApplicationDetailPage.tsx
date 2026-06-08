@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Skeleton from '@mui/material/Skeleton';
-import CircularProgress from '@mui/material/CircularProgress';
+import AIAnalyzing from '@/components/common/AIAnalyzing';
 import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -23,7 +23,6 @@ import { downloadResume, generateResume } from '@/services/resumeService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/types/api';
 import type { ApplicationStatusUpdate } from '@/types/application';
-import TemplateSelector from '@/components/resumes/TemplateSelector';
 import AINotConfiguredBanner from '@/components/AINotConfiguredBanner';
 import type { Application } from '@/types/application';
 
@@ -165,7 +164,7 @@ function ApplicationDetailPage() {
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [resumeGenerating, setResumeGenerating] = useState(false);
   const [resumeGenerateError, setResumeGenerateError] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const selectedTemplate = 'modern';
   const [generatedResumeId, setGeneratedResumeId] = useState<string | null>(null);
 
   const { data: appData, isLoading: appLoading, isError: appError } = useApplication(appId);
@@ -233,9 +232,14 @@ function ApplicationDetailPage() {
 
   if (appLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-        <CircularProgress />
-      </Box>
+      <AIAnalyzing
+        messages={[
+          'Loading your application...',
+          'Fetching AI analysis...',
+          'Preparing review data...',
+        ]}
+        minHeight={300}
+      />
     );
   }
 
@@ -285,29 +289,15 @@ function ApplicationDetailPage() {
           ATS Score
         </Typography>
         {application.ats_score === null || application.ats_score === undefined ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
-            <Box
-              sx={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                background: atsScore >= 0.75 ? '#E1F5EE' : atsScore >= 0.5 ? '#FAEEDA' : '#FCEBEB',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Typography variant="h6" fontWeight={500} sx={{ color: atsScore >= 0.75 ? '#0F6E56' : atsScore >= 0.5 ? '#854F0B' : '#A32D2D' }}>
-                --
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2">ATS Score</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Loading score...
-              </Typography>
-            </Box>
-          </Box>
+          <AIAnalyzing
+            messages={[
+              'Reading your resume...',
+              'Matching with job requirements...',
+              'Generating insights...',
+              'Calculating ATS score...',
+            ]}
+            minHeight={120}
+          />
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
             <Box
@@ -417,7 +407,7 @@ function ApplicationDetailPage() {
                     setGenerating(false);
                   }
                 }}
-                startIcon={generating ? <CircularProgress size={16} /> : undefined}
+              startIcon={generating ? <AIAnalyzing inline messages={['Generating...', 'Writing cover letter...', 'Almost done...']} /> : undefined}
               >
                 {generating ? 'Generating...' : 'Regenerate'}
               </Button>
@@ -442,7 +432,7 @@ function ApplicationDetailPage() {
                   setGenerating(false);
                 }
               }}
-              startIcon={generating ? <CircularProgress size={16} /> : undefined}
+              startIcon={generating ? <AIAnalyzing inline messages={['Generating...', 'Writing cover letter...', 'Almost done...']} /> : undefined}
             >
               {generating ? 'Generating...' : 'Generate Cover Letter'}
             </Button>
@@ -473,11 +463,6 @@ function ApplicationDetailPage() {
             {jobLoading ? 'Loading job details...' : `${jobData?.title ?? 'Job'}${jobData?.company ? ` at ${jobData.company}` : ''}`}
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>
-            Select Template
-          </Typography>
-          <TemplateSelector selectedId={selectedTemplate} onSelect={setSelectedTemplate} />
-
           {(resumeGenerateError || generateError) && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {resumeGenerateError ?? generateError}
@@ -486,12 +471,15 @@ function ApplicationDetailPage() {
         </DialogContent>
         <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
           {resumeGenerating ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', py: 1 }}>
-              <CircularProgress size={24} />
-              <Typography variant="body2" color="text.secondary">
-                Tailoring your resume for this role...
-              </Typography>
-            </Box>
+            <AIAnalyzing
+              messages={[
+                'Tailoring your resume...',
+                'Matching skills to the role...',
+                'Formatting document...',
+                'Almost ready...',
+              ]}
+              minHeight={100}
+            />
           ) : generatedResumeId ? (
             <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
               <Button
