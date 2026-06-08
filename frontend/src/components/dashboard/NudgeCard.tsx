@@ -2,9 +2,18 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Checkbox from '@mui/material/Checkbox';
+import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
+
+import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import JobCard from '@/components/jobs/JobCard';
 import type { NudgeResponse } from '@/types/nudge';
@@ -51,8 +60,11 @@ function NudgeCard({ nudge, loading, onApply, onViewDetails }: NudgeCardProps) {
   }
 
   if (!nudge) {
+    console.log('NudgeCard: no nudge data');
     return null;
   }
+
+  console.log('NudgeCard suggested_todos:', nudge.suggested_todos);
 
   return (
     <Card
@@ -114,13 +126,71 @@ function NudgeCard({ nudge, loading, onApply, onViewDetails }: NudgeCardProps) {
         </Box>
 
         {nudge.recommended_jobs.length > 0 && (
-          <Grid container spacing={2}>
-            {nudge.recommended_jobs.map((job) => (
-              <Grid item xs={12} md={4} key={job.id}>
-                <JobCard job={job} onViewDetails={onViewDetails ?? (() => {})} onApply={onApply} />
-              </Grid>
-            ))}
-          </Grid>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+              Recommended Jobs
+            </Typography>
+            <Grid container spacing={2}>
+              {nudge.recommended_jobs.map((job) => (
+                <Grid item xs={12} md={4} key={job.id}>
+                  <JobCard job={job} onViewDetails={onViewDetails ?? (() => {})} onApply={onApply} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {nudge.suggested_todos.length > 0 && (
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+              Suggested To-Dos
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {nudge.suggested_todos.map((todo) => (
+                <Box
+                  key={todo.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    bgcolor: todo.is_completed ? '#f1f5f9' : '#fff',
+                  }}
+                >
+                  <Checkbox
+                    checked={todo.is_completed}
+                    disabled
+                    sx={{ p: 0.5 }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      noWrap
+                      sx={{
+                        color: todo.is_completed ? 'text.disabled' : 'text.primary',
+                        textDecoration: todo.is_completed ? 'line-through' : 'none',
+                      }}
+                    >
+                      {todo.title}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`Prio ${todo.priority}`}
+                    size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.68rem',
+                      bgcolor: todo.priority === 3 ? '#fce4ec' : '#e8eaf6',
+                      color: todo.priority === 3 ? '#c62828' : '#283593',
+                    }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          </Box>
         )}
       </CardContent>
     </Card>

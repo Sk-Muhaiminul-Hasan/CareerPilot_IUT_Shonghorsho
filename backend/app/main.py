@@ -1,5 +1,5 @@
-import sys
 import asyncio
+import sys
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -24,6 +24,7 @@ from app.db.redis import close_redis_pool, init_redis_pool
 from app.db.session import engine
 from app.models import Base
 from app.observability.logging import configure_logging
+from app.workers.scheduled_searches import setup_scheduler
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -51,9 +52,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await init_redis_pool(settings.redis_url)
 
+    scheduler = setup_scheduler()
+
     yield
 
     # Shutdown
+    scheduler.shutdown()
     await close_redis_pool()
     await engine.dispose()
     logger.info("app_stopped")

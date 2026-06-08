@@ -1,15 +1,12 @@
-"""In-memory service for to-do items.
+"""To-do item service — all operations now async SQLAlchemy DB queries."""
 
-No database dependency — data lives in a module-level dict.
-To switch to a real DB: replace each function body with SQLAlchemy
-async queries against the TodoItem model. Keep the signatures
-identical so the router never needs to change.
-"""
+from datetime import UTC, datetime
 
-from datetime import datetime, timezone
-from uuid import uuid4
+from sqlalchemy import select
 
 from app.core.exceptions import RecordNotFoundError
+from app.db.session import AsyncSessionLocal
+from app.models.todo_item import TodoItem
 from app.schemas.todo_item import (
     TodoItemCreate,
     TodoItemListResponse,
@@ -17,50 +14,39 @@ from app.schemas.todo_item import (
     TodoItemUpdate,
 )
 
-# ── In-memory store ───────────────────────────────────────────────────────────
-_store: dict[str, dict] = {}
-
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
-def _make_response(record: dict) -> TodoItemResponse:
-    return TodoItemResponse.model_validate(record)
-
-
-# ── CRUD operations ───────────────────────────────────────────────────────────
-
-async def create_todo(data: TodoItemCreate) -> TodoItemResponse:
-    """Create a new to-do item."""
-    now = _now()
-    todo_id = uuid4().hex
-    record: dict = {
-        "id": todo_id,
-        "user_id": None,
-        "goal_id": data.goal_id,
-        "calendar_event_id": data.calendar_event_id,
-        "title": data.title,
-        "description": data.description,
-        "due_date": data.due_date,
-        "priority": int(data.priority),
-        "status": "todo",
-        "is_completed": False,
-        "completed_at": None,
-        "recurrence": data.recurrence,
-        "created_at": now,
-        "updated_at": now,
-    }
-    _store[todo_id] = record
-    return _make_response(record)
+async def create_todo(data: TodoItemCreate, user_id: str | None = None) -> TodoItemResponse:
+    due_date = data.due_date
+    if due_date is not None and due_date.tzinfo is not None:
+        due_date = due_date.replace(tzinfo=None)
+    async with AsyncSessionLocal() as db, db.begin():
+        record = TodoItem(
+            user_id=user_id,
+            goal_id=data.goal_id,
+            calendar_event_id=data.calendar_event_id,
+            title=data.title,
+            description=data.description,
+            due_date=due_date,
+            priority=data.priority.value,
+            recurrence=data.recurrence.value if data.recurrence else None,
+        )
+        db.add(record)
+        await db.commit()
+        await db.refresh(record)
+        return TodoItemResponse.model_validate(record)
 
 
 async def get_todo(todo_id: str) -> TodoItemResponse:
-    """Get a single to-do item by ID. Raises 404 if not found."""
-    record = _store.get(todo_id)
-    if not record:
-        raise RecordNotFoundError(f"TodoItem '{todo_id}' not found")
-    return _make_response(record)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("TodoItem", todo_id)
+        return TodoItemResponse.model_validate(record)
 
 
 async def list_todos(
@@ -69,64 +55,80 @@ async def list_todos(
     status: str | None = None,
     goal_id: str | None = None,
 ) -> TodoItemListResponse:
-    """List to-do items with optional status/goal filters and pagination."""
-    items = list(_store.values())
+    async with AsyncSessionLocal() as db:
+        query = select(TodoItem)
+        if status:
+            query = query.where(TodoItem.status == status)
+        if goal_id:
+            query = query.where(TodoItem.goal_id == goal_id)
 
-    if status:
-        items = [t for t in items if t["status"] == status]
-    if goal_id:
-        items = [t for t in items if t["goal_id"] == goal_id]
+        count_q = select(TodoItem.id)
+        if status:
+            count_q = count_q.where(TodoItem.status == status)
+        if goal_id:
+            count_q = count_q.where(TodoItem.goal_id == goal_id)
 
-    # Sort by priority descending (HIGH first), then due_date ascending
-    items.sort(
-        key=lambda t: (
-            -t["priority"],
-            t["due_date"] or datetime.max.replace(tzinfo=timezone.utc),
+        total_result = await db.execute(count_q)
+        total = len(total_result.scalars().all())
+
+        query = query.order_by(TodoItem.priority.desc(), TodoItem.due_date.asc())
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+        result = await db.execute(query)
+        records = result.scalars().all()
+
+        return TodoItemListResponse(
+            items=[TodoItemResponse.model_validate(r) for r in records],
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_next=(offset + page_size) < total,
         )
-    )
-
-    total = len(items)
-    start = (page - 1) * page_size
-    page_items = items[start : start + page_size]
-
-    return TodoItemListResponse(
-        items=[_make_response(t) for t in page_items],
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_next=start + page_size < total,
-    )
 
 
 async def update_todo(
     todo_id: str,
     data: TodoItemUpdate,
 ) -> TodoItemResponse:
-    """Partially update a to-do item. Raises 404 if not found."""
-    record = _store.get(todo_id)
-    if not record:
-        raise RecordNotFoundError(f"TodoItem '{todo_id}' not found")
+    async with AsyncSessionLocal() as db, db.begin():
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("TodoItem", todo_id)
 
-    patch = data.model_dump(exclude_unset=True)
+        patch = data.model_dump(exclude_unset=True)
 
-    # Convert enum to its value if present
-    if "priority" in patch and patch["priority"] is not None:
-        patch["priority"] = int(patch["priority"])
+        if "priority" in patch and patch["priority"] is not None:
+            patch["priority"] = patch["priority"].value
 
-    record.update(patch)
-    record["updated_at"] = _now()
+        if "status" in patch and patch["status"] is not None:
+            patch["status"] = patch["status"].value
 
-    # Auto-set completed_at when marking done
-    if patch.get("is_completed") and not record.get("completed_at"):
-        record["completed_at"] = _now()
-        record["status"] = "done"
+        if "recurrence" in patch:
+            if patch["recurrence"] is not None:
+                patch["recurrence"] = patch["recurrence"].value
+            else:
+                patch.pop("recurrence", None)
 
-    _store[todo_id] = record
-    return _make_response(record)
+        for field, value in patch.items():
+            setattr(record, field, value)
+
+        record.updated_at = _now()
+
+        if patch.get("is_completed") and not record.completed_at:
+            record.completed_at = _now()
+            record.status = "done"
+
+        await db.commit()
+        await db.refresh(record)
+        return TodoItemResponse.model_validate(record)
 
 
 async def delete_todo(todo_id: str) -> None:
-    """Delete a to-do item. Raises 404 if not found."""
-    if todo_id not in _store:
-        raise RecordNotFoundError(f"TodoItem '{todo_id}' not found")
-    _store.pop(todo_id)
+    async with AsyncSessionLocal() as db, db.begin():
+        result = await db.execute(select(TodoItem).where(TodoItem.id == todo_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("TodoItem", todo_id)
+        await db.delete(record)
+        await db.commit()

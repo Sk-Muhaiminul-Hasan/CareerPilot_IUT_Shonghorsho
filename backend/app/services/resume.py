@@ -455,6 +455,8 @@ async def generate_tailored_resume(
         template_name=request.template_id,
         formats=request.output_formats,
         user_settings=user_cfg,
+        usage_db=db,
+        usage_user_id=user_id,
     )
 
     # Create the tailored resume record
@@ -594,6 +596,7 @@ def _score_with_full_engine(
         experience_score=details.experience_score,
         education_score=details.education_score,
         keyword_score=details.keyword_score,
+        matched_skills=sorted(candidate_skills),
         missing_skills=details.missing_required_skills,
         suggestions=details.improvement_suggestions,
     )
@@ -620,6 +623,8 @@ def _score_with_text_fallback(
         skill_score = len(matched) / len(job_skills)
         missing = sorted(job_skills - resume_skills)
     else:
+        matched = set()
+        unmatched = set()
         skill_score = 0.5
         missing = []
 
@@ -651,6 +656,7 @@ def _score_with_text_fallback(
         experience_score=0.0,
         education_score=0.0,
         keyword_score=round(min(keyword_score, 1.0), 4),
+        matched_skills=sorted(matched),
         missing_skills=missing,
         suggestions=suggestions,
     )
@@ -738,13 +744,27 @@ async def optimize_resume(
     prompt = render_ats_optimize_prompt(
         resume_text, job_description, score_breakdown, suggestions,
     )
-    optimized_data = await llm.complete_with_structured_output(
+    structured = await llm.complete(
         prompt=prompt,
-        output_schema=TailoredResumeData,
         system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
-        purpose="extraction",
+        purpose="resume_optimize",
         user_settings=user_cfg,
+        response_format={"type": "json_object"},
     )
+
+    try:
+        from app.core.llm.usage_tracker import record_usage
+        await record_usage(
+            db=db, response=structured, purpose="resume_optimize", user_id=user_id,
+        )
+    except Exception:
+        pass
+
+    try:
+        optimized_data = TailoredResumeData.model_validate_json(structured.content)
+    except Exception:
+        logger.exception("ats_optimize_parse_failed")
+        optimized_data = TailoredResumeData()
 
     # Render optimized resume to PDF/DOCX
     generator = DocumentGenerator(

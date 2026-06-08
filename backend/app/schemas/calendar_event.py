@@ -18,6 +18,7 @@ class EventTypeEnum(StrEnum):
 class CalendarEventCreate(BaseModel):
     """Request to create a calendar event."""
 
+    user_id: str | None = None
     title: str = Field(..., max_length=300)
     description: str | None = None
     event_date: datetime

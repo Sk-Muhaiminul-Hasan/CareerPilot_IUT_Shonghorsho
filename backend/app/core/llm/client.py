@@ -236,6 +236,8 @@ class LLMClient:
         response_format: dict[str, Any] | None = None,
         purpose: str = "general",
         user_settings: UserLLMConfig | None = None,
+        usage_db: Any | None = None,
+        usage_user_id: str = "",
     ) -> LLMResponse:
         """Send completion request with fallback chain and metrics.
 
@@ -344,7 +346,7 @@ class LLMClient:
                     cost_usd=round(cost, 6),
                     latency_ms=round(elapsed_ms, 1),
                 )
-                return LLMResponse(
+                result = LLMResponse(
                     content=content,
                     model=attempt_model,
                     provider=provider,
@@ -354,6 +356,7 @@ class LLMClient:
                     cost_usd=cost,
                     latency_ms=elapsed_ms,
                 )
+                return result
 
             except litellm.RateLimitError as exc:
                 last_error = exc
@@ -415,6 +418,8 @@ class LLMClient:
         model: str | None = None,
         purpose: str = "structured",
         user_settings: UserLLMConfig | None = None,
+        usage_db: Any | None = None,
+        usage_user_id: str = "",
     ) -> BaseModel:
         """Get structured JSON output parsed into a Pydantic model.
 
@@ -449,6 +454,8 @@ class LLMClient:
             model=model,
             purpose=purpose,
             user_settings=user_settings,
+            usage_db=usage_db,
+            usage_user_id=usage_user_id,
         )
 
         try:
@@ -462,10 +469,14 @@ class LLMClient:
                 content=response.content[:500],
                 error=str(exc),
             )
-            raise LLMProviderError(
-                provider=response.provider,
-                message=f"Failed to parse structured output: {exc}",
-            ) from exc
+            try:
+                data = json.loads(response.content)
+                return output_schema.model_validate(data)
+            except Exception:
+                raise LLMProviderError(
+                    provider=response.provider,
+                    message=f"Failed to parse structured output: {exc}",
+                ) from exc
 
     def _record_metrics(
         self,

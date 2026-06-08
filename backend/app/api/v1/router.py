@@ -5,15 +5,16 @@ from fastapi import APIRouter, Depends
 from app.api.deps import get_current_user
 from app.api.v1.analytics import router as analytics_router
 from app.api.v1.applications import router as applications_router
-from app.api.v1.calendar_events import router as calendar_router
-from app.api.v1.goals import router as goals_router
 from app.api.v1.assistant import router as assistant_router
+from app.api.v1.calendar_events import router as calendar_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.goals import router as goals_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.nudge import router as nudge_router
 from app.api.v1.onboarding import router as onboarding_router
 from app.api.v1.rag import router as rag_router
 from app.api.v1.resumes import router as resumes_router
+from app.api.v1.scheduled_searches import router as scheduled_searches_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.todo_items import router as todos_router
 from app.api.v1.tracker import router as tracker_router
@@ -24,6 +25,7 @@ v1_router.include_router(jobs_router, prefix="/jobs", tags=["Jobs"])
 v1_router.include_router(applications_router, prefix="/applications", tags=["Applications"])
 v1_router.include_router(resumes_router, prefix="/resumes", tags=["Resumes"])
 v1_router.include_router(rag_router, prefix="/rag", tags=["RAG"])
+v1_router.include_router(scheduled_searches_router, prefix="/scheduled-searches")
 v1_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 v1_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
 v1_router.include_router(nudge_router, prefix="/nudge", tags=["Nudge"])

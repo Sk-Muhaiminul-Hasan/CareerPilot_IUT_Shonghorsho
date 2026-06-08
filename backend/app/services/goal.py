@@ -1,15 +1,15 @@
-"""In-memory service for career goals.
+"""Career goal service — all operations now async SQLAlchemy DB queries."""
 
-No database dependency — data lives in a module-level dict.
-To switch to a real DB: replace each function body with SQLAlchemy
-async queries against the Goal model. Keep the signatures
-identical so the router never needs to change.
-"""
+import asyncio
+import traceback
+from datetime import UTC, datetime
 
-from datetime import datetime, timezone
-from uuid import uuid4
+import structlog
+from sqlalchemy import case, select
 
 from app.core.exceptions import RecordNotFoundError
+from app.db.session import AsyncSessionLocal
+from app.models.goal import Goal
 from app.schemas.goal import (
     GoalCreate,
     GoalListResponse,
@@ -18,58 +18,86 @@ from app.schemas.goal import (
     GoalUpdate,
 )
 
-# ── In-memory store ───────────────────────────────────────────────────────────
-_store: dict[str, dict] = {}
+logger = structlog.get_logger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _compute_progress(current: int, target: int) -> float:
-    """Return progress as a 0–100 float, capped at 100."""
     if target <= 0:
         return 0.0
     return min(round((current / target) * 100, 2), 100.0)
 
 
-def _make_response(record: dict) -> GoalResponse:
+async def _create_calendar_deadline(
+    goal_id: str,
+    title: str,
+    due_date: datetime,
+    user_id: str,
+) -> None:
+    try:
+        from app.schemas.calendar_event import CalendarEventCreate, EventTypeEnum
+        from app.services.calendar_event import create_event
+
+        await create_event(
+            CalendarEventCreate(
+                user_id=user_id,
+                title=f"Goal deadline: {title}",
+                event_date=due_date,
+                event_type=EventTypeEnum.DEADLINE,
+            ),
+        )
+    except Exception as exc:
+        logger.warning(
+            "goal.calendar_deadline_failed",
+            goal_id=goal_id,
+            error=str(exc),
+            traceback=traceback.format_exc(),
+        )
+
+
+async def create_goal(data: GoalCreate, user_id: str = "") -> GoalResponse:
+    due_date = data.due_date
+    if due_date is not None and due_date.tzinfo is not None:
+        due_date = due_date.replace(tzinfo=None)
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            progress = _compute_progress(0, data.target_value)
+            record = Goal(
+                title=data.title,
+                description=data.description,
+                category=data.category.value,
+                target_value=data.target_value,
+                current_value=0,
+                progress_percent=progress,
+                color_variant=data.color_variant.value,
+                due_label=data.due_label,
+                due_date=due_date,
+            )
+            db.add(record)
+            await db.flush()
+        if data.due_date and user_id:
+            _task = asyncio.create_task(  # noqa: RUF006
+                _create_calendar_deadline(
+                    goal_id=record.id,
+                    title=record.title,
+                    due_date=data.due_date,
+                    user_id=user_id,
+                ),
+            )
+
     return GoalResponse.model_validate(record)
 
 
-# ── CRUD operations ───────────────────────────────────────────────────────────
-
-async def create_goal(data: GoalCreate) -> GoalResponse:
-    """Create a new career goal."""
-    now = _now()
-    goal_id = uuid4().hex
-    record: dict = {
-        "id": goal_id,
-        "user_id": None,
-        "title": data.title,
-        "description": data.description,
-        "category": data.category,
-        "target_value": data.target_value,
-        "current_value": 0,
-        "progress_percent": 0.0,
-        "status": "active",
-        "color_variant": data.color_variant,
-        "due_label": data.due_label,
-        "due_date": data.due_date,
-        "completed_at": None,
-        "created_at": now,
-        "updated_at": now,
-    }
-    _store[goal_id] = record
-    return _make_response(record)
-
-
 async def get_goal(goal_id: str) -> GoalResponse:
-    """Get a single goal by ID. Raises 404 if not found."""
-    record = _store.get(goal_id)
-    if not record:
-        raise RecordNotFoundError(f"Goal '{goal_id}' not found")
-    return _make_response(record)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("Goal", goal_id)
+        return GoalResponse.model_validate(record)
 
 
 async def list_goals(
@@ -78,87 +106,103 @@ async def list_goals(
     status: str | None = None,
     category: str | None = None,
 ) -> GoalListResponse:
-    """List goals with optional status/category filters and pagination."""
-    items = list(_store.values())
+    async with AsyncSessionLocal() as db:
+        query = select(Goal)
+        if status:
+            query = query.where(Goal.status == status)
+        if category:
+            query = query.where(Goal.category == category)
 
-    if status:
-        items = [g for g in items if g["status"] == status]
-    if category:
-        items = [g for g in items if g["category"] == category]
+        count_q = select(Goal.id)
+        if status:
+            count_q = count_q.where(Goal.status == status)
+        if category:
+            count_q = count_q.where(Goal.category == category)
 
-    # Sort by status (active first), then progress descending
-    status_order = {"active": 0, "paused": 1, "completed": 2, "cancelled": 3}
-    items.sort(
-        key=lambda g: (
-            status_order.get(g["status"], 9),
-            -g["progress_percent"],
+        total_result = await db.execute(count_q)
+        total = len(total_result.scalars().all())
+
+        status_case = case(
+            (Goal.status == "active", 0),
+            (Goal.status == "paused", 1),
+            (Goal.status == "completed", 2),
+            (Goal.status == "cancelled", 3),
+            else_=9,
         )
-    )
+        query = query.order_by(status_case, Goal.progress_percent.desc())
+        offset = (page - 1) * page_size
+        query = query.offset(offset).limit(page_size)
+        result = await db.execute(query)
+        records = result.scalars().all()
 
-    total = len(items)
-    start = (page - 1) * page_size
-    page_items = items[start : start + page_size]
-
-    return GoalListResponse(
-        items=[_make_response(g) for g in page_items],
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_next=start + page_size < total,
-    )
+        return GoalListResponse(
+            items=[GoalResponse.model_validate(r) for r in records],
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_next=(offset + page_size) < total,
+        )
 
 
 async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
-    """Partially update a goal. Raises 404 if not found."""
-    record = _store.get(goal_id)
-    if not record:
-        raise RecordNotFoundError(f"Goal '{goal_id}' not found")
+    async with AsyncSessionLocal() as db:  # noqa: SIM117
+        async with db.begin():
+            result = await db.execute(select(Goal).where(Goal.id == goal_id))
+            record = result.scalar_one_or_none()
+            if not record:
+                raise RecordNotFoundError("Goal", goal_id)
 
-    patch = data.model_dump(exclude_unset=True)
-    record.update(patch)
-    record["updated_at"] = _now()
+            patch = data.model_dump(exclude_unset=True)
 
-    # Recompute progress whenever target or current changes
-    record["progress_percent"] = _compute_progress(
-        record["current_value"], record["target_value"]
-    )
+            if "category" in patch and patch["category"] is not None:
+                patch["category"] = patch["category"].value
+            if "status" in patch and patch["status"] is not None:
+                patch["status"] = patch["status"].value
+            if "color_variant" in patch and patch["color_variant"] is not None:
+                patch["color_variant"] = patch["color_variant"].value
 
-    # Auto-set completed_at when status flips to completed
-    if patch.get("status") == "completed" and not record.get("completed_at"):
-        record["completed_at"] = _now()
-        record["current_value"] = record["target_value"]
-        record["progress_percent"] = 100.0
+            for field, value in patch.items():
+                setattr(record, field, value)
 
-    _store[goal_id] = record
-    return _make_response(record)
+            record.updated_at = _now()
+            record.progress_percent = _compute_progress(record.current_value, record.target_value)
+
+            if patch.get("status") == "completed" and not record.completed_at:
+                record.completed_at = _now()
+                record.current_value = record.target_value
+                record.progress_percent = 100.0
+
+            await db.flush()
+    return GoalResponse.model_validate(record)
 
 
 async def update_progress(
     goal_id: str,
     data: GoalProgressUpdate,
 ) -> GoalResponse:
-    """Update only the current_value of a goal and recompute progress."""
-    record = _store.get(goal_id)
-    if not record:
-        raise RecordNotFoundError(f"Goal '{goal_id}' not found")
+    async with AsyncSessionLocal() as db, db.begin():
+        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("Goal", goal_id)
 
-    record["current_value"] = data.current_value
-    record["progress_percent"] = _compute_progress(
-        data.current_value, record["target_value"]
-    )
-    record["updated_at"] = _now()
+        record.current_value = data.current_value
+        record.progress_percent = _compute_progress(data.current_value, record.target_value)
+        record.updated_at = _now()
 
-    # Auto-complete when target reached
-    if data.current_value >= record["target_value"] and record["status"] == "active":
-        record["status"] = "completed"
-        record["completed_at"] = _now()
+        if data.current_value >= record.target_value and record.status == "active":
+            record.status = "completed"
+            record.completed_at = _now()
 
-    _store[goal_id] = record
-    return _make_response(record)
+        await db.commit()
+        return GoalResponse.model_validate(record)
 
 
 async def delete_goal(goal_id: str) -> None:
-    """Delete a goal. Raises 404 if not found."""
-    if goal_id not in _store:
-        raise RecordNotFoundError(f"Goal '{goal_id}' not found")
-    _store.pop(goal_id)
+    async with AsyncSessionLocal() as db, db.begin():
+        result = await db.execute(select(Goal).where(Goal.id == goal_id))
+        record = result.scalar_one_or_none()
+        if not record:
+            raise RecordNotFoundError("Goal", goal_id)
+        await db.delete(record)
+        await db.commit()

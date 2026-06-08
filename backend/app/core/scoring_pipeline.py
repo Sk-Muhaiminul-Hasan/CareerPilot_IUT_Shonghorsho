@@ -23,7 +23,7 @@ from app.core.ats.keyword_analyzer import KeywordAnalyzer
 from app.core.ats.scorer import ResumeScorer, ScoreDetails
 from app.core.ats.skill_matcher import SkillMatcher
 from app.core.llm.client import LLMClient, LLMNotConfiguredError, UserLLMConfig
-from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT
+from app.core.llm.prompts.ats_optimize import ATS_OPTIMIZE_SYSTEM_PROMPT, ATS_REASONING_SYSTEM_PROMPT
 from app.db.session import async_session_factory
 from app.models.job import Job
 from app.models.resume import Resume
@@ -101,20 +101,37 @@ async def _generate_reasoning(
     job: Job,
     score_details: ScoreDetails,
     user_settings: UserLLMConfig | None,
+    resume_id: str | None = None,
 ) -> dict | None:
     try:
         llm = LLMClient()
+
+        resume_text = ""
+        if resume_id:
+            async with async_session_factory() as db:
+                resume_query = select(Resume).where(
+                    Resume.id == resume_id,
+                    Resume.user_id == job.user_id,
+                )
+                resume_result = await db.execute(resume_query)
+                resume = resume_result.scalar_one_or_none()
+
+            resume_text = (resume.content_text if resume else "") or ""
+            resume_text = resume_text[:4000] if resume_text else ""
+
         prompt = (
             f"ATS Score: {score_details.overall_score:.2f}\n"
             f"Missing required skills: {', '.join(score_details.missing_required_skills)}\n"
             f"Missing preferred skills: {', '.join(score_details.missing_preferred_skills)}\n"
             f"Improvement suggestions: {'; '.join(score_details.improvement_suggestions)}\n"
-            f"Employer: {job.company}\nRole: {job.title}"
+            f"Employer: {job.company}\nRole: {job.title}\n\n"
+            f"RESUME TEXT:\n{resume_text}\n\n"
+            f"JOB DESCRIPTION:\n{(job.description or '')[:4000]}"
         )
         result = await llm.complete_with_structured_output(
             prompt=prompt,
             output_schema=ATSReasoningOutput,
-            system_prompt=ATS_OPTIMIZE_SYSTEM_PROMPT,
+            system_prompt=ATS_REASONING_SYSTEM_PROMPT,
             purpose=LLMPurpose.ATS_OPTIMIZE,
             user_settings=user_settings,
         )
@@ -172,6 +189,7 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
                         keyword_score=0,
                     ),
                     user_cfg,
+                    application.resume_id,
                 ),
                 return_exceptions=True,
             )
@@ -187,7 +205,7 @@ async def run_scoring_pipeline(application_id: str, user_id: str) -> None:
             # Re-run reasoning with actual scores if available
             if score_details is not None and not isinstance(score_details, Exception):
                 try:
-                    reasoning = await _generate_reasoning(job, score_details, user_cfg)
+                    reasoning = await _generate_reasoning(job, score_details, user_cfg, application.resume_id)
                 except LLMNotConfiguredError:
                     logger.warning(
                         "scoring_pipeline.llm_not_configured",

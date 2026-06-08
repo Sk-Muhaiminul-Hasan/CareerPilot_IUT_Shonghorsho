@@ -41,6 +41,11 @@ from app.schemas.resume import (
     ResumeScoreResponse,
     ResumeUploadResponse,
 )
+from app.schemas.scheduled_search import (
+    ScheduledSearchCreate,
+    ScheduledSearchResponse,
+    ScheduledSearchUpdate,
+)
 from app.schemas.settings import LLMProviderStatus, SettingsResponse, SettingsUpdate
 from app.schemas.todo_item import (
     TodoItemCreate,
@@ -87,6 +92,10 @@ __all__ = [
     "JobListResponse",
     "JobListingResponse",
     "JobSearchRequest",
+    # scheduled search
+    "ScheduledSearchCreate",
+    "ScheduledSearchResponse",
+    "ScheduledSearchUpdate",
     # settings
     "LLMProviderStatus",
     "SettingsResponse",

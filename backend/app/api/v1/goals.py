@@ -11,8 +11,9 @@ DELETE /goals/{goal_id}              Delete a goal
 """
 
 import structlog
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.api.deps import get_current_user
 from app.config.constants import DEFAULT_PAGE_SIZE
 from app.schemas.goal import (
     GoalCreate,
@@ -33,9 +34,12 @@ router = APIRouter()
     status_code=201,
     summary="Create a career goal",
 )
-async def create_goal(data: GoalCreate) -> GoalResponse:
+async def create_goal(
+    data: GoalCreate,
+    user_id: str = Depends(get_current_user),
+) -> GoalResponse:
     """Create a new career accountability goal."""
-    goal = await goal_service.create_goal(data)
+    goal = await goal_service.create_goal(data, user_id=user_id)
     logger.info("goal_created", goal_id=goal.id, title=goal.title)
     return goal
 

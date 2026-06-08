@@ -43,21 +43,28 @@ def _chunk_text(
     return chunks
 
 
-async def process_resume_upload(resume_id: str, content_text: str, user_id: str) -> None:
+async def process_resume_upload(
+    resume_id: str,
+    content_text: str,
+    user_id: str,
+) -> None:
     if not content_text or len(content_text.strip()) < 200:
         return
 
-    profile = {}
+    usage_db: Any | None = None
     user_cfg = None
+    session = async_session_factory()
     try:
-        from app.core.llm.client import UserLLMConfig
-        from app.services.settings_helper import get_or_create_settings as _goc
-        async with async_session_factory() as _session:
+        async with session as _session:
+            from app.core.llm.client import UserLLMConfig
+            from app.services.settings_helper import get_or_create_settings as _goc
             _settings = await _goc(_session, user_id)
             user_cfg = UserLLMConfig.from_settings(_settings)
+            usage_db = _session
     except Exception:
         pass
 
+    profile = {}
     try:
         llm = LLMClient()
         result = await llm.complete_with_structured_output(
@@ -68,6 +75,8 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
             output_schema=CandidateProfileSchema,
             purpose="extraction",
             user_settings=user_cfg,
+            usage_db=usage_db,
+            usage_user_id=user_id,
         )
         profile = result.model_dump()
     except Exception as exc:
@@ -176,11 +185,12 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
     try:
         from app.services.settings_helper import get_or_create_settings
 
-        async with async_session_factory() as session:
-            settings = await get_or_create_settings(session, user_id)
+        session = async_session_factory()
+        async with session as usage_session:
+            settings = await get_or_create_settings(usage_session, user_id)
             settings.candidate_profile = profile
-            await session.commit()
-            await session.refresh(settings)
+            await usage_session.commit()
+            await usage_session.refresh(settings)
         logger.info(
             "cv_pipeline.profile_saved",
             resume_id=resume_id,
@@ -219,7 +229,7 @@ async def process_resume_upload(resume_id: str, content_text: str, user_id: str)
         ]
         await asyncio.to_thread(vectorstore.add_documents, documents)
         logger.info(
-            "cv_pipeline.chunks_embedded",
+            "cv_chunk_store_failed",
             resume_id=resume_id,
             count=len(documents),
         )

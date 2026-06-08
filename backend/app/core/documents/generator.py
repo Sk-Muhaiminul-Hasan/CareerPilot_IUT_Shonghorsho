@@ -27,7 +27,7 @@ from app.core.llm.prompts.cover_letter import (
 )
 
 if TYPE_CHECKING:
-    from app.core.llm.client import LLMClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -50,15 +50,7 @@ class GeneratedDocument(BaseModel):
 
 
 class DocumentGenerator:
-    """Orchestrates resume and cover letter generation.
-
-    Args:
-        llm_client: Optional LLM client for content tailoring.
-        output_dir: Root directory for generated documents.
-        templates_dir: Root directory containing HTML/CSS templates.
-        upload_file: Optional async callable that uploads a rendered file
-            to remote storage and returns the storage path.
-    """
+    """Orchestrates resume and cover letter generation."""
 
     def __init__(
         self,
@@ -82,6 +74,8 @@ class DocumentGenerator:
         template_name: str = "modern",
         formats: list[str] | None = None,
         user_settings: UserLLMConfig | None = None,
+        usage_db: AsyncSession | None = None,
+        usage_user_id: str = "",
     ) -> GeneratedDocument:
         """Generate a tailored resume in specified formats."""
         formats = formats or ["pdf", "docx"]
@@ -90,7 +84,10 @@ class DocumentGenerator:
         context = resume_data
         tailored_data: dict[str, Any] | None = None
         if self._llm and job_description:
-            context = await self._tailor_resume(resume_data, job_description, user_settings)
+            context = await self._tailor_resume(
+                resume_data, job_description, user_settings,
+                usage_db=usage_db, usage_user_id=usage_user_id,
+            )
             if context is not resume_data:
                 tailored_data = context
 
@@ -100,26 +97,15 @@ class DocumentGenerator:
 
         tasks: list[asyncio.Task[Path]] = []
         task_formats: list[str] = []
-        task_paths: dict[str, Path] = {}
 
         if "pdf" in formats:
             pdf_out = self._output_dir / "resumes" / f"{doc_id}.pdf"
-            task_paths["pdf"] = pdf_out
-            tasks.append(
-                asyncio.ensure_future(
-                    self._pdf.render(template_name, context, pdf_out),
-                ),
-            )
+            tasks.append(asyncio.ensure_future(self._pdf.render(template_name, context, pdf_out)))
             task_formats.append("pdf")
 
         if "docx" in formats:
             docx_out = self._output_dir / "resumes" / f"{doc_id}.docx"
-            task_paths["docx"] = docx_out
-            tasks.append(
-                asyncio.ensure_future(
-                    self._docx.render(template_name, context, docx_out),
-                ),
-            )
+            tasks.append(asyncio.ensure_future(self._docx.render(template_name, context, docx_out)))
             task_formats.append("docx")
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -129,12 +115,7 @@ class DocumentGenerator:
 
         for fmt, result in zip(task_formats, results, strict=False):
             if isinstance(result, Exception):
-                logger.error(
-                    "document_render_error",
-                    format=fmt,
-                    template=template_name,
-                    error=str(result),
-                )
+                logger.error("document_render_error", format=fmt, template=template_name, error=str(result))
             elif isinstance(result, Path):
                 if fmt == "pdf":
                     pdf_path = str(result)
@@ -142,33 +123,21 @@ class DocumentGenerator:
                     docx_path = str(result)
 
         if not pdf_path and not docx_path:
-            raise GenerationError(
-                f"All formats failed for resume generation (doc_id={doc_id})",
-            )
+            raise GenerationError(f"All formats failed for resume generation (doc_id={doc_id})")
 
         if self._upload_file:
             pdf_path, docx_path = await self._upload_generated(
-                doc_id=doc_id,
-                doc_type="resumes",
-                user_id=user_id,
-                pdf_path=pdf_path,
-                docx_path=docx_path,
+                doc_id=doc_id, doc_type="resumes", user_id=user_id,
+                pdf_path=pdf_path, docx_path=docx_path,
             )
 
         logger.info(
-            "resume_generated",
-            document_id=doc_id,
-            template=template_name,
-            has_pdf=pdf_path is not None,
-            has_docx=docx_path is not None,
+            "resume_generated", document_id=doc_id, template=template_name,
+            has_pdf=pdf_path is not None, has_docx=docx_path is not None,
         )
         return GeneratedDocument(
-            document_id=doc_id,
-            type="resume",
-            template=template_name,
-            pdf_path=pdf_path,
-            docx_path=docx_path,
-            tailored_data=tailored_data,
+            document_id=doc_id, type="resume", template=template_name,
+            pdf_path=pdf_path, docx_path=docx_path, tailored_data=tailored_data,
         )
 
     async def generate_cover_letter(
@@ -180,19 +149,19 @@ class DocumentGenerator:
         formats: list[str] | None = None,
         user_id: str = "default_user",
         user_settings: UserLLMConfig | None = None,
+        usage_db: AsyncSession | None = None,
+        usage_user_id: str = "",
     ) -> GeneratedDocument:
         """Generate a cover letter using LLM and render to PDF/DOCX."""
         formats = formats or ["pdf", "docx"]
         doc_id = uuid.uuid4().hex[:12]
 
         if template is None:
-            template = select_best_template(
-                job_title="",
-                job_description=job_description,
-            )
+            template = select_best_template(job_title="", job_description=job_description)
 
         content = await self._generate_letter_content(
             template, job_description, resume_text, company_info, user_settings,
+            usage_db=usage_db, usage_user_id=usage_user_id,
         )
 
         tasks: list[asyncio.Task[Path]] = []
@@ -200,22 +169,12 @@ class DocumentGenerator:
 
         if "pdf" in formats:
             pdf_out = self._output_dir / "cover_letters" / f"{doc_id}.pdf"
-            tasks.append(
-                asyncio.ensure_future(
-                    self._render_cover_letter_pdf(
-                        content, template, pdf_out,
-                    ),
-                ),
-            )
+            tasks.append(asyncio.ensure_future(self._render_cover_letter_pdf(content, template, pdf_out)))
             task_formats.append("pdf")
 
         if "docx" in formats:
             docx_out = self._output_dir / "cover_letters" / f"{doc_id}.docx"
-            tasks.append(
-                asyncio.ensure_future(
-                    self._docx.render_cover_letter(content, docx_out),
-                ),
-            )
+            tasks.append(asyncio.ensure_future(self._docx.render_cover_letter(content, docx_out)))
             task_formats.append("docx")
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -225,12 +184,7 @@ class DocumentGenerator:
 
         for fmt, result in zip(task_formats, results, strict=False):
             if isinstance(result, Exception):
-                logger.error(
-                    "cover_letter_render_error",
-                    format=fmt,
-                    template=template.value,
-                    error=str(result),
-                )
+                logger.error("cover_letter_render_error", template=template.value, error=str(result))
             elif isinstance(result, Path):
                 if fmt == "pdf":
                     pdf_path = str(result)
@@ -238,32 +192,21 @@ class DocumentGenerator:
                     docx_path = str(result)
 
         if not pdf_path and not docx_path:
-            raise GenerationError(
-                f"All formats failed for cover letter (doc_id={doc_id})",
-            )
+            raise GenerationError(f"All formats failed for cover letter (doc_id={doc_id})")
 
         if self._upload_file:
             pdf_path, docx_path = await self._upload_generated(
-                doc_id=doc_id,
-                doc_type="cover_letters",
-                user_id=user_id,
-                pdf_path=pdf_path,
-                docx_path=docx_path,
+                doc_id=doc_id, doc_type="cover_letters", user_id=user_id,
+                pdf_path=pdf_path, docx_path=docx_path,
             )
 
         logger.info(
-            "cover_letter_generated",
-            document_id=doc_id,
-            template=template.value,
-            has_pdf=pdf_path is not None,
-            has_docx=docx_path is not None,
+            "cover_letter_generated", document_id=doc_id, template=template.value,
+            has_pdf=pdf_path is not None, has_docx=docx_path is not None,
         )
         return GeneratedDocument(
-            document_id=doc_id,
-            type="cover_letter",
-            template=template.value,
-            pdf_path=pdf_path,
-            docx_path=docx_path,
+            document_id=doc_id, type="cover_letter", template=template.value,
+            pdf_path=pdf_path, docx_path=docx_path,
         )
 
     async def _upload_generated(
@@ -274,7 +217,6 @@ class DocumentGenerator:
         pdf_path: str | None,
         docx_path: str | None,
     ) -> tuple[str | None, str | None]:
-        """Upload rendered files to Supabase Storage and return storage paths."""
         uploaded_pdf = None
         uploaded_docx = None
         if pdf_path and self._upload_file:
@@ -282,10 +224,8 @@ class DocumentGenerator:
                 with open(pdf_path, "rb") as fh:
                     data = fh.read()
                 uploaded_pdf = await self._upload_file(
-                    bucket="generated",
-                    path=f"{user_id}/{doc_type}/{doc_id}.pdf",
-                    file_bytes=data,
-                    content_type="application/pdf",
+                    bucket="generated", path=f"{user_id}/{doc_type}/{doc_id}.pdf",
+                    file_bytes=data, content_type="application/pdf",
                 )
                 Path(pdf_path).unlink(missing_ok=True)
             except Exception as exc:
@@ -295,10 +235,8 @@ class DocumentGenerator:
                 with open(docx_path, "rb") as fh:
                     data = fh.read()
                 uploaded_docx = await self._upload_file(
-                    bucket="generated",
-                    path=f"{user_id}/{doc_type}/{doc_id}.docx",
-                    file_bytes=data,
-                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    bucket="generated", path=f"{user_id}/{doc_type}/{doc_id}.docx",
+                    file_bytes=data, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 )
                 Path(docx_path).unlink(missing_ok=True)
             except Exception as exc:
@@ -310,6 +248,8 @@ class DocumentGenerator:
         resume_data: dict[str, Any],
         job_description: str,
         user_settings: UserLLMConfig | None,
+        usage_db: AsyncSession | None = None,
+        usage_user_id: str = "",
     ) -> dict[str, Any]:
         if not self._llm:
             return resume_data
@@ -322,14 +262,23 @@ class DocumentGenerator:
 
         prompt = render_resume_tailor_prompt(resume_data, job_description)
         try:
-            result = await self._llm.complete_with_structured_output(
+            structured = await self._llm.complete(
                 prompt=prompt,
-                output_schema=TailoredResumeData,
                 system_prompt=RESUME_TAILOR_SYSTEM_PROMPT,
-                purpose="extraction",
+                purpose="resume_tailor",
                 user_settings=user_settings,
+                response_format={"type": "json_object"},
             )
-            tailored = result.model_dump()
+            if usage_db is not None and usage_user_id:
+                try:
+                    from app.core.llm.usage_tracker import record_usage
+                    await record_usage(
+                        db=usage_db, response=structured,
+                        purpose="resume_tailor", user_id=usage_user_id,
+                    )
+                except Exception as exc:
+                    logger.warning("llm_usage_record_failed", purpose="resume_tailor", error=str(exc))
+            tailored = TailoredResumeData.model_validate_json(structured.content).model_dump()
             logger.info("resume_tailored_via_llm", skills_count=len(tailored.get("skills", [])))
             return tailored
         except Exception:
@@ -343,6 +292,8 @@ class DocumentGenerator:
         resume_text: str,
         company_info: str,
         user_settings: UserLLMConfig | None,
+        usage_db: AsyncSession | None = None,
+        usage_user_id: str = "",
     ) -> str:
         if not self._llm:
             return self._fallback_cover_letter(job_description)
@@ -353,6 +304,17 @@ class DocumentGenerator:
         response = await self._llm.complete(
             prompt=prompt, purpose="cover_letter", user_settings=user_settings,
         )
+
+        if usage_db is not None and usage_user_id:
+            try:
+                from app.core.llm.usage_tracker import record_usage
+                await record_usage(
+                    db=usage_db, response=response,
+                    purpose="cover_letter", user_id=usage_user_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("llm_usage_record_failed", purpose="cover_letter", error=str(exc))
+
         return response.content
 
     @staticmethod
@@ -399,9 +361,7 @@ class DocumentGenerator:
             "font-size:12pt;margin:1in;line-height:1.6;'>"
             f"{_text_to_html(content)}</body></html>"
         )
-        return await self._pdf.render_html_string(
-            html, output_path,
-        )
+        return await self._pdf.render_html_string(html, output_path)
 
 
 def _text_to_html(text: str) -> str:

@@ -8,14 +8,12 @@
 export interface Goal {
   id: string;
   title: string;
-  /** Numerical target (e.g. 5 applications, 20 exercises). */
   target: number;
-  /** Current progress value. */
   current: number;
-  /** Human-readable due date string, or "Ongoing". */
   dueLabel: string;
-  /** Color variant for the progress bar: 'primary' | 'secondary' | 'tertiary'. */
+  dueDate: string | null;
   colorVariant: 'primary' | 'secondary' | 'tertiary';
+  priority: 'Low' | 'Medium' | 'High';
 }
 
 /** Category of a calendar event. */
@@ -42,4 +40,17 @@ export interface WeeklyProgress {
   streakDays: number;
   /** Number of new skills added this week. */
   skillsAdded: number;
+}
+
+/** A single to-do item, optionally linked to a goal or calendar event. */
+export interface Todo {
+  id: string;
+  title: string;
+  description?: string;
+  /** ISO date string or null. */
+  dueDate: string | null;
+  priority: 1 | 2 | 3;
+  status: string;
+  isCompleted: boolean;
+  createdAt: string;
 }

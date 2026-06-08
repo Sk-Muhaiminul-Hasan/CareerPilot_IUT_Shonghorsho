@@ -41,6 +41,7 @@ class ResumeScoreResponse(BaseModel):
     experience_score: float
     education_score: float
     keyword_score: float
+    matched_skills: list[str] = Field(default_factory=list)
     missing_skills: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
 

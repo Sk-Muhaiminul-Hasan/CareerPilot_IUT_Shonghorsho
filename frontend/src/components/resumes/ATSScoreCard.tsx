@@ -80,6 +80,23 @@ function ATSScoreCard({ score }: ATSScoreCardProps) {
         <ScoreBar label="Education" value={score.education_score} />
         <ScoreBar label="Keywords" value={score.keyword_score} />
 
+        {score.matched_skills?.length > 0 ? (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Matched Skills
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {score.matched_skills.map((skill) => (
+                <Chip key={skill} label={skill} size="small" color="success" variant="outlined" />
+              ))}
+            </Box>
+          </Box>
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+            No matched skills found
+          </Typography>
+        )}
+
         {score.missing_skills.length > 0 && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
