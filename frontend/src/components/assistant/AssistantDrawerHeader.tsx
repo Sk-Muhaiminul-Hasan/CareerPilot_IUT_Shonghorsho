@@ -61,9 +61,7 @@ export function AssistantDrawerHeader({
         <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: '#ffffff' }}>
           Career Copilot
         </Typography>
-        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-          Persistent chats and reusable artifacts
-        </Typography>
+
       </Box>
       {activeJobId && (
         <Chip

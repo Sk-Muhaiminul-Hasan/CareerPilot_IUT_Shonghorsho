@@ -58,7 +58,7 @@ function getWeekRange(): string {
   end.setDate(start.getDate() + 6);
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  return `${fmt(start)} â€“ ${fmt(end)}, ${end.getFullYear()}`;
+  return `${fmt(start)} — ${fmt(end)}, ${end.getFullYear()}`;
 }
 const TAB_TITLES: Record<DashTab, { title: string; subtitle: string }> = {
   overview: { title: 'Dashboard Overview', subtitle: 'Your career trajectory at a glance.' },

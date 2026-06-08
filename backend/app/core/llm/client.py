@@ -128,10 +128,7 @@ class LLMClient:
     def __init__(self) -> None:
         settings = get_settings()
         self._llm = settings.llm
-        self._cv_extraction_api_key = settings.cv_extraction_api_key.get_secret_value()
-        self._cv_extraction_model = settings.cv_extraction_model
         self._configure_portkey()
-        self._configure_api_keys()
 
     def _configure_portkey(self) -> None:
         """Configure Portkey gateway headers if API key is available."""
@@ -141,21 +138,6 @@ class LLMClient:
             litellm.success_callback = ["portkey"]
             litellm.failure_callback = ["portkey"]
             logger.info("portkey_gateway_configured")
-
-    def _configure_api_keys(self) -> None:
-        """Push provider API keys into litellm's key registry and os environment."""
-        key_map: dict[str, str] = {
-            "openai_api_key": self._llm.openai_api_key.get_secret_value(),
-            "groq_api_key": self._llm.groq_api_key.get_secret_value(),
-            "gemini_api_key": self._llm.gemini_api_key.get_secret_value(),
-            "openrouter_api_key": self._llm.openrouter_api_key.get_secret_value(),
-        }
-        for attr, value in key_map.items():
-            if value:
-                setattr(litellm, attr, value)
-        if self._cv_extraction_api_key:
-            import os as _os
-            _os.environ["OPENAI_API_KEY"] = self._cv_extraction_api_key
 
     def _build_messages(
         self, prompt: str, system_prompt: str
@@ -271,31 +253,13 @@ class LLMClient:
         temp = temperature if temperature is not None else self._llm.temperature
         tokens = max_tokens if max_tokens is not None else self._llm.max_tokens
 
-        if purpose == "general":
-            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
-        elif purpose == "extraction":
-            user_api_key = self._cv_extraction_api_key or (
-                user_settings.api_key_for(purpose) if user_settings else None
+        user_api_key = user_settings.api_key_for(purpose) if user_settings else None
+        if not user_api_key:
+            raise LLMNotConfiguredError(
+                "AI not configured. Please configure your AI model in Settings."
             )
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
-        else:
-            user_api_key = user_settings.api_key_for(purpose) if user_settings else None
-            if not user_api_key:
-                raise LLMNotConfiguredError(
-                    "AI not configured. Please configure your AI model in Settings."
-                )
 
-        if purpose == "extraction":
-            model_chain = [self._cv_extraction_model]
-        else:
-            model_chain = self._get_model_chain(model, user_settings, purpose)
+        model_chain = self._get_model_chain(model, user_settings, purpose)
         metadata = self._portkey_metadata()
         last_error: Exception | None = None
 

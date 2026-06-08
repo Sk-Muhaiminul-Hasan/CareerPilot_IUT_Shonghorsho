@@ -13,18 +13,24 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import AddTaskIcon from '@mui/icons-material/AddTask';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Checkbox from '@mui/material/Checkbox';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 
 import type { CalendarEvent } from '@/types/dashboard';
-import { useCalendarEvents } from '@/hooks/useDashboard';
-import { createCalendarEvent } from '@/services/dashboardService';
+// ✅ MERGED: CALENDAR_KEY from wasi-not-final + updateCalendarEvent/deleteCalendarEvent
+//    from home_page_with_auth (needed for toggle complete + delete buttons)
+//    Removed local DASHBOARD_KEY constant — use imported CALENDAR_KEY everywhere
+import { useCalendarEvents, CALENDAR_KEY } from '@/hooks/useDashboard';
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/services/dashboardService';
 
-const DASHBOARD_KEY = ['dashboard'] as const;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -44,8 +50,6 @@ const EVENT_CHIP_COLOR: Record<CalendarEvent['type'], { bg: string; color: strin
   session: { bg: '#e5eeff', color: '#004ac6' },
   task: { bg: '#dcfce7', color: '#1a7f4b' },
 };
-
-
 
 /** Build a 6-row × 7-col calendar grid for the given month/year. */
 function buildCalendarGrid(year: number, month: number): (Date | null)[][] {
@@ -78,10 +82,15 @@ export default function CalendarView() {
   const queryClient = useQueryClient();
   const { data: events = [] } = useCalendarEvents();
 
+  const [priority, setPriority] = useState<'High' | 'Medium' | 'Normal'>('Normal');
+
   const grid = buildCalendarGrid(viewYear, viewMonth);
 
   function eventsOnDay(date: Date) {
-    return events.filter((e) => isSameDay(new Date(e.date), date));
+    return events.filter((e) => {
+      const [y, m, d] = e.date.split('-').map(Number);
+      return isSameDay(new Date(y, m - 1, d), date);
+    });
   }
 
   function prevMonth() {
@@ -99,9 +108,12 @@ export default function CalendarView() {
     try {
       const eventDate = new Date(selectedDate);
       eventDate.setHours(12, 0, 0, 0);
-      await createCalendarEvent(quickAdd.trim(), eventDate);
+      await createCalendarEvent(quickAdd.trim(), eventDate, priority);
       setQuickAdd('');
-      await queryClient.invalidateQueries({ queryKey: [...DASHBOARD_KEY, 'events'] });
+      // ✅ MERGED: kept setPriority reset from home_page_with_auth
+      //           + CALENDAR_KEY from wasi-not-final (replaces stale DASHBOARD_KEY)
+      setPriority('Normal');
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
     } catch {
       // error already logged in service
     } finally {
@@ -109,6 +121,25 @@ export default function CalendarView() {
     }
   }
 
+  async function handleToggleComplete(eventId: string, isCompleted: boolean) {
+    try {
+      await updateCalendarEvent(eventId, { is_completed: isCompleted });
+      // ✅ FIXED: was [...DASHBOARD_KEY, 'events'] — now uses CALENDAR_KEY
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
+    } catch (error) {
+      console.error('Failed to toggle completion:', error);
+    }
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    try {
+      await deleteCalendarEvent(eventId);
+      // ✅ FIXED: was [...DASHBOARD_KEY, 'events'] — now uses CALENDAR_KEY
+      await queryClient.invalidateQueries({ queryKey: CALENDAR_KEY });
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+    }
+  }
 
   const selectedEvents = eventsOnDay(selectedDate);
   const todayEvents = eventsOnDay(today);
@@ -168,7 +199,8 @@ export default function CalendarView() {
                     key={ci}
                     onClick={() => date && setSelectedDate(date)}
                     sx={{
-                      minHeight: 72,
+                      height: 84,
+                      overflow: 'hidden',
                       p: 0.75,
                       borderBottom: '1px solid #f1f5f9',
                       borderRight: ci < 6 ? '1px solid #f1f5f9' : 'none',
@@ -207,6 +239,7 @@ export default function CalendarView() {
                                 borderRadius: 1,
                                 bgcolor: EVENT_CHIP_COLOR[ev.type].bg,
                                 maxWidth: '100%',
+                                opacity: ev.isCompleted ? 0.6 : 1,
                               }}
                             >
                               <Typography
@@ -216,6 +249,7 @@ export default function CalendarView() {
                                   fontWeight: 600,
                                   color: EVENT_CHIP_COLOR[ev.type].color,
                                   lineHeight: 1.4,
+                                  textDecoration: ev.isCompleted ? 'line-through' : 'none',
                                 }}
                               >
                                 {ev.title}
@@ -265,46 +299,93 @@ export default function CalendarView() {
                   return (
                     <Box
                       key={ev.id}
-                      sx={{ display: 'flex', gap: 1, borderLeft: `3px solid ${chipStyle.color}`, pl: 1.25 }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 1,
+                        borderLeft: `3px solid ${chipStyle.color}`,
+                        pl: 1,
+                        py: 0.5,
+                      }}
                     >
-                      <Box>
-                        {ev.time && (
-                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                            {ev.time}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                        <Checkbox
+                          size="small"
+                          checked={!!ev.isCompleted}
+                          onChange={(e) => handleToggleComplete(ev.id, e.target.checked)}
+                          sx={{
+                            p: 0.5,
+                            color: chipStyle.color,
+                            '&.Mui-checked': { color: chipStyle.color },
+                          }}
+                        />
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          {ev.time && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              fontWeight={600}
+                              sx={{ textDecoration: ev.isCompleted ? 'line-through' : 'none' }}
+                            >
+                              {ev.time}
+                            </Typography>
+                          )}
+                          <Typography
+                            variant="body2"
+                            fontWeight={700}
+                            color={ev.isCompleted ? 'text.disabled' : 'text.primary'}
+                            sx={{
+                              textDecoration: ev.isCompleted ? 'line-through' : 'none',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {ev.title}
                           </Typography>
-                        )}
-                        <Typography variant="body2" fontWeight={700} color="text.primary">
-                          {ev.title}
-                        </Typography>
-                        {ev.subtitle && (
-                          <Typography variant="caption" color="text.secondary">
-                            {ev.subtitle}
-                          </Typography>
-                        )}
+                          {ev.subtitle && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                              {['High', 'Medium', 'Normal'].includes(ev.subtitle) ? (
+                                <Chip
+                                  label={`${ev.subtitle} Priority`}
+                                  size="small"
+                                  sx={{
+                                    height: 18,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 600,
+                                    bgcolor: ev.subtitle === 'High' ? '#fde8e8' : ev.subtitle === 'Medium' ? '#fff4db' : '#e5eeff',
+                                    color: ev.subtitle === 'High' ? '#dc2626' : ev.subtitle === 'Medium' ? '#b45309' : '#004ac6',
+                                    textDecoration: ev.isCompleted ? 'line-through' : 'none',
+                                  }}
+                                />
+                              ) : (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ textDecoration: ev.isCompleted ? 'line-through' : 'none' }}
+                                >
+                                  {ev.subtitle}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
                       </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteEvent(ev.id)}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': { color: 'error.main' },
+                          p: 0.5,
+                        }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
                     </Box>
                   );
                 })}
               </Box>
             )}
-
-            <Divider sx={{ my: 1.5 }} />
-            <Button
-              startIcon={<AddTaskIcon />}
-              variant="outlined"
-              fullWidth
-              size="small"
-              sx={{
-                borderStyle: 'dashed',
-                borderColor: '#c3c6d7',
-                color: 'text.secondary',
-                textTransform: 'none',
-                fontWeight: 500,
-                '&:hover': { borderColor: '#004ac6', color: '#004ac6' },
-              }}
-            >
-              + Add Task
-            </Button>
           </CardContent>
         </Card>
 
@@ -332,6 +413,35 @@ export default function CalendarView() {
                 '& input::placeholder': { color: 'rgba(255,255,255,0.6)' },
               }}
             />
+            <FormControl
+              size="small"
+              fullWidth
+              sx={{
+                mb: 2,
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.6)' },
+                  '&.Mui-focused fieldset': { borderColor: '#fff' },
+                },
+                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.8)' },
+                '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                '& .MuiSelect-icon': { color: '#fff' }
+              }}
+            >
+              <InputLabel id="quick-add-priority-label">Priority</InputLabel>
+              <Select
+                labelId="quick-add-priority-label"
+                value={priority}
+                label="Priority"
+                onChange={(e) => setPriority(e.target.value as 'High' | 'Medium' | 'Normal')}
+              >
+                <MenuItem value="Normal">Normal</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="High">High</MenuItem>
+              </Select>
+            </FormControl>
             <Button
               variant="contained"
               fullWidth
@@ -351,7 +461,7 @@ export default function CalendarView() {
           </CardContent>
         </Card>
 
-        {/* Today's events count from main events list */}
+        {/* Today's events count */}
         {todayEvents.length > 0 && (
           <Card>
             <CardContent sx={{ p: '16px !important' }}>

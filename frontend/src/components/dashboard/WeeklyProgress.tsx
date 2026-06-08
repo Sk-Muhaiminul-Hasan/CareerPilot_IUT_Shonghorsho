@@ -78,11 +78,14 @@ function WeeklyProgress({ data, loading = false }: WeeklyProgressProps) {
             {loading ? (
               <Skeleton variant="text" width={70} height={36} />
             ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: '#0b1c30', lineHeight: 1 }}>
-                  {streak}d
+                  {streak}
                 </Typography>
-                <BoltIcon sx={{ color: '#f59e0b', fontSize: 22 }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <BoltIcon sx={{ color: '#f59e0b', fontSize: 18 }} />
+                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1, fontWeight: 600 }}>goals</Typography>
+                </Box>
               </Box>
             )}
           </Box>
@@ -114,7 +117,7 @@ function WeeklyProgress({ data, loading = false }: WeeklyProgressProps) {
                   {String(skills).padStart(2, '0')}
                 </Typography>
                 <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
-                  this week
+                  from goals
                 </Typography>
               </Box>
             )}

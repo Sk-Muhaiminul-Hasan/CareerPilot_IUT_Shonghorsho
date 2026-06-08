@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.llm.client import LLMClient, UserLLMConfig
 from app.core.llm.prompts.assistant import SYSTEM_PROMPT, AssistantIntent, render_assistant_prompt
 from app.models.job import Job
 from app.services.artifact_builder import prepare_assistant_output
@@ -22,9 +23,7 @@ from app.services.assistant_support import (
     extract_profile_overview,
 )
 from app.services.rag_service import RAGService
-
-if TYPE_CHECKING:
-    from app.core.llm.client import LLMClient
+from app.services.settings_helper import get_or_create_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -50,8 +49,8 @@ def clear_session_cv_cache(resume_id: str | None = None) -> None:
 async def process_chat_query(
     *,
     db: AsyncSession,
+    user_id: str,  # ✅ required, no default — removed duplicate optional param
     query: str,
-    user_id: str | None = None,
     resume_id: str | None = None,
     job_id: str | None = None,
     job_description: str | None = None,
@@ -59,7 +58,7 @@ async def process_chat_query(
     attachments: list[dict[str, Any]] | None = None,
     rag_service: RAGService | None = None,
     llm_client: LLMClient | None = None,
-    session_id: str | None = None,
+    session_id: str | None = None,  # ✅ kept from toolcall
 ) -> dict[str, Any]:
     """Process a Pillar 3 assistant query and return a JSON-safe response."""
     normalized_query = query.strip()
@@ -122,25 +121,18 @@ async def process_chat_query(
     )
 
     # Resolve user settings/keys
-    from app.services.settings_helper import get_or_create_settings
-    from app.core.llm.client import UserLLMConfig
-
-    user_settings = None
-    if user_id:
-        settings_record = await get_or_create_settings(db, user_id)
-        if settings_record:
-            user_settings = UserLLMConfig.from_settings(settings_record)
+    settings_record = await get_or_create_settings(db, user_id)
+    user_cfg = UserLLMConfig.from_settings(settings_record)
 
     try:
         if llm_client is None:
-            from app.core.llm.client import LLMClient
-
             llm_client = LLMClient()
+        # ✅ MERGED: wasi-not-final wins — user_cfg is the correctly resolved config
         response = await llm_client.complete(
             prompt=prompt,
             system_prompt=SYSTEM_PROMPT,
             purpose=f"assistant_{intent.value}",
-            user_settings=user_settings,
+            user_settings=user_cfg,
         )
         raw_answer = response.content.strip()
         metadata: dict[str, Any] = {
@@ -190,14 +182,14 @@ async def process_chat_query(
                     type="tailored",
                     base_resume_id=base_id,
                     job_id=job_id,
-                    template_id="modern",  # default
+                    template_id="modern",
                     content_text=artifact.get("content", ""),
-                    user_id=user_id or "default_user",
+                    user_id=user_id,  # ✅ FIXED: removed "default_user" fallback
                 )
                 db.add(tailored)
                 await db.commit()
                 await db.refresh(tailored)
-                
+
                 if "data" not in artifact or artifact["data"] is None:
                     artifact["data"] = {}
                 artifact["data"]["resume_id"] = str(tailored.id)
@@ -216,6 +208,7 @@ async def process_chat_query(
 
 async def generate_assistant_stream(
     db: AsyncSession,
+    user_id: str,
     message: str,
     job_id: str | None = None,
     profile_id: str | None = None,
@@ -224,6 +217,7 @@ async def generate_assistant_stream(
     """Compatibility SSE generator for clients that still expect SSE."""
     response = await process_chat_query(
         db=db,
+        user_id=user_id,
         query=message,
         resume_id=profile_id,
         job_id=job_id,
