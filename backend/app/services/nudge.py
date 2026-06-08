@@ -73,6 +73,7 @@ async def _create_todo_for_job(
     job: Job,
     user_id: str,
 ) -> tuple[str, str, datetime | None, int] | None:
+    print(f"[NUDGE DEBUG] _create_todo_for_job called: {job.title} @ {job.company}")
     from app.models.todo_item import TodoItem
     from app.schemas.todo_item import TodoPriorityEnum
 
@@ -121,6 +122,10 @@ async def get_nudge(
                 nudge = NudgeResponse.model_validate_json(cached)
                 if not nudge.suggested_todos and nudge.recommended_jobs:
                     logger.info("nudge_cache_backfill_todos", user_id=user_id)
+                    print(
+                        f"[NUDGE DEBUG] Cache hit todos backfill: "
+                        f"{len(nudge.recommended_jobs)} jobs"
+                    )
                     todo_results = await asyncio.gather(
                         *[
                             _create_todo_for_job(

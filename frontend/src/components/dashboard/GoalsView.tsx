@@ -5,6 +5,7 @@
  *
  * Data comes from useGoals() — swap dashboardService.ts for real API calls.
  */
+import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -24,6 +25,7 @@ import GroupIcon from '@mui/icons-material/Group';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StarIcon from '@mui/icons-material/Star';
@@ -186,7 +188,7 @@ export default function GoalsView() {
     setCategory('applications');
     setColorVariant(goal.colorVariant);
     setDueDate(goal.dueDate || '');
-    setPriority(goal.priority);
+    setPriority(goal.priority ?? 'Medium');
   }
 
   function handleCancelEdit() {

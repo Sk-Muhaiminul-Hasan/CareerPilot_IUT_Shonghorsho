@@ -146,35 +146,36 @@ async def list_goals(
 
 
 async def update_goal(goal_id: str, data: GoalUpdate) -> GoalResponse:
-    async with AsyncSessionLocal() as db, db.begin():
-        result = await db.execute(select(Goal).where(Goal.id == goal_id))
-        record = result.scalar_one_or_none()
-        if not record:
-            raise RecordNotFoundError("Goal", goal_id)
+    async with AsyncSessionLocal() as db:  # noqa: SIM117
+        async with db.begin():
+            result = await db.execute(select(Goal).where(Goal.id == goal_id))
+            record = result.scalar_one_or_none()
+            if not record:
+                raise RecordNotFoundError("Goal", goal_id)
 
-        patch = data.model_dump(exclude_unset=True)
+            patch = data.model_dump(exclude_unset=True)
 
-        if "category" in patch and patch["category"] is not None:
-            patch["category"] = patch["category"].value
-        if "status" in patch and patch["status"] is not None:
-            patch["status"] = patch["status"].value
-        if "color_variant" in patch and patch["color_variant"] is not None:
-            patch["color_variant"] = patch["color_variant"].value
+            if "category" in patch and patch["category"] is not None:
+                patch["category"] = patch["category"].value
+            if "status" in patch and patch["status"] is not None:
+                patch["status"] = patch["status"].value
+            if "color_variant" in patch and patch["color_variant"] is not None:
+                patch["color_variant"] = patch["color_variant"].value
 
-        for field, value in patch.items():
-            setattr(record, field, value)
+            for field, value in patch.items():
+                setattr(record, field, value)
 
-        record.updated_at = _now()
-        record.progress_percent = _compute_progress(record.current_value, record.target_value)
+            record.updated_at = _now()
+            record.progress_percent = _compute_progress(record.current_value, record.target_value)
 
-        if patch.get("status") == "completed" and not record.completed_at:
-            record.completed_at = _now()
-            record.current_value = record.target_value
-            record.progress_percent = 100.0
+            if patch.get("status") == "completed" and not record.completed_at:
+                record.completed_at = _now()
+                record.current_value = record.target_value
+                record.progress_percent = 100.0
 
-        await db.commit()
-        await db.refresh(record)
-        return GoalResponse.model_validate(record)
+            await db.flush()
+            await db.refresh(record)
+    return GoalResponse.model_validate(record)
 
 
 async def update_progress(
