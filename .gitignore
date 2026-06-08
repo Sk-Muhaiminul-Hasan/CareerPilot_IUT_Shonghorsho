@@ -69,6 +69,7 @@ INTEGRATION_PLAN.md
 TOOLS.md
 .claude/
 venv311/
+env311/
 .puku/
 
 backend/data/uploads/*.pdf

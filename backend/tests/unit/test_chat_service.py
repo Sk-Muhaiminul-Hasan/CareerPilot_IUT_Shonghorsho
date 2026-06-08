@@ -95,3 +95,18 @@ async def test_process_chat_query_asks_for_jd_when_required(db_session) -> None:
 
     assert response["intent"] == "cover_letter"
     assert response["metadata"]["needs_job_description"] is True
+
+
+def test_fallback_roadmap_parses_duration() -> None:
+    from app.services.assistant_support import _fallback_roadmap
+    
+    # 1. 10 months
+    res_10m = _fallback_roadmap("some evidence", "make me a 10 months roadmap")
+    assert "10-month roadmap" in res_10m
+    assert "Week 40:" in res_10m
+    
+    # 2. 6 weeks
+    res_6w = _fallback_roadmap("some evidence", "give me a 6 weeks plan")
+    assert "6-week roadmap" in res_6w
+    assert "Week 6:" in res_6w
+    assert "Week 7:" not in res_6w

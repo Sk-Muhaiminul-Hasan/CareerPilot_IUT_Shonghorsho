@@ -4,6 +4,9 @@
  * service functions in dashboardService.ts need to be updated.
  */
 
+export type GoalStatus = 'active' | 'paused' | 'completed' | 'cancelled';
+export type GoalCategory = 'applications' | 'learning' | 'networking' | 'interview_prep' | 'other';
+
 /** A single career goal with progress tracking. */
 export interface Goal {
   id: string;
@@ -14,12 +17,17 @@ export interface Goal {
   dueDate: string | null;
   colorVariant: 'primary' | 'secondary' | 'tertiary';
   priority: 'Low' | 'Medium' | 'High';
+  /** Backend status: active | paused | completed | cancelled */
+  status: GoalStatus;
+  /** Goal category used to classify skills learned. */
+  category: GoalCategory;
+  /** ISO string set when the goal was completed. */
+  completedAt: string | null;
 }
 
 /** Category of a calendar event. */
 export type CalendarEventType = 'interview' | 'deadline' | 'task' | 'session';
 
-/** A single upcoming calendar event. */
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -30,6 +38,8 @@ export interface CalendarEvent {
   type: CalendarEventType;
   /** Optional subtitle / description. */
   subtitle?: string;
+  /** Whether the task or event is marked completed. */
+  isCompleted?: boolean;
 }
 
 /** Weekly progress snapshot shown in the Progress tile. */

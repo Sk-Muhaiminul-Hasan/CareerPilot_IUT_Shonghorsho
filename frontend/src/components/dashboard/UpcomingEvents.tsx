@@ -48,6 +48,16 @@ const BADGE_COLOR: Record<CalendarEvent['type'], string> = {
 };
 
 function UpcomingEvents({ events, loading = false, onOpenCalendar }: UpcomingEventsProps) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const upcomingEvents = events
+    ? [...events]
+        .filter((e) => new Date(e.date) >= now)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 5)
+    : [];
+
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: '24px !important', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -66,12 +76,12 @@ function UpcomingEvents({ events, loading = false, onOpenCalendar }: UpcomingEve
                 </Box>
               </Box>
             ))
-          ) : !events || events.length === 0 ? (
+          ) : upcomingEvents.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No upcoming events.
             </Typography>
           ) : (
-            events.map((event) => {
+            upcomingEvents.map((event) => {
               const { month, day } = parseDate(event.date);
               const badgeColor = BADGE_COLOR[event.type];
               return (

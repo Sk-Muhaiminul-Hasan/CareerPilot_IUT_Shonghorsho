@@ -8,13 +8,98 @@ import re
 from typing import Any
 
 from app.core.llm.prompts.assistant import AssistantIntent
+from app.services.artifact_extractor import (
+    extract_generated_artifacts,
+    looks_like_generation_request,
+    make_artifact,
+    title_from_query,
+)
+
+
+def split_markdown_roadmap(answer: str) -> tuple[str, str]:
+    """Split conversational intro/outro from a markdown roadmap."""
+    lines = answer.splitlines()
+    doc_start = -1
+    for i, line in enumerate(lines):
+        if line.strip().startswith('#'):
+            doc_start = i
+            break
+    if doc_start != -1:
+        prefix = "\n".join(lines[:doc_start]).strip()
+        document = "\n".join(lines[doc_start:]).strip()
+        return prefix, document
+    return "", answer
+
+
+def split_cover_letter(answer: str) -> tuple[str, str]:
+    """Split conversational intro from a cover letter block."""
+    lines = answer.splitlines()
+    doc_start = -1
+    for i, line in enumerate(lines):
+        cleaned = line.strip().lower()
+        if cleaned.startswith(("dear", "to whom", "subject:", "attention:", "hello")):
+            doc_start = i
+            break
+        if re.match(r"^(january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})", cleaned):
+            doc_start = i
+            break
+    if doc_start != -1:
+        prefix = "\n".join(lines[:doc_start]).strip()
+        document = "\n".join(lines[doc_start:]).strip()
+        return prefix, document
+    return "", answer
+
+
+def prepare_assistant_output(
+    intent: AssistantIntent,
+    answer: str,
+    query: str,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Split display text from reusable artifacts in an assistant response."""
+    display_answer, artifacts = extract_generated_artifacts(answer, query)
+
+    if not artifacts:
+        if intent == AssistantIntent.ROADMAP:
+            prefix, doc = split_markdown_roadmap(answer)
+            if doc.strip():
+                artifact = make_artifact(
+                    "roadmap",
+                    f"{_roadmap_duration(query)} roadmap",
+                    doc,
+                    file_format="markdown",
+                )
+                display_answer = prefix or "I have created the learning roadmap for you."
+                artifacts = [artifact]
+        elif intent == AssistantIntent.COVER_LETTER:
+            prefix, doc = split_cover_letter(answer)
+            if doc.strip():
+                artifact = make_artifact(
+                    "cover_letter",
+                    "Cover letter draft",
+                    doc,
+                    file_format="text",
+                )
+                display_answer = prefix or "I have drafted the cover letter for you."
+                artifacts = [artifact]
+        else:
+            artifacts = _intent_artifacts(intent, display_answer, query)
+
+    if not display_answer and artifacts:
+        label = "artifact" if len(artifacts) == 1 else "artifacts"
+        display_answer = f"I created {len(artifacts)} {label} for you."
+
+    return display_answer, artifacts
 
 
 def build_artifacts(intent: AssistantIntent, answer: str, query: str) -> list[dict[str, Any]]:
     """Create reusable assistant artifacts for output-oriented intents."""
+    return prepare_assistant_output(intent, answer, query)[1]
+
+
+def _intent_artifacts(intent: AssistantIntent, answer: str, query: str) -> list[dict[str, Any]]:
     if intent == AssistantIntent.READINESS:
         return [
-            _artifact(
+            make_artifact(
                 "readiness_report",
                 "Readiness verdict",
                 answer,
@@ -24,13 +109,13 @@ def build_artifacts(intent: AssistantIntent, answer: str, query: str) -> list[di
     if intent == AssistantIntent.GAP_ANALYSIS:
         rows = _gap_rows(answer)
         return [
-            _artifact(
+            make_artifact(
                 "skill_gap_report",
                 "Skill gap analysis",
                 answer,
                 description="Readable benchmark comparison for the user.",
             ),
-            _artifact(
+            make_artifact(
                 "skill_gap_matrix",
                 "Skill gap matrix",
                 _rows_to_csv(rows),
@@ -40,39 +125,12 @@ def build_artifacts(intent: AssistantIntent, answer: str, query: str) -> list[di
             ),
         ]
     if intent == AssistantIntent.ROADMAP:
-        return [_artifact("roadmap", f"{_roadmap_duration(query)} roadmap", answer)]
+        return [make_artifact("roadmap", f"{_roadmap_duration(query)} roadmap", answer)]
     if intent == AssistantIntent.COVER_LETTER:
-        return [_artifact("cover_letter", "Cover letter draft", answer, file_format="text")]
-    if any(term in query.lower() for term in ("draft", "write", "make", "build")):
-        return [_artifact("assistant_note", "Assistant draft", answer)]
+        return [make_artifact("cover_letter", "Cover letter draft", answer, file_format="text")]
+    if looks_like_generation_request(query) and len(answer.strip()) > 160:
+        return [make_artifact("assistant_draft", title_from_query(query, "markdown"), answer)]
     return []
-
-
-def _artifact(
-    kind: str,
-    title: str,
-    content: str,
-    *,
-    file_format: str = "markdown",
-    data: dict[str, Any] | None = None,
-    description: str | None = None,
-) -> dict[str, Any]:
-    extension = {"markdown": "md", "text": "txt"}.get(file_format, file_format)
-    filename = f"{_slug(title)}.{extension}"
-    return {
-        "type": kind,
-        "title": title,
-        "content": content,
-        "format": file_format,
-        "filename": filename,
-        "description": description,
-        "data": data or {},
-    }
-
-
-def _slug(text: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return slug or "careerpilot-artifact"
 
 
 def _roadmap_duration(query: str) -> str:
