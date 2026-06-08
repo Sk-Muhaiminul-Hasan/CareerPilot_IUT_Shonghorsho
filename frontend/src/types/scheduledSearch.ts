@@ -12,6 +12,17 @@ export interface ScheduledSearch {
   updated_at: string;
 }
 
+export type ScheduledSearchCreate = {
+  query: string;
+  location?: string | null;
+  platforms?: string[];
+  schedule: string;
+};
+
+export type ScheduledSearchUpdate = Partial<ScheduledSearchCreate> & {
+  is_active?: boolean;
+};
+
 export const SCHEDULE_OPTIONS = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },

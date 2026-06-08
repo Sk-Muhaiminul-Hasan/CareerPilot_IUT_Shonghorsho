@@ -22,18 +22,16 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import {
-  Description as DescriptionIcon,
-  Download as DownloadIcon,
-  SmartToy as SmartToyIcon,
-  Visibility as VisibilityIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-  ContentCopy as ContentCopyIcon,
-  CloudUpload as CloudUploadIcon,
-  CheckCircle as CheckCircleIcon,
-} from '@mui/icons-material';
+import DescriptionIcon from '@mui/icons-material/Description';
+import DownloadIcon from '@mui/icons-material/Download';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import ResumeUpload from '@/components/resumes/ResumeUpload';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -47,7 +45,6 @@ import {
 import { getResumeRaw } from '@/services/resumeService';
 import { useChatStore } from '@/store/useChatStore';
 import { useAppStore } from '@/store/useAppStore';
-import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown';
 import ReactMarkdown from 'react-markdown';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────

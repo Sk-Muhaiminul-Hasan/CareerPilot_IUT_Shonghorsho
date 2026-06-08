@@ -3,17 +3,9 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Checkbox from '@mui/material/Checkbox';
-import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
-
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import JobCard from '@/components/jobs/JobCard';
 import type { NudgeResponse } from '@/types/nudge';

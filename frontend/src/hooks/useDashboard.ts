@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as dashboardService from '@/services/dashboardService';
 
-import { useQuery } from '@tanstack/react-query';
-import * as dashboardService from '@/services/dashboardService';
-
 export const DASHBOARD_KEY = ['dashboard'] as const;
 export const GOALS_KEY = [...DASHBOARD_KEY, 'goals'] as const;
 export const CALENDAR_KEY = [...DASHBOARD_KEY, 'calendar'] as const;

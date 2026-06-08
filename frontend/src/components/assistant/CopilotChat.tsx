@@ -3,14 +3,12 @@ import { Box, Drawer } from '@mui/material';
 
 import { useChatStore } from '@/store/useChatStore';
 
-import { AssistantContextMenu } from './AssistantContextMenu';
 import { AssistantDrawerHeader } from './AssistantDrawerHeader';
 import { AssistantMessages } from './AssistantMessages';
 import { AttachmentChips } from './AttachmentChips';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ChatComposer } from './ChatComposer';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
-import { MentionMenu } from './MentionMenu';
 import { useCopilotChatController } from './useCopilotChatController';
 import { ArtifactWorkspace } from './ArtifactWorkspace';
 

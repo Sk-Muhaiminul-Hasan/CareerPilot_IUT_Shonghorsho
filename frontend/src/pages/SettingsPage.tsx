@@ -10,7 +10,9 @@ import { useNavigate } from 'react-router-dom';
 
 import LoadingState from '@/components/common/LoadingState';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import CandidateProfileEditor from '@/components/settings/CandidateProfileEditor';
 import AISlotConfigCard from '@/components/settings/AISlotConfigCard';
+import ScheduledSearchesCard from '@/components/settings/ScheduledSearchesCard';
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -21,6 +23,53 @@ function SettingsPage() {
   const showNotification = useAppStore((s) => s.showNotification);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+
+  const handleUpdate = useCallback(
+    (field: string, value: unknown) => {
+      updateMutation.mutate(
+        { [field]: value },
+        {
+          onSuccess: () => showNotification('Settings saved.', 'success'),
+          onError: () => showNotification('Failed to save settings.', 'error'),
+        },
+      );
+    },
+    [updateMutation, showNotification],
+  );
+
+  const handleApplyModeChange = useCallback(
+    (event: SelectChangeEvent) => {
+      handleUpdate('apply_mode', event.target.value);
+    },
+    [handleUpdate],
+  );
+
+  const handleATSThresholdCommit = useCallback(
+    (_: React.SyntheticEvent | Event, value: number | number[]) => {
+      if (typeof value === 'number') {
+        handleUpdate('min_ats_score', value / 100);
+      }
+    },
+    [handleUpdate],
+  );
+
+  const handlePlatformToggle = useCallback(
+    (platform: string, enabled: boolean) => {
+      if (!settings) return;
+      const updated = enabled
+        ? [...settings.platforms_enabled, platform]
+        : settings.platforms_enabled.filter((p) => p !== platform);
+      handleUpdate('platforms_enabled', updated);
+    },
+    [settings, handleUpdate],
+  );
+
+  const handleProfileSave = useCallback(
+    (profile: CandidateProfile) => {
+      handleUpdate('candidate_profile', profile);
+    },
+    [handleUpdate],
+  );
 
   const handleLogout = useCallback(() => {
     logout();

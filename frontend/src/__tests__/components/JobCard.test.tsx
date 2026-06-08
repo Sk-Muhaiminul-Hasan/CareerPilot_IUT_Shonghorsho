@@ -23,8 +23,11 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     match_score: 0.85,
     skills_required: { react: true },
     status: 'new',
+    is_enriched: false,
+    work_type: '',
     created_at: '2026-03-10T12:00:00Z',
     updated_at: '2026-03-10T12:00:00Z',
+    deadline: null,
     ...overrides,
   };
 }

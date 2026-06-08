@@ -103,10 +103,10 @@ export const ArtifactWorkspace: React.FC<ArtifactWorkspaceProps> = ({
         }}
       >
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0b1c30', noWrap: true }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0b1c30', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {artifact.title}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', noWrap: true }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {artifact.filename || `${artifact.title}.${artifact.format}`}
           </Typography>
         </Box>

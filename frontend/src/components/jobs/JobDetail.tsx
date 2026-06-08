@@ -152,14 +152,14 @@ function JobDetail({ jobId, open, onClose, onApply }: JobDetailProps) {
 
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2 }}>
               <Chip label={job.platform} size="small" />
-              {(job as Record<string, unknown>).work_type && (
+              {(job.work_type) && (
                 <Chip
-                  label={(job as Record<string, string>).work_type}
+                  label={job.work_type}
                   size="small"
                   color={
-                    (job as Record<string, string>).work_type === 'remote'
+                    job.work_type === 'remote'
                       ? 'success'
-                      : (job as Record<string, string>).work_type === 'hybrid'
+                      : job.work_type === 'hybrid'
                         ? 'info'
                         : 'default'
                   }

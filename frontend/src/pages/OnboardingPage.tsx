@@ -16,7 +16,6 @@ import {
   TextField,
   Button,
   Alert,
-  Link as MuiLink,
   Stack,
   Card,
   CardContent,
@@ -25,7 +24,6 @@ import {
 import { useOnboardingStatus, useCompleteOnboarding, useUpdateSettings, useUpdatePlan } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import ResumeUpload from '@/components/resumes/ResumeUpload';
-import LoadingState from '@/components/common/LoadingState';
 
 const PROVIDER_MODEL_DEFAULTS: Record<string, string> = {
   openai: 'gpt-4o-mini',
@@ -43,14 +41,6 @@ const PROVIDERS = [
   { value: 'groq', label: 'Groq' },
   { value: 'openrouter', label: 'OpenRouter' },
 ];
-
-const PROVIDER_LINKS: Record<string, string> = {
-  openai: 'https://platform.openai.com/api-keys',
-  anthropic: 'https://console.anthropic.com/',
-  gemini: 'https://aistudio.google.com/apikey',
-  groq: 'https://console.groq.com/keys',
-  openrouter: 'https://openrouter.ai/keys',
-};
 
 const STEPS = ['Set up your AI', 'Set up your CV analyzer', 'Upload your CV', 'Choose Your Plan'];
 
@@ -325,16 +315,6 @@ function OnboardingPage() {
   };
 
   const handleSkipThird = async () => {
-    try {
-      await completeOnboardingMutation.mutateAsync();
-      showNotification('Onboarding complete!', 'success');
-      navigate('/dashboard', { replace: true });
-    } catch {
-      showNotification('Failed to complete onboarding.', 'error');
-    }
-  };
-
-  const handleFinish = async () => {
     try {
       await completeOnboardingMutation.mutateAsync();
       showNotification('Onboarding complete!', 'success');
