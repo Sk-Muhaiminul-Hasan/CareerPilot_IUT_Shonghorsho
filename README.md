@@ -128,6 +128,34 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 ---
 
+## 🌐 Production Deployment & Cloud Hosting
+
+CareerPilot's production environment is fully decoupled and optimized using a dual-cloud hosting strategy, with specific adjustments made to accommodate container storage limits:
+
+```mermaid
+graph LR
+    User([Candidates]) -->|Global Edge CDN| Vercel[Vercel: Frontend React SPA Hosting]
+    Vercel -->|HTTPS API Requests| RenderAPI[Render: FastAPI ASGI Web Service]
+    RenderAPI -->|Relational Queries| Neon[(Serverless PostgreSQL + PGVector)]
+    RenderAPI -->|Async Tasks| Redis[(Shared Redis Cache & Queue)]
+    Redis -->|Polls Applications| ExtWorker[External Dedicated Playwright Worker Node]
+    RenderAPI -.->|CPU-Heavy Tasks| RenderWorker[Render: Lightweight Celery Worker]
+```
+
+### 1. Frontend Hosting: Vercel
+Our React Single Page Application is deployed on **Vercel**:
+- **Global Edge Network**: Frontend static assets (JS, CSS, images) are replicated on Vercel's global edge server nodes for sub-50ms page loading.
+- **Serverless Redirects**: Out-of-the-box routing configurations to prevent `404` errors on React-Router navigation.
+- **Automatic SSL/TLS**: Let's Encrypt managed SSL certificates with zero-config auto-renewals.
+
+### 2. Backend & Worker Hosting: Render
+The Python FastAPI ecosystem and lightweight queues are hosted on **Render**:
+- **FastAPI ASGI Web Service**: Deployed on a Render Web Service instance running Gunicorn/Uvicorn, scaling horizontally to manage API traffic.
+- **Render Worker Pod**: A separate lightweight Render Worker instance runs CPU-intensive backend operations (spaCy keyword parses, relational calculations, and PDF CV compilation).
+- **Playwright Container Offloading (Render Space Constraints)**: Due to Render's strict disk-space constraints and build caching limits (which prevent compiling heavy headless Chromium browser engine binaries directly in Render's workspace), the **Playwright browser automation executor is hosted on a dedicated external worker node** (or run as a distributed local background daemon). This node connects safely to the shared Redis server instance, allowing application scraping to complete successfully without overloading Render's disk quotas.
+
+---
+
 ## 📁 Repository Map
 
 * [backend/](backend/) — FastAPI backend codebase.
