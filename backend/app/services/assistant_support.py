@@ -139,7 +139,7 @@ def fallback_answer(
             f"What I found in your CV:\n{evidence}"
         )
     if intent == AssistantIntent.ROADMAP:
-        return _fallback_roadmap(evidence)
+        return _fallback_roadmap(evidence, query)
     if intent == AssistantIntent.COVER_LETTER:
         return (
             "Dear Hiring Manager,\n\n"
@@ -164,12 +164,56 @@ def _simple_missing_terms(cv_text: str, benchmark: str) -> list[str]:
     return [term.strip() for term in raw_terms if term.strip().lower() not in text][:8]
 
 
-def _fallback_roadmap(evidence: str) -> str:
+def _fallback_roadmap(evidence: str, query: str) -> str:
+    import re
+    # Default is 3 months (12 weeks)
+    weeks_count = 12
+    duration_label = "3-month"
+    
+    text = query.lower()
+    # Search for numeric duration
+    numeric = re.search(r"\b(\d{1,2})\s*(month|months|week|weeks)\b", text)
+    if numeric:
+        val = int(numeric.group(1))
+        unit = numeric.group(2)
+        if "month" in unit:
+            weeks_count = val * 4
+            duration_label = f"{val}-month"
+        else:
+            weeks_count = val
+            duration_label = f"{val}-week"
+    else:
+        # Search for words
+        words = {
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12
+        }
+        for word, val in words.items():
+            match = re.search(rf"\b{word}\s+(month|months|week|weeks)\b", text)
+            if match:
+                unit = match.group(1)
+                if "month" in unit:
+                    weeks_count = val * 4
+                    duration_label = f"{val}-month"
+                else:
+                    weeks_count = val
+                    duration_label = f"{val}-week"
+                break
+                
+    # Limit to reasonable fallback size
+    weeks_count = min(max(weeks_count, 1), 52)
+    
     weeks = []
-    for week in range(1, 13):
-        phase = "foundation" if week <= 4 else "projects" if week <= 8 else "applications"
+    # Divide weeks into 3 phases: foundation (first 33%), projects (middle 33%), applications (last 34%)
+    p1 = max(1, weeks_count // 3)
+    p2 = max(1, (weeks_count * 2) // 3)
+    
+    for week in range(1, weeks_count + 1):
+        phase = "foundation" if week <= p1 else "projects" if week <= p2 else "applications"
         weeks.append(
             f"Week {week}: Focus on {phase}. Study one targeted topic, build or improve "
             "one portfolio artifact, and document the result with measurable evidence."
         )
-    return "3-month roadmap grounded in your CV context:\n\n" + f"{evidence}\n\n" + "\n".join(weeks)
+        
+    return f"{duration_label} roadmap grounded in your CV context:\n\n" + f"{evidence}\n\n" + "\n".join(weeks)

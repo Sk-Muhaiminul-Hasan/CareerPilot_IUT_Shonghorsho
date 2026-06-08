@@ -13,9 +13,9 @@ import { AssistantMessages } from './AssistantMessages';
 import { AttachmentChips } from './AttachmentChips';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ChatComposer } from './ChatComposer';
+import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { MentionMenu } from './MentionMenu';
-import { artifactContextOptions } from './artifactContextOptions';
-import { buildContextOptions, type ContextOption } from './contextOptions';
+import { useCopilotChatController } from './useCopilotChatController';
 
 const SIDEBAR_MIN = 280;
 const SIDEBAR_MAX = 560;

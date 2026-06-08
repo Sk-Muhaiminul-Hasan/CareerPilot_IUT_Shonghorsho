@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm.prompts.assistant import SYSTEM_PROMPT, AssistantIntent, render_assistant_prompt
 from app.models.job import Job
-from app.services.artifact_builder import build_artifacts
+from app.services.artifact_builder import prepare_assistant_output
 from app.services.assistant_support import (
     benchmark_context,
     classify_intent,
@@ -92,7 +92,7 @@ async def process_chat_query(
             system_prompt=SYSTEM_PROMPT,
             purpose=f"assistant_{intent.value}",
         )
-        answer = response.content.strip()
+        raw_answer = response.content.strip()
         metadata: dict[str, Any] = {
             "resume_id": cv.resume_id,
             "resume_name": cv.resume_name,
@@ -106,7 +106,7 @@ async def process_chat_query(
             intent=intent.value,
             error=str(exc),
         )
-        answer = fallback_answer(
+        raw_answer = fallback_answer(
             intent=intent,
             query=normalized_query,
             cv=cv,
@@ -120,11 +120,12 @@ async def process_chat_query(
             "used_demo_cv": cv.is_demo,
         }
 
+    answer, artifacts = prepare_assistant_output(intent, raw_answer, normalized_query)
     return {
         "answer": answer,
         "intent": intent.value,
         "sources": source_payload(cv),
-        "artifacts": build_artifacts(intent, answer, normalized_query),
+        "artifacts": artifacts,
         "metadata": metadata,
     }
 
