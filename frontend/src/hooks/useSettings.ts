@@ -40,6 +40,18 @@ export function useOnboardingStatus() {
   });
 }
 
+/** Update plan (premium). */
+export function useUpdatePlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (isPremium: boolean) => settingsService.updatePlan(isPremium),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SETTINGS_KEY });
+      void queryClient.invalidateQueries({ queryKey: [...SETTINGS_KEY, 'onboarding'] });
+    },
+  });
+}
+
 /** Mark onboarding as complete. */
 export function useCompleteOnboarding() {
   const queryClient = useQueryClient();

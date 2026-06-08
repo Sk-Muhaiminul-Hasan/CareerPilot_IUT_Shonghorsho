@@ -18,10 +18,11 @@ import {
   Alert,
   Link as MuiLink,
   Stack,
+  Card,
+  CardContent,
 } from '@mui/material';
 
-import { useOnboardingStatus, useCompleteOnboarding } from '@/hooks/useSettings';
-import { useUpdateSettings } from '@/hooks/useSettings';
+import { useOnboardingStatus, useCompleteOnboarding, useUpdateSettings, useUpdatePlan } from '@/hooks/useSettings';
 import { useAppStore } from '@/store/useAppStore';
 import ResumeUpload from '@/components/resumes/ResumeUpload';
 import LoadingState from '@/components/common/LoadingState';
@@ -51,38 +52,21 @@ const PROVIDER_LINKS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/keys',
 };
 
-const STEPS = ['Set up your AI', 'Set up your CV analyzer', 'Upload your CV'];
+const STEPS = ['Set up your AI', 'Set up your CV analyzer', 'Upload your CV', 'Choose Your Plan'];
 
-function StepOne({
-  values,
-  onChange,
-  onSkip,
-}: {
-  values: { provider: string; model: string; apiKey: string };
-  onChange: (v: typeof values) => void;
-  onSkip: () => void;
-}) {
-  const handleProviderChange = (event: SelectChangeEvent) => {
-    const newProvider = event.target.value;
-    onChange({
-      provider: newProvider,
-      model: PROVIDER_MODEL_DEFAULTS[newProvider] ?? '',
-      apiKey: values.apiKey,
-    });
+
+function StepOne({ values, onChange, onSkip }: { values: { provider: string; model: string; apiKey: string }; onChange: (v: { provider: string; model: string; apiKey: string }) => void; onSkip: () => void }) {
+  const handleChange = (field: string) => (e: SelectChangeEvent<string>) => {
+    onChange({ ...values, [field]: e.target.value });
   };
+  const handleApiKey = (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...values, apiKey: e.target.value });
 
   return (
-    <Stack spacing={2.5}>
-      <Typography variant="body1">
-        Choose the AI model that powers your job search, nudges, and cover letters.
-      </Typography>
+    <Stack spacing={3}>
+      <Typography variant="h6">General AI Assistant</Typography>
       <FormControl fullWidth>
         <InputLabel>Provider</InputLabel>
-        <Select
-          value={values.provider}
-          label="Provider"
-          onChange={handleProviderChange}
-        >
+        <Select value={values.provider} label="Provider" onChange={handleChange('provider')}>
           {PROVIDERS.map((p) => (
             <MenuItem key={p.value} value={p.value}>
               {p.label}
@@ -90,84 +74,48 @@ function StepOne({
           ))}
         </Select>
       </FormControl>
-      <TextField
-        label="Model"
-        value={values.model}
-        onChange={(e) => onChange({ ...values, model: e.target.value })}
-        fullWidth
-        helperText={
-          values.provider
-            ? `Suggested: ${PROVIDER_MODEL_DEFAULTS[values.provider] ?? ''}`
-            : ''
-        }
-      />
-      <TextField
-        label="API Key"
-        type="password"
-        value={values.apiKey}
-        onChange={(e) => onChange({ ...values, apiKey: e.target.value })}
-        fullWidth
-        helperText={
-          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            Get a free API key from your provider's website.
-            {PROVIDER_LINKS[values.provider] && (
-              <MuiLink
-                href={PROVIDER_LINKS[values.provider]}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ color: 'primary.main', cursor: 'pointer', ml: 0.5 }}
-              >
-                Get your API key →
-              </MuiLink>
-            )}
-          </Box>
-        }
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
-        <MuiLink
-          component="button"
-          type="button"
-          variant="body2"
-          onClick={onSkip}
-          sx={{ textTransform: 'none', cursor: 'pointer' }}
-        >
-          Skip for now
-        </MuiLink>
+      <FormControl fullWidth>
+        <InputLabel>Model</InputLabel>
+        <Select value={values.model || PROVIDER_MODEL_DEFAULTS[values.provider] || ''} label="Model" onChange={handleChange('model')}>
+          <MenuItem value="">Default</MenuItem>
+          <MenuItem value="gpt-4o-mini">GPT-4o Mini</MenuItem>
+          <MenuItem value="gpt-4o">GPT-4o</MenuItem>
+          <MenuItem value="gpt-4.1-mini">GPT-4.1 Mini</MenuItem>
+          <MenuItem value="o3">o3</MenuItem>
+          <MenuItem value="o4-mini">o4-mini</MenuItem>
+          <MenuItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</MenuItem>
+          <MenuItem value="claude-sonnet-4-20250514">Claude Sonnet 4</MenuItem>
+          <MenuItem value="gemini-1.5-flash">Gemini 1.5 Flash</MenuItem>
+          <MenuItem value="gemini-2.0-flash">Gemini 2.0 Flash</MenuItem>
+          <MenuItem value="gemini-2.5-flash">Gemini 2.5 Flash</MenuItem>
+          <MenuItem value="llama-3.3-70b-versatile">Llama 3.3 70B</MenuItem>
+          <MenuItem value="llama-3.1-8b-instant">Llama 3.1 8B</MenuItem>
+          <MenuItem value="openrouter/auto">OpenRouter Auto</MenuItem>
+        </Select>
+      </FormControl>
+      <TextField type="password" label="API Key" value={values.apiKey} onChange={handleApiKey} helperText={values.provider === 'openai' ? 'Paste your OpenAI API key' : ''} />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={onSkip}>Skip</Button>
       </Box>
     </Stack>
   );
 }
 
-function StepTwo({
-  values,
-  onChange,
-  onSkip,
-}: {
-  values: { provider: string; model: string; apiKey: string };
-  onChange: (v: typeof values) => void;
-  onSkip: () => void;
-}) {
-  const handleProviderChange = (event: SelectChangeEvent) => {
-    const newProvider = event.target.value;
-    onChange({
-      provider: newProvider,
-      model: PROVIDER_MODEL_DEFAULTS[newProvider] ?? values.model,
-      apiKey: values.apiKey,
-    });
+function StepTwo({ values, onChange, onSkip }: { values: { provider: string; model: string; apiKey: string }; onChange: (v: { provider: string; model: string; apiKey: string }) => void; onSkip: () => void }) {
+  const handleChange = (field: string) => (e: SelectChangeEvent<string>) => {
+    onChange({ ...values, [field]: e.target.value });
   };
+  const handleApiKey = (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...values, apiKey: e.target.value });
 
   return (
-    <Stack spacing={2.5}>
-      <Typography variant="body1">
-        This model reads and structures your CV. Choose a provider and model that supports reliable JSON output.
-      </Typography>
+    <Stack spacing={3}>
+      <Typography variant="h6">CV Analyzer AI</Typography>
+      <Alert severity="info">
+        This AI provider powers resume parsing, job matching, and cover letter generation.
+      </Alert>
       <FormControl fullWidth>
         <InputLabel>Provider</InputLabel>
-        <Select
-          value={values.provider}
-          label="Provider"
-          onChange={handleProviderChange}
-        >
+        <Select value={values.provider} label="Provider" onChange={handleChange('provider')}>
           {PROVIDERS.map((p) => (
             <MenuItem key={p.value} value={p.value}>
               {p.label}
@@ -175,52 +123,28 @@ function StepTwo({
           ))}
         </Select>
       </FormControl>
-      <TextField
-        label="Model"
-        value={values.model}
-        onChange={(e) => onChange({ ...values, model: e.target.value })}
-        fullWidth
-        helperText={
-          values.provider
-            ? `Suggested: ${PROVIDER_MODEL_DEFAULTS[values.provider] ?? ''}`
-            : ''
-        }
-      />
-      <Alert severity="warning" sx={{ borderRadius: 1, fontSize: '0.8rem' }}>
-        ⚠️ Use a model with reliable JSON output (e.g. gpt-4o-mini, claude-3-5-sonnet-20241022, gemini-1.5-flash). Small or free-tier models like gpt-5-nano may fail to parse your CV correctly.
-      </Alert>
-      <TextField
-        label="API Key"
-        type="password"
-        value={values.apiKey}
-        onChange={(e) => onChange({ ...values, apiKey: e.target.value })}
-        fullWidth
-        helperText={
-          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            Get a free API key from your provider's website.
-            {PROVIDER_LINKS[values.provider] && (
-              <MuiLink
-                href={PROVIDER_LINKS[values.provider]}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ color: 'primary.main', cursor: 'pointer', ml: 0.5 }}
-              >
-                Get your API key →
-              </MuiLink>
-            )}
-          </Box>
-        }
-      />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-        <MuiLink
-          component="button"
-          type="button"
-          variant="body2"
-          onClick={onSkip}
-          sx={{ textTransform: 'none', cursor: 'pointer' }}
-        >
-          Skip for now
-        </MuiLink>
+      <FormControl fullWidth>
+        <InputLabel>Model</InputLabel>
+        <Select value={values.model || PROVIDER_MODEL_DEFAULTS[values.provider] || ''} label="Model" onChange={handleChange('model')}>
+          <MenuItem value="">Default</MenuItem>
+          <MenuItem value="gpt-4o-mini">GPT-4o Mini</MenuItem>
+          <MenuItem value="gpt-4o">GPT-4o</MenuItem>
+          <MenuItem value="gpt-4.1-mini">GPT-4.1 Mini</MenuItem>
+          <MenuItem value="o3">o3</MenuItem>
+          <MenuItem value="o4-mini">o4-mini</MenuItem>
+          <MenuItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</MenuItem>
+          <MenuItem value="claude-sonnet-4-20250514">Claude Sonnet 4</MenuItem>
+          <MenuItem value="gemini-1.5-flash">Gemini 1.5 Flash</MenuItem>
+          <MenuItem value="gemini-2.0-flash">Gemini 2.0 Flash</MenuItem>
+          <MenuItem value="gemini-2.5-flash">Gemini 2.5 Flash</MenuItem>
+          <MenuItem value="llama-3.3-70b-versatile">Llama 3.3 70B</MenuItem>
+          <MenuItem value="llama-3.1-8b-instant">Llama 3.1 8B</MenuItem>
+          <MenuItem value="openrouter/auto">OpenRouter Auto</MenuItem>
+        </Select>
+      </FormControl>
+      <TextField type="password" label="API Key" value={values.apiKey} onChange={handleApiKey} helperText={values.provider === 'openai' ? 'Paste your OpenAI API key' : ''} />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={onSkip}>Skip</Button>
       </Box>
     </Stack>
   );
@@ -228,21 +152,113 @@ function StepTwo({
 
 function StepThree({ onSkip }: { onSkip: () => void }) {
   return (
-    <Stack spacing={2.5} alignItems="center" textAlign="center">
-      <Typography variant="body1">
-        Upload your CV so we can extract your profile automatically.
-        You can always add or replace it later.
+    <Stack spacing={3}>
+      <Typography variant="h6">Upload Your CV</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Upload a resume in PDF or DOCX to get job recommendations tailored to your experience.
       </Typography>
       <ResumeUpload />
-      <MuiLink
-        component="button"
-        type="button"
-        variant="body2"
-        onClick={onSkip}
-        sx={{ textTransform: 'none', cursor: 'pointer' }}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={onSkip}>Skip for now</Button>
+      </Box>
+    </Stack>
+  );
+}
+
+const PREMIUM_GRADIENT = 'linear-gradient(135deg, #004ac6, #712ae2)' as const;
+
+function StepFour({ onSelect }: { onSelect: (premium: boolean) => void }) {
+  return (
+    <Stack spacing={3} alignItems="center" textAlign="center">
+      <Typography variant="body1">
+        Choose the plan that fits your job search style. You can change this later in Settings.
+      </Typography>
+
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 3,
+          width: '100%',
+          maxWidth: 720,
+          mt: 1,
+        }}
       >
-        Skip for now
-      </MuiLink>
+        <Card
+          variant="outlined"
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            p: 3,
+          }}
+        >
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+            <Typography variant="h6" fontWeight={600}>
+              Free
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Core job search across supported platforms. AI-powered features.
+            </Typography>
+            <Button variant="outlined" fullWidth onClick={() => onSelect(false)}>
+              Continue with Free
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card
+          variant="outlined"
+          sx={{
+            position: 'relative',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            p: 3,
+            backgroundImage: PREMIUM_GRADIENT,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            color: 'common.white',
+            border: '1px solid',
+            borderColor: 'secondary.main',
+          }}
+        >
+          <Box sx={{ position: 'absolute', top: 12, right: 16 }}>
+            <span
+              style={{
+                background: 'rgba(255,255,255,0.25)',
+                backdropFilter: 'blur(4px)',
+                borderRadius: 999,
+                padding: '2px 10px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+              }}
+            >
+              Recommended
+            </span>
+          </Box>
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+            <Typography variant="h6" fontWeight={600}>
+              Premium
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              Unlock AI semantic search, priority enrichment, and premium-only features.
+            </Typography>
+            <Button
+              variant="contained"
+              fullWidth
+              sx={{
+                background: 'rgba(255,255,255,0.95)',
+                color: '#222',
+                '&:hover': { background: 'rgba(255,255,255,1)' },
+              }}
+              onClick={() => onSelect(true)}
+            >
+              Start Premium Free
+            </Button>
+          </CardContent>
+        </Card>
+      </Box>
     </Stack>
   );
 }
@@ -252,7 +268,8 @@ function OnboardingPage() {
   const showNotification = useAppStore((s) => s.showNotification);
   const { data: status, isLoading, isError } = useOnboardingStatus();
   const completeOnboardingMutation = useCompleteOnboarding();
-  const updateMutation = useUpdateSettings();
+  const updateSettingsMutation = useUpdateSettings();
+  const updatePlanMutation = useUpdatePlan();
 
   const [activeStep, setActiveStep] = useState(0);
   const [general, setGeneral] = useState({ provider: 'openai', model: '', apiKey: '' });
@@ -274,7 +291,8 @@ function OnboardingPage() {
 
   const handleSaveAndContinue = async () => {
     try {
-      await updateMutation.mutateAsync({
+      if (activeStep >= 3) return;
+      await updateSettingsMutation.mutateAsync({
         general_provider: general.provider,
         general_model: general.model || null,
         general_api_key: general.apiKey || null,
@@ -285,6 +303,20 @@ function OnboardingPage() {
       setActiveStep((s) => s + 1);
     } catch {
       showNotification('Failed to save AI settings.', 'error');
+    }
+  };
+
+  const handlePlanSelect = async (isPremium: boolean) => {
+    try {
+      await updatePlanMutation.mutateAsync(isPremium);
+      if (isPremium) {
+        showNotification('🎉 Premium activated!', 'success');
+      }
+      await completeOnboardingMutation.mutateAsync();
+      showNotification('Onboarding complete!', 'success');
+      navigate('/dashboard', { replace: true });
+    } catch {
+      showNotification('Failed to complete onboarding.', 'error');
     }
   };
 
@@ -320,6 +352,8 @@ function OnboardingPage() {
         return <StepTwo values={extraction} onChange={setExtraction} onSkip={handleSkipStep} />;
       case 2:
         return <StepThree onSkip={handleSkipThird} />;
+      case 3:
+        return <StepFour onSelect={handlePlanSelect} />;
       default:
         return null;
     }
@@ -354,15 +388,11 @@ function OnboardingPage() {
           >
             Back
           </Button>
-          {activeStep < 2 ? (
+          {activeStep < 3 ? (
             <Button variant="contained" onClick={handleSaveAndContinue}>
               Next
             </Button>
-          ) : (
-            <Button variant="contained" onClick={handleFinish}>
-              Finish Setup
-            </Button>
-          )}
+          ) : null}
         </Box>
       </Paper>
     </Container>

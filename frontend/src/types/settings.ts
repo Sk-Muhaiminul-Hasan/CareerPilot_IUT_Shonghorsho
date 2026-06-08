@@ -26,12 +26,9 @@ export interface CandidateProfile {
   experience: WorkExperience[];
   education: Education[];
   certifications: string[];
+  projects?: string[];
 }
 
-/**
- * Current user settings.
- * Corresponds to the backend `SettingsResponse` Pydantic schema.
- */
 export interface Settings {
   apply_mode: string;
   min_ats_score: number;
@@ -43,14 +40,13 @@ export interface Settings {
   extraction_model: string | null;
   extraction_api_key: string | null;
   onboarding_complete: boolean;
+  is_premium: boolean;
   platforms_enabled: string[];
   candidate_profile: CandidateProfile;
 }
 
-/** Alias matching the backend schema name `SettingsResponse`. */
 export type SettingsResponse = Settings;
 
-/** Request to update user settings. Only provided fields are changed. */
 export interface SettingsUpdate {
   apply_mode?: string;
   min_ats_score?: number;
@@ -62,11 +58,11 @@ export interface SettingsUpdate {
   extraction_model?: string | null;
   extraction_api_key?: string | null;
   onboarding_complete?: boolean;
+  is_premium?: boolean;
   platforms_enabled?: string[];
   candidate_profile?: CandidateProfile;
 }
 
-/** Status of a configured LLM provider. */
 export interface LLMProviderStatus {
   provider: string;
   configured: boolean;

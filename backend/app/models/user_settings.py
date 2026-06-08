@@ -60,6 +60,11 @@ class UserSettings(TimestampMixin, Base):
     # Candidate profile
     candidate_profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Plan / premium
+    is_premium: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false",
+    )
+
     def __repr__(self) -> str:
         return (
             f"<UserSettings(id='{self.id}', "
